@@ -17,6 +17,10 @@ type Options struct {
 	ProjectDir string // transcript folder for the current directory
 	Path       string // open this transcript directly
 	Follow     bool   // attach to the newest session and switch when a new one starts
+
+	Stall  time.Duration   // alert when a live tool call has no result after this long
+	Bell   bool            // ring the terminal bell on alerts
+	BellOn map[string]bool // alert kinds that ring the bell
 }
 
 type App struct {
@@ -76,7 +80,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.w, a.h = msg.Width, msg.Height
 		return a, nil
 	case tickMsg:
-		return a, tick()
+		cmds := []tea.Cmd{tick()}
+		if a.opts.Stall > 0 {
+			for _, v := range a.stack {
+				as := v.checkStalls(time.Now(), a.opts.Stall)
+				v.raise(as)
+				cmds = append(cmds, a.bell(as))
+			}
+		}
+		return a, tea.Batch(cmds...)
 	case tea.MouseMsg:
 		if msg.Action != tea.MouseActionPress {
 			return a, nil
@@ -124,8 +136,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			path := msg.u.NewSession
 			return a, tea.Batch(msg.v.waitTail(), func() tea.Msg { return openMsg{path} })
 		}
-		msg.v.onTail(msg.u)
-		return a, msg.v.waitTail()
+		as := msg.v.onTail(msg.u)
+		return a, tea.Batch(msg.v.waitTail(), a.bell(as))
 	case tea.KeyMsg:
 		a.err = ""
 		switch msg.String() {
@@ -133,6 +145,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		}
 		v := a.top()
+		if v != nil && msg.String() != "!" {
+			v.alertShown = false
+		}
 		// Keys typed faster than a read arrive as one multi-rune message;
 		// outside text inputs, treat them as separate presses.
 		typing := (v == nil && a.picker.filtering) || (v != nil && v.typing)
@@ -199,6 +214,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.picker.update(msg, a.h)
 	}
 	return a, nil
+}
+
+func (a *App) bell(as []*alert) tea.Cmd {
+	if !a.opts.Bell {
+		return nil
+	}
+	return bell(as, a.opts.BellOn)
 }
 
 func (a *App) View() string {

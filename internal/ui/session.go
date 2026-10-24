@@ -95,6 +95,12 @@ type view struct {
 	tl       *tail.Tailer
 	lastLive time.Time
 
+	// Alerts: the newest is shown in the header until a key is pressed.
+	alert      *alert
+	alertShown bool
+	unseenErrs int
+	pending    map[*parse.Event]bool // live tool calls without a result; true once alerted
+
 	// Subagent metadata is cached briefly so redraws don't read meta.json.
 	agents map[string]agentEntry
 }
@@ -129,7 +135,7 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	ti.Placeholder = "search text, commands, paths, results"
 	v := &view{
 		path: path, rootPath: rootPath, label: label, sess: s,
-		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*subTranscript{},
+		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*subTranscript{}, pending: map[*parse.Event]bool{},
 		detail: viewport.New(0, 0), page: viewport.New(0, 0),
 	}
 	v.tl, _ = tail.Open(path, off, followNew)
@@ -255,6 +261,13 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 		}
 		bodyH := h - 4
 		switch k.String() {
+		case "!":
+			if a := v.alert; a != nil && a.ev != nil {
+				v.unseenErrs = 0
+				v.zoom, v.focusR = false, false
+				v.jumpTo(a.ev)
+			}
+			return nil, nil
 		case "1", "2", "3", "4":
 			v.tab = int(k.String()[0] - '1')
 			v.page.GotoTop()
@@ -408,16 +421,19 @@ func (v *view) jumpPrompt(dir int) {
 	}
 }
 
-// onTail applies new transcript lines.
-func (v *view) onTail(u tail.Update) {
+// onTail applies new transcript lines and returns the alerts they raise.
+// A reset (the file was rewritten) re-reads everything without alerts.
+func (v *view) onTail(u tail.Update) []*alert {
 	if u.Reset {
 		v.sess = parse.NewSession()
 		v.hay = map[*parse.Event]hayEntry{}
 		v.detailEv = nil
+		v.pending = map[*parse.Event]bool{}
 	}
 	if len(u.Lines) == 0 && !u.Reset {
-		return
+		return nil
 	}
+	before := v.liveState()
 	for _, l := range u.Lines {
 		v.sess.Feed(l)
 	}
@@ -425,6 +441,12 @@ func (v *view) onTail(u tail.Update) {
 	v.agents = map[string]agentEntry{}
 	v.stats = stats.Compute(v.sess)
 	v.refresh()
+	if u.Reset {
+		return nil
+	}
+	as := v.liveAlerts(before)
+	v.raise(as)
+	return as
 }
 
 const wideLayout = 110
@@ -473,18 +495,29 @@ func (v *view) header(w int) string {
 	if s.Branch != "" {
 		meta = append(meta, s.Branch)
 	}
-	right := sDim.Render(strings.Join(meta, " · "))
+	var alerts, status []string
+	if v.unseenErrs > 0 {
+		alerts = append(alerts, sErr.Render(fmt.Sprintf("%d%s", v.unseenErrs, glyphErr)))
+	}
+	if v.alertShown && v.alert != nil {
+		alerts = append(alerts, v.alert.render())
+	}
 	if m := contextMeter(s.Context, s.ContextWindow(), w/3); m != "" {
-		right += "  " + m
+		status = append(status, m)
 	}
 	if time.Since(v.lastLive) < 5*time.Second {
-		right += "  " + sLive.Render("● live")
+		status = append(status, sLive.Render("● live"))
 	} else if time.Since(s.End) < 2*time.Minute {
-		right += "  " + sOK.Render("○ active")
+		status = append(status, sOK.Render("○ active"))
+	}
+	// Alerts come first; the directory and branch give way when space is short.
+	right := strings.Join(append(append(alerts, sDim.Render(strings.Join(meta, " · "))), status...), "  ")
+	if w-lipgloss.Width(left)-lipgloss.Width(right)-1 < 1 {
+		right = strings.Join(append(alerts, status...), "  ")
 	}
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 1
 	if gap < 1 {
-		return fit(left, w)
+		return fit(left+"  "+right, w)
 	}
 	return left + strings.Repeat(" ", gap) + right + " "
 }
@@ -573,6 +606,10 @@ func (v *view) pageView(content string, w, h int) string {
 }
 
 func (v *view) timeline(w, h int) string {
+	// Selecting an error counts as having seen the new ones.
+	if e := v.selected(); e != nil && e.Tool != nil && e.Tool.IsError {
+		v.unseenErrs = 0
+	}
 	if v.zoom && w < wideLayout {
 		return v.detailPane(w, h)
 	}

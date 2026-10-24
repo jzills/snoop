@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -22,8 +24,11 @@ func main() {
 	follow := flag.Bool("follow", false, "follow the newest session for the project and switch to new ones")
 	flag.BoolVar(follow, "f", false, "shorthand for --follow")
 	project := flag.String("project", "", "project directory (default: current directory)")
+	stall := flag.Duration("stall", 30*time.Second, "alert when a tool call has no result after this long (0 disables)")
+	ring := flag.Bool("bell", false, "ring the terminal bell on alerts")
+	alerts := flag.String("alerts", "error,turn", "alerts that ring the bell: "+strings.Join(ui.AlertKinds, ","))
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: snoop [--follow] [--project dir] [session-id|path]\n\n")
+		fmt.Fprintf(os.Stderr, "usage: snoop [--follow] [--project dir] [--bell] [session-id|path]\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -34,7 +39,18 @@ func main() {
 		cwd, _ = os.Getwd()
 	}
 	cwd, _ = filepath.Abs(cwd)
-	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow}
+	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow,
+		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}}
+	for _, k := range strings.Split(*alerts, ",") {
+		k = strings.TrimSpace(k)
+		if k == "" {
+			continue
+		}
+		if !slices.Contains(ui.AlertKinds, k) {
+			fail(fmt.Errorf("unknown alert %q (want %s)", k, strings.Join(ui.AlertKinds, ",")))
+		}
+		opts.BellOn[k] = true
+	}
 
 	switch {
 	case flag.NArg() > 0:

@@ -52,6 +52,22 @@ cost for the session, so that total is split across prompts by token use
 (weighted by relative token price). The prompt costs add up to the recorded
 total. Sessions without a recorded cost show tokens only.
 
+## Alerts
+
+While a session is receiving new lines, the header flags what needs your
+attention: `✗ error` (with a count of unseen errors), `◌ waiting 30s on Bash`
+for a tool call with no result after `--stall` (default 30s; this may be a
+permission prompt, since those aren't recorded until answered), `✓ your turn`
+when Claude finishes, `⟳ compacted`, and `ctx 90%`. Any key hides the alert;
+`!` jumps to it. Lines already in the transcript when it opens never raise
+alerts.
+
+```
+snoop --follow --bell                    # ring the bell on errors and turn ends
+snoop --follow --bell --alerts error,stall,turn,compact,ctx
+snoop --stall 2m                         # 0 disables the waiting alert
+```
+
 ## Keys
 
 Press `?` anywhere for the keys of the current screen. The full list:
@@ -69,6 +85,7 @@ Press `?` anywhere for the keys of the current screen. The full list:
 | `g G` | top / bottom (bottom re-enables following) |
 | `1 2 3 4`, `[ ]` | switch tabs |
 | `esc` | clear search/filter, then go back |
+| `!` | jump to the latest alert |
 | `?` | every key for the current screen |
 | `q` | quit |
 
