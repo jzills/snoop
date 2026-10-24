@@ -24,7 +24,9 @@ item in full: Bash commands, Edit diffs, Write content, agent prompts and
 results. Each prompt row shows that turn's tokens, estimated cost (`≈`) and
 duration, and compactions appear as `⟳ compacted (auto) 253k → 68k`. The
 header shows how full the context window is (`ctx 142k/200k ▰▰▰▰▰▰▰▱▱▱ 71%`),
-turning to the accent colour at 70% and red at 90%.
+turning to the accent colour at 70% and red at 90%. Selecting a prompt shows
+where its turn's time went: totals, the five slowest tool calls, and a
+waterfall placing each call by its start and end, so parallel calls overlap.
 
 **Tools**: every tool call grouped by kind (built-in, skills, MCP,
 subagents), then by name (tool, skill, MCP `server·tool`, subagent type),

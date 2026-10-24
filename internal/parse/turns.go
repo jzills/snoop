@@ -8,6 +8,7 @@ import (
 // Turn is one prompt the person typed and everything up to the next one.
 type Turn struct {
 	Prompt     *Event
+	Events     []*Event // the prompt and everything after it, in order
 	Start, End time.Time
 	Recorded   time.Duration // from turn_duration, once the turn is Done
 	Done       bool          // Claude Code recorded the end of the turn
@@ -53,7 +54,7 @@ func (s *Session) cur() *Turn {
 func (s *Session) track(e *Event) {
 	t := s.cur()
 	if e.Kind == KindUser && (t == nil || e.UUID == "" || t.Prompt.UUID != e.UUID) {
-		t = &Turn{Prompt: e, Start: e.Time, End: e.Time, weight: map[string]float64{}}
+		t = &Turn{Prompt: e, Events: []*Event{e}, Start: e.Time, End: e.Time, weight: map[string]float64{}}
 		s.Turns = append(s.Turns, t)
 		s.turnByPrompt[e] = t
 		return
@@ -61,6 +62,7 @@ func (s *Session) track(e *Event) {
 	if t == nil {
 		return
 	}
+	t.Events = append(t.Events, e)
 	if e.Tool != nil {
 		t.Tools++
 	}

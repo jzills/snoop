@@ -593,6 +593,14 @@ func (v *view) detailPane(w, h int) string {
 	if group != nil {
 		groupKey, groupSig = group.key, fmt.Sprintf("%d/%d/%d", group.n, group.errs, group.timed)
 	}
+	// A prompt shows its turn, which grows while the turn runs.
+	var turn *parse.Turn
+	if e != nil && group == nil {
+		turn = v.sess.TurnOf(e)
+	}
+	if turn != nil {
+		groupSig = fmt.Sprintf("t%d/%d/%v", len(turn.Events), turn.End.UnixNano(), turn.Done)
+	}
 	done := e != nil && e.Tool != nil && e.Tool.HasResult
 	agent := false
 	if e != nil && e.Tool != nil && e.Tool.AgentID != "" {
@@ -600,9 +608,12 @@ func (v *view) detailPane(w, h int) string {
 		agent = meta.Finished
 	}
 	if e != v.detailEv || innerW != v.detailW || done != v.detailDone || agent != v.detailAgent || groupKey != v.detailGroup || groupSig != v.detailGSig {
-		if group != nil {
+		switch {
+		case group != nil:
 			v.detail.SetContent(renderGroupDetail(group, innerW))
-		} else {
+		case turn != nil:
+			v.detail.SetContent(renderDetail(e, v.subagent, innerW) + "\n" + renderTurnDetail(v.sess, turn, innerW, time.Now()))
+		default:
 			v.detail.SetContent(renderDetail(e, v.subagent, innerW))
 		}
 		// Keep the scroll position while the same thing stays selected.
