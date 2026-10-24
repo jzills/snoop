@@ -456,14 +456,14 @@ func renderFileDetail(f *fileEntry, w int) (string, []int) {
 		get := func(k string) string { s, _ := in[k].(string); return s }
 		switch e.Tool.Name {
 		case "Edit":
-			b.WriteString(diff(get("old_string"), get("new_string"), w))
+			b.WriteString(diff(get("old_string"), get("new_string"), w) + "\n")
 		case "MultiEdit":
 			es, _ := in["edits"].([]any)
 			for _, x := range es {
 				if m, ok := x.(map[string]any); ok {
 					old, _ := m["old_string"].(string)
 					nw, _ := m["new_string"].(string)
-					b.WriteString(diff(old, nw, w))
+					b.WriteString(diff(old, nw, w) + "\n")
 				}
 			}
 		case "Write":

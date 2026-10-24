@@ -121,3 +121,18 @@ func TestFitLeftKeepsFileName(t *testing.T) {
 		t.Errorf("short path changed: %q", got)
 	}
 }
+
+func TestFileDetailKeepsHistoryLinesApart(t *testing.T) {
+	// An edit followed by a read: reads have no blank line before them.
+	in := `{"type":"assistant","uuid":"a1","timestamp":"2026-10-24T10:00:01Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"m.go","old_string":"a","new_string":"b"}}]}}
+{"type":"assistant","uuid":"a2","timestamp":"2026-10-24T10:00:02Z","message":{"id":"m2","content":[{"type":"tool_use","id":"t2","name":"Read","input":{"file_path":"m.go"}}]}}
+`
+	s, _ := parse.Parse(strings.NewReader(in))
+	files := buildFiles([]fileSource{{events: s.Events}}, "", func(string) bool { return true })
+	out, _ := renderFileDetail(files[0], 60)
+	for _, l := range strings.Split(ansi.Strip(out), "\n") {
+		if strings.HasPrefix(l, "+ ") && strings.ContainsAny(l, glyphOK+glyphErr+glyphPending) {
+			t.Errorf("diff line runs into the next entry: %q", l)
+		}
+	}
+}
