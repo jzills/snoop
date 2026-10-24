@@ -22,6 +22,8 @@ var helpTabs = helpSection{"Tabs", [][2]string{
 
 var helpGeneral = helpSection{"General", [][2]string{
 	{"!", "jump to the latest alert (error, waiting tool, end of turn, compaction, context 90%)"},
+	{"y", "copy the selection: a command, diff, file content, message or result (Files: the file's changes)"},
+	{"e", "export the timeline as shown to Markdown in the current directory"},
 	{"esc", "clear search and filter, then go back"},
 	{"?", "show or hide this help"},
 	{"q  ctrl+c", "quit"},

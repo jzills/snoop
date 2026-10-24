@@ -153,6 +153,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v != nil && msg.String() != "!" {
 			v.alertShown = false
 		}
+		if v != nil {
+			v.flash = ""
+		}
 		// Keys typed faster than a read arrive as one multi-rune message;
 		// outside text inputs, treat them as separate presses.
 		typing := (v == nil && a.picker.filtering) || (v != nil && v.typing)

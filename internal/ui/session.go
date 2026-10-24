@@ -103,6 +103,7 @@ type view struct {
 	// Alerts: the newest is shown in the header until a key is pressed.
 	alert      *alert
 	alertShown bool
+	flash      string // replaces the footer until the next key
 	unseenErrs int
 	pending    map[*parse.Event]bool // live tool calls without a result; true once alerted
 
@@ -302,6 +303,11 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 		}
 		bodyH := h - 4
 		switch k.String() {
+		case "y":
+			return v.copySelection(), nil
+		case "e":
+			v.exportView(time.Now())
+			return nil, nil
 		case "!":
 			if a := v.alert; a != nil && a.ev != nil {
 				v.unseenErrs = 0
@@ -630,6 +636,9 @@ func (v *view) tabs(w int) string {
 }
 
 func (v *view) footer(w int) string {
+	if v.flash != "" {
+		return fit(v.flash, w)
+	}
 	if v.typing || (v.search.Value() != "" && v.tab != tabStats) {
 		return fit(v.search.View(), w)
 	}

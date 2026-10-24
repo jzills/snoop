@@ -3,6 +3,8 @@
 //	snoop                 pick a session
 //	snoop --follow        follow the newest session for this directory, live
 //	snoop <id|path>       open a session by id (prefix) or file path
+//	snoop export <id|path> [-o file]
+//	                        write a session as Markdown (stdout by default)
 package main
 
 import (
@@ -16,6 +18,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jzills/snoop/internal/export"
 	"github.com/jzills/snoop/internal/store"
 	"github.com/jzills/snoop/internal/ui"
 )
@@ -34,6 +37,10 @@ func main() {
 	flag.Parse()
 
 	root := store.Root()
+	if flag.Arg(0) == "export" {
+		exportCmd(root, flag.Args()[1:])
+		return
+	}
 	cwd := *project
 	if cwd == "" {
 		cwd, _ = os.Getwd()
@@ -68,6 +75,43 @@ func main() {
 	}
 
 	if _, err := tea.NewProgram(ui.New(opts), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
+		fail(err)
+	}
+}
+
+// exportCmd writes a whole session as Markdown, without thinking blocks.
+func exportCmd(root string, args []string) {
+	fs := flag.NewFlagSet("export", flag.ExitOnError)
+	out := fs.String("o", "", "write to this file instead of stdout")
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, "usage: snoop export <session-id|path> [-o file]\n\n")
+		fs.PrintDefaults()
+	}
+	fs.Parse(args)
+	// Allow the flag after the session too.
+	rest := fs.Args()
+	if len(rest) > 1 {
+		fs.Parse(rest[1:])
+		rest = append(rest[:1], fs.Args()...)
+	}
+	if len(rest) != 1 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	p, err := resolve(root, rest[0])
+	if err != nil {
+		fail(err)
+	}
+	s, _, err := store.Load(p)
+	if err != nil {
+		fail(err)
+	}
+	md := export.Markdown(s, export.All(s))
+	if *out == "" {
+		fmt.Print(md)
+		return
+	}
+	if err := os.WriteFile(*out, []byte(md), 0o644); err != nil {
 		fail(err)
 	}
 }

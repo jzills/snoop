@@ -56,6 +56,23 @@ cost for the session, so that total is split across prompts by token use
 (weighted by relative token price). The prompt costs add up to the recorded
 total. Sessions without a recorded cost show tokens only.
 
+## Copy and export
+
+`y` copies the selection to the clipboard over OSC 52 (works over SSH, and in
+tmux with `set-clipboard on`): the command for Bash, the diff for edits, the
+content for Write, the full text of messages, and the result for other tools.
+In the Files tab it copies all of the file's changes.
+
+`e` exports the timeline as shown (search, filter, thinking and expanded
+subagents included) to `./<session-id-8>-<YYYYMMDD-HHMM>.md`. Prompts become
+headings, tool calls collapsible `<details>` blocks, and subagent events are
+quoted under their call. From the shell:
+
+```
+snoop export 64f3ec44              # whole session to stdout, without thinking
+snoop export 64f3ec44 -o notes.md
+```
+
 ## Alerts
 
 While a session is receiving new lines, the header flags what needs your
@@ -91,6 +108,7 @@ Press `?` anywhere for the keys of the current screen. The full list:
 | `1 2 3 4`, `[ ]` | switch tabs |
 | `esc` | clear search/filter, then go back |
 | `!` | jump to the latest alert |
+| `y` / `e` | copy the selection / export the view to Markdown |
 | `?` | every key for the current screen |
 | `q` | quit |
 
