@@ -1,6 +1,6 @@
 # Next feature set: design
 
-Date: 2026-10-24. Status: draft for review.
+Date: 2026-10-24. Status: implemented 2026-10-24 (all seven steps).
 
 The tool has been renamed from `ccscope` to **`snoop`**. The name isn't tied
 to one agent, which leaves room for other coding agents later. Everything Claude Code-specific stays in `parse` and
