@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go vet & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt would change:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      # Tests only run on Linux, so nothing else compiles them for the
+      # Windows and macOS binaries snoop ships. Vet builds them without
+      # running anything.
+      - name: Vet for Windows and macOS
+        run: |
+          GOOS=windows go vet ./...
+          GOOS=darwin go vet ./...
+
+      # -race: the summary scan and the tailers run on goroutines.
+      - name: Test
+        run: go test -race ./...
+
+  vulnerabilities:
+    name: Vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Pinned like the actions; the vulnerability database is fetched live
+      # regardless of the scanner's version.
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+
+  binaries:
+    name: Cross-compile and package
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Lint the release scripts
+        run: shellcheck scripts/*.sh demo/*.sh
+
+      - name: Build every target
+        run: scripts/build_binaries.sh 0.0.0-dev
+
+      - name: Check the archives
+        run: scripts/check_archives.sh 0.0.0-dev
+
+      - name: Render the Homebrew formula
+        run: scripts/homebrew_formula.sh 0.0.0-dev

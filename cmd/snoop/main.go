@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"time"
@@ -24,7 +26,45 @@ import (
 	"github.com/jzills/snoop/internal/ui"
 )
 
+// Stamped by scripts/build_binaries.sh; a plain go build or go install
+// reports "dev", with the commit and date Go recorded when it has them.
+var (
+	version = "dev"
+	commit  string
+	date    string
+)
+
+// versionText is what --version prints: the version, then how it was built.
+func versionText() string {
+	c, d := commit, date
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if v := info.Main.Version; version == "dev" && v != "" && v != "(devel)" {
+			version = strings.TrimPrefix(v, "v")
+		}
+		for _, s := range info.Settings {
+			switch {
+			case s.Key == "vcs.revision" && c == "":
+				c = s.Value[:min(len(s.Value), 7)]
+			case s.Key == "vcs.time" && d == "":
+				d = s.Value[:min(len(s.Value), 10)]
+			}
+		}
+	}
+	v := "snoop " + version
+	if version != "dev" {
+		v = "snoop v" + version
+	}
+	var parts []string
+	for _, p := range []string{c, d, runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH} {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return v + "\n" + strings.Join(parts, " · ")
+}
+
 func main() {
+	showVersion := flag.Bool("version", false, "print the version and exit")
 	follow := flag.Bool("follow", false, "follow the newest session for the project and switch to new ones")
 	flag.BoolVar(follow, "f", false, "shorthand for --follow")
 	project := flag.String("project", "", "project directory (default: current directory)")
@@ -32,10 +72,14 @@ func main() {
 	ring := flag.Bool("bell", false, "ring the terminal bell on alerts")
 	alerts := flag.String("alerts", "error,turn", "alerts that ring the bell: "+strings.Join(ui.AlertKinds, ","))
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: snoop [--follow] [--project dir] [--bell] [session-id|path]\n\n")
+		fmt.Fprintf(os.Stderr, "usage: snoop [--follow] [--project dir] [--bell] [--version] [session-id|path]\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(versionText())
+		return
+	}
 
 	root := store.Root()
 	if flag.Arg(0) == "export" {

@@ -2,16 +2,38 @@
 
 A fast terminal viewer for Claude Code session transcripts
 (`~/.claude/projects/**/*.jsonl`). Keep it open in a second terminal next to
-`claude` to watch a session live, or browse past sessions.
+`claude` to watch a session live, or browse past sessions: what each prompt
+cost, how full the context is, which files changed, what the subagents did,
+and where the time went.
+
+![snoop: the summary across sessions, a session's timeline with a turn's
+waterfall, an expanded subagent, the Files tab and Stats](demo/demo.gif)
+
+## Install
 
 ```
-go install ./cmd/snoop
+brew install jzills/tap/snoop                      # macOS and Linux
+go install github.com/jzills/snoop/cmd/snoop@latest
+```
 
+Or download a binary for Linux, macOS or Windows from the
+[latest release](https://github.com/jzills/snoop/releases/latest); each
+archive holds the `snoop` executable, the license and this README.
+
+Tested with Claude Code 2.1.280 through 2.1.310. The transcript format is
+undocumented and changes between versions; snoop ignores what it doesn't
+recognise, so a new version may show less rather than break. Please open an
+issue if something goes missing.
+
+## Use
+
+```
 snoop                  # pick a session (all projects)
 snoop --follow         # follow the newest session for this directory, live;
                        # switches automatically when a new session starts
 snoop 64f3ec44         # open by session id prefix (or a .jsonl path)
 snoop --project DIR    # treat DIR as the current project
+snoop --version
 ```
 
 ## What you see
@@ -139,3 +161,12 @@ In the picker: `/` fuzzy search, `esc` clears it, `c` toggles this project only,
   decoded, so a 75 MB transcript loads in ~150 ms.
 - Respects `CLAUDE_CONFIG_DIR`.
 - `go run ./cmd/probe` parses every local transcript and reports timings.
+- The demo GIF is rendered from `demo/demo.tape` against fictional sessions:
+  `demo/render.sh` (needs [vhs](https://github.com/charmbracelet/vhs)).
+
+snoop is an independent project, not affiliated with or endorsed by
+Anthropic. Claude and Claude Code are trademarks of Anthropic.
+
+## License
+
+[MIT](LICENSE)
