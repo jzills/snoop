@@ -76,8 +76,10 @@ func count(n int) string {
 		return fmt.Sprint(n)
 	case n < 1_000_000:
 		return fmt.Sprintf("%.1fk", float64(n)/1e3)
+	case n < 1_000_000_000:
+		return fmt.Sprintf("%.1fM", float64(n)/1e6)
 	}
-	return fmt.Sprintf("%.1fM", float64(n)/1e6)
+	return fmt.Sprintf("%.1fB", float64(n)/1e9)
 }
 
 // keyHelp renders "k desc · k desc" pairs.

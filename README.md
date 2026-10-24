@@ -56,6 +56,17 @@ cost for the session, so that total is split across prompts by token use
 (weighted by relative token price). The prompt costs add up to the recorded
 total. Sessions without a recorded cost show tokens only.
 
+## Summary across sessions
+
+`s` in the session picker switches to a summary of the sessions listed (so
+it follows `c` and the search): sessions, prompts, tool calls and error rate,
+cost and tokens, a daily cost chart for the last 30 days, and the top tools,
+skills, MCP servers, subagent types and models with their error rates. Every
+transcript is parsed in the background (`scanning 12/48` in the header) and
+the results cached in `~/.cache/snoop/summaries.json` (the user cache
+directory), so later opens are instant. Unreadable transcripts are counted
+and skipped.
+
 ## Copy and export
 
 `y` copies the selection to the clipboard over OSC 52 (works over SSH, and in
@@ -117,7 +128,8 @@ shows it in the timeline, `←`/`→` collapse and expand (`←` on a call moves
 its group), `E` expands everything (again to reset), and `/` search keeps
 only matching calls with their groups opened.
 
-In the picker: `/` fuzzy search, `esc` clears it, `c` toggles this project only.
+In the picker: `/` fuzzy search, `esc` clears it, `c` toggles this project only,
+`s` switches to the summary.
 
 ## Notes
 

@@ -6,11 +6,13 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/sahilm/fuzzy"
 
 	"github.com/jzills/snoop/internal/store"
+	"github.com/jzills/snoop/internal/summary"
 )
 
 type sessionsMsg struct {
@@ -31,14 +33,24 @@ type picker struct {
 	projectDir  string // transcript folder for the current working directory
 	loaded      bool
 	err         error
+
+	// Summary across the listed sessions (s).
+	summary  bool
+	page     viewport.Model
+	cache    *summary.Cache
+	scanning bool
+	scanned  int
+	sums     map[string]summary.Session // by transcript path
+	bad      map[string]bool            // unreadable transcripts
 }
 
-func newPicker(projectDir string) picker {
+func newPicker(projectDir, cacheDir string) picker {
 	ti := textinput.New()
 	ti.Prompt = "/ "
 	ti.PromptStyle = sKey
 	ti.Placeholder = "fuzzy search titles, projects, branches"
-	return picker{input: ti, projectDir: projectDir}
+	return picker{input: ti, projectDir: projectDir, page: viewport.New(0, 0),
+		cache: summary.OpenCache(cacheDir), sums: map[string]summary.Session{}, bad: map[string]bool{}}
 }
 
 func loadSessions(root string) tea.Cmd {
@@ -107,7 +119,18 @@ func (p *picker) update(msg tea.Msg, height int) tea.Cmd {
 				return cmd
 			}
 		}
+		if p.summary {
+			switch msg.String() {
+			case "s", "c", "/", "esc":
+			default:
+				var cmd tea.Cmd
+				p.page, cmd = p.page.Update(msg)
+				return cmd
+			}
+		}
 		switch msg.String() {
+		case "s":
+			return p.toggleSummary()
 		case "esc":
 			p.input.SetValue("")
 			p.cursor = 0
@@ -147,12 +170,29 @@ func (p *picker) view(w, h int) string {
 	if p.projectOnly {
 		scope = "this project"
 	}
-	head := sTitle.Render(" snoop") + sDim.Render("  Claude Code sessions · ") +
-		sText.Render(fmt.Sprintf("%d", len(p.shown))) + sDim.Render(" in "+scope)
+	what := "  Claude Code sessions · "
+	if p.summary {
+		what = "  Summary of "
+	}
+	head := sTitle.Render(" snoop") + sDim.Render(what) +
+		sText.Render(fmt.Sprintf("%d", len(p.shown))) + sDim.Render(" sessions in "+scope)
+	if prog := p.scanProgress(); prog != "" {
+		head += "  " + prog
+	}
 	b.WriteString(fit(head, w) + "\n")
 	b.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
 
 	bodyH := h - 4
+	if p.summary {
+		b.WriteString(p.summaryView(w, bodyH) + "\n")
+		b.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
+		if p.filtering || p.input.Value() != "" {
+			b.WriteString(fit(p.input.View(), w))
+		} else {
+			b.WriteString(fit(" "+keyHelp("↑↓", "scroll", "s", "sessions", "c", "this project", "/", "search", "?", "help"), w))
+		}
+		return b.String()
+	}
 	switch {
 	case p.err != nil:
 		b.WriteString(sErr.Render(" " + p.err.Error()))
@@ -199,7 +239,7 @@ func (p *picker) view(w, h int) string {
 	if p.filtering || p.input.Value() != "" {
 		b.WriteString(fit(p.input.View(), w))
 	} else {
-		b.WriteString(fit(" "+keyHelp("↑↓", "move", "enter", "open", "/", "search", "c", "this project", "?", "help", "q", "quit"), w))
+		b.WriteString(fit(" "+keyHelp("↑↓", "move", "enter", "open", "/", "search", "c", "this project", "s", "summary", "?", "help"), w))
 	}
 	return b.String()
 }

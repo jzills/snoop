@@ -18,6 +18,8 @@ type Options struct {
 	Path       string // open this transcript directly
 	Follow     bool   // attach to the newest session and switch when a new one starts
 
+	CacheDir string // where session summaries are cached; "" keeps them in memory
+
 	Stall  time.Duration   // alert when a live tool call has no result after this long
 	Bell   bool            // ring the terminal bell on alerts
 	BellOn map[string]bool // alert kinds that ring the bell
@@ -37,7 +39,7 @@ type App struct {
 type tickMsg struct{}
 
 func New(opts Options) *App {
-	p := newPicker(opts.ProjectDir)
+	p := newPicker(opts.ProjectDir, opts.CacheDir)
 	return &App{opts: opts, picker: p}
 }
 
@@ -119,6 +121,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.picker.cursor = max(0, min(a.picker.cursor+d, len(a.picker.shown)-1))
 		}
 		return a, nil
+	case scanStartedMsg, scanResultMsg, scanDoneMsg:
+		return a, a.picker.onScan(msg)
 	case openMsg:
 		a.err = ""
 		// A followed session that is replaced closes everything above it.
@@ -186,6 +190,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, tea.Quit
 			}
 			if msg.String() == "esc" && !a.picker.filtering && a.picker.input.Value() == "" {
+				if a.picker.summary {
+					return a, a.picker.toggleSummary()
+				}
 				return a, tea.Quit
 			}
 			return a, a.picker.update(msg, a.h)

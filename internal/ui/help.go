@@ -43,6 +43,11 @@ var helpPicker = []helpSection{
 		{"esc", "clear the search (with none: quit)"},
 		{"c", "only sessions for this directory"},
 	}},
+	{"Summary", [][2]string{
+		{"s", "switch between the list and a summary of the sessions listed: cost, tokens, daily use, tools, skills, MCP, subagents, models"},
+		{"", "follows c and the search; transcripts are scanned in the background and cached"},
+		{"↑↓", "scroll the summary"},
+	}},
 	{"General", [][2]string{
 		{"?", "show or hide this help"},
 		{"q  ctrl+c", "quit"},

@@ -20,6 +20,7 @@ import (
 
 	"github.com/jzills/snoop/internal/export"
 	"github.com/jzills/snoop/internal/store"
+	"github.com/jzills/snoop/internal/summary"
 	"github.com/jzills/snoop/internal/ui"
 )
 
@@ -47,7 +48,7 @@ func main() {
 	}
 	cwd, _ = filepath.Abs(cwd)
 	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow,
-		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}}
+		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir()}
 	for _, k := range strings.Split(*alerts, ",") {
 		k = strings.TrimSpace(k)
 		if k == "" {
