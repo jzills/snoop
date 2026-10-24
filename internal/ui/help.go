@@ -69,6 +69,9 @@ var helpTimeline = []helpSection{
 		{"tab  ←  esc", "back to the list"},
 	}},
 	{"Subagents", [][2]string{
+		{"x", "expand or collapse an Agent call's subagent inline"},
+		{"X", "expand every subagent (nested ones too); again to collapse all"},
+		{"●", "a collapsed subagent has events matching the search or filter"},
 		{"a  o", "open the subagent transcript of an Agent call"},
 		{"esc", "return to the parent session"},
 	}},

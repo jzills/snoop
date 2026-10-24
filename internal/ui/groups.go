@@ -318,7 +318,7 @@ func (v *view) groupRow(g *groupNode, sel bool, w int) string {
 		if sel {
 			indent = lipgloss.NewStyle().Background(cSelBg).Render(indent)
 		}
-		return indent + renderRowName(g.ev, sel, w-4, false, "")
+		return indent + renderRowName(g.ev, sel, w-4, rowOpts{hideName: true})
 	}
 	var bg lipgloss.TerminalColor = lipgloss.NoColor{}
 	if sel {

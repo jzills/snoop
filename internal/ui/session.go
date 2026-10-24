@@ -92,6 +92,11 @@ type view struct {
 	filesDirty bool
 	subs       map[string]*subTranscript
 
+	// Subagents shown inline in the timeline.
+	expanded map[string]bool       // by agent id
+	depth    map[*parse.Event]int  // nesting of shown subagent events
+	marked   map[*parse.Event]bool // collapsed calls whose subagent matches the search
+
 	tl       *tail.Tailer
 	lastLive time.Time
 
@@ -135,7 +140,7 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	ti.Placeholder = "search text, commands, paths, results"
 	v := &view{
 		path: path, rootPath: rootPath, label: label, sess: s,
-		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*subTranscript{}, pending: map[*parse.Event]bool{},
+		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*subTranscript{}, expanded: map[string]bool{}, pending: map[*parse.Event]bool{},
 		detail: viewport.New(0, 0), page: viewport.New(0, 0),
 	}
 	v.tl, _ = tail.Open(path, off, followNew)
@@ -166,16 +171,52 @@ func (v *view) refresh() {
 	}
 	terms := strings.Fields(strings.ToLower(v.search.Value()))
 	match := kindFilters[v.kind].match
-	v.shown = v.shown[:0]
-	for _, e := range v.sess.Events {
-		if e.Kind == parse.KindThinking && !v.think && v.kind == 0 && len(terms) == 0 {
-			continue
+	filtering := v.kind != 0 || len(terms) > 0
+	keep := func(e *parse.Event) bool {
+		if e.Kind == parse.KindThinking && !v.think && !filtering {
+			return false
 		}
-		if !match(e) || !v.matches(e, terms) {
-			continue
-		}
-		v.shown = append(v.shown, e)
+		return match(e) && v.matches(e, terms)
 	}
+	v.shown = v.shown[:0]
+	v.depth, v.marked = map[*parse.Event]int{}, map[*parse.Event]bool{}
+	// Expanded subagents' events follow their call, indented. While
+	// filtering, a call whose subagent has matches is kept (and marked when
+	// collapsed) even if the call itself doesn't match.
+	var walk func(events []*parse.Event, depth int)
+	walk = func(events []*parse.Event, depth int) {
+		for _, e := range events {
+			id := agentID(e)
+			open := id != "" && v.expanded[id] && depth < maxSubDepth
+			var sub *subTranscript
+			if id != "" && (open || filtering) {
+				sub, _ = v.sub(id)
+			}
+			inner := false
+			if sub != nil && filtering {
+				for _, x := range sub.sess.Events {
+					if keep(x) {
+						inner = true
+						break
+					}
+				}
+			}
+			if !keep(e) && !inner {
+				continue
+			}
+			v.shown = append(v.shown, e)
+			if depth > 0 {
+				v.depth[e] = depth
+			}
+			switch {
+			case open && sub != nil:
+				walk(sub.sess.Events, depth+1)
+			case inner:
+				v.marked[e] = true
+			}
+		}
+	}
+	walk(v.sess.Events, 0)
 	v.rebuildGroups()
 	v.filesDirty = true
 	if v.follow {
@@ -301,7 +342,7 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 			case "G":
 				v.detail.GotoBottom()
 				return nil, nil
-			case "a", "o", "/", "f", "t", "n", "N", "E":
+			case "a", "o", "/", "f", "t", "n", "N", "E", "x", "X":
 				// handled below
 			default:
 				var cmd tea.Cmd
@@ -358,6 +399,15 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 		case "t":
 			v.think = !v.think
 			v.refresh()
+		case "x":
+			if e := v.selected(); e != nil && agentID(e) != "" {
+				v.follow = false
+				v.expanded[agentID(e)] = !v.expanded[agentID(e)]
+				v.refresh()
+			}
+		case "X":
+			v.follow = false
+			v.toggleAll()
 		case "a", "o":
 			if e := v.selected(); e != nil {
 				return nil, v.openSubagent(e)
@@ -413,7 +463,7 @@ func (v *view) wheel(d int, overDetail bool) {
 
 func (v *view) jumpPrompt(dir int) {
 	for i := v.cursor + dir; i >= 0 && i < len(v.shown); i += dir {
-		if v.shown[i].Kind == parse.KindUser {
+		if v.shown[i].Kind == parse.KindUser && v.depth[v.shown[i]] == 0 {
 			v.cursor = i
 			v.follow = i == len(v.shown)-1
 			return
@@ -620,7 +670,9 @@ func (v *view) timeline(w, h int) string {
 	v.offset = scrollOffset(v.offset, v.cursor, len(v.shown), h)
 	lines := make([]string, 0, h)
 	for i := v.offset; i < len(v.shown) && len(lines) < h; i++ {
-		lines = append(lines, renderTimelineRow(v.sess, v.shown[i], i == v.cursor, listW))
+		e := v.shown[i]
+		lines = append(lines, renderTimelineRow(v.sess, e, i == v.cursor, listW,
+			rowOpts{depth: v.depth[e], open: v.expanded[agentID(e)], marked: v.marked[e]}))
 	}
 	if len(v.shown) == 0 {
 		lines = append(lines, sDim.Render(" nothing matches"))
@@ -714,22 +766,28 @@ func (v *view) detailPane(w, h int) string {
 }
 
 func renderRow(e *parse.Event, sel bool, w int) string {
-	return renderRowName(e, sel, w, true, "")
+	return renderRowName(e, sel, w, rowOpts{})
 }
 
 // renderTimelineRow adds the turn's totals to prompt rows.
-func renderTimelineRow(s *parse.Session, e *parse.Event, sel bool, w int) string {
-	note := ""
+func renderTimelineRow(s *parse.Session, e *parse.Event, sel bool, w int, o rowOpts) string {
 	if t := s.TurnOf(e); t != nil {
-		note = turnSummary(s, t, min(26, (w-10)/3))
+		o.note = turnSummary(s, t, min(26, (w-10)/3))
 	}
-	return renderRowName(e, sel, w, true, note)
+	return renderRowName(e, sel, w, o)
 }
 
-// renderRowName renders a timeline row; showName=false drops the tool name
-// column, for rows already listed under their tool in the Tools tab. note is
-// shown on the right of non-tool rows.
-func renderRowName(e *parse.Event, sel bool, w int, showName bool, note string) string {
+type rowOpts struct {
+	hideName bool   // drop the tool name column (rows under their tool in the Tools tab)
+	note     string // shown on the right of non-tool rows
+	depth    int    // subagent nesting, drawn as │ rules
+	open     bool   // an Agent call expanded inline
+	marked   bool   // a collapsed Agent call whose subagent matches the search
+}
+
+// renderRowName renders a timeline row.
+func renderRowName(e *parse.Event, sel bool, w int, o rowOpts) string {
+	showName, note := !o.hideName, o.note
 	var bg lipgloss.TerminalColor = lipgloss.NoColor{}
 	switch {
 	case sel:
@@ -748,6 +806,10 @@ func renderRowName(e *parse.Event, sel bool, w int, showName bool, note string) 
 	}
 	prefix := mark + st(sFaint).Render(fit(ts, 8)+" ")
 	rest := w - 10
+	if o.depth > 0 {
+		prefix += st(lipgloss.NewStyle().Foreground(cAgent)).Render(strings.Repeat("│ ", o.depth))
+		rest -= 2 * o.depth
+	}
 
 	var glyph, body, right string
 	if note != "" {
@@ -773,6 +835,9 @@ func renderRowName(e *parse.Event, sel bool, w int, showName bool, note string) 
 		t := e.Tool
 		ks := lipgloss.NewStyle().Foreground(kindColor(t.Kind))
 		glyph = st(ks).Render(kindGlyph(t.Kind))
+		if o.open {
+			glyph = st(ks).Render("▾")
+		}
 		name := t.Name
 		if t.Kind == parse.ToolMCP {
 			name = t.Group()
@@ -786,6 +851,9 @@ func renderRowName(e *parse.Event, sel bool, w int, showName bool, note string) 
 		}
 		d := dur(e.Duration())
 		right = st(sFaint).Render(fmt.Sprintf(" %6s ", d)) + status + st(sText).Render(" ")
+		if o.marked {
+			right = st(sAccent).Render(" ●") + right
+		}
 		sumStyle := sDim
 		if t.Kind == parse.ToolSkill {
 			sumStyle = ks

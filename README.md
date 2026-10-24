@@ -27,6 +27,10 @@ header shows how full the context window is (`ctx 142k/200k ▰▰▰▰▰▰�
 turning to the accent colour at 70% and red at 90%. Selecting a prompt shows
 where its turn's time went: totals, the five slowest tool calls, and a
 waterfall placing each call by its start and end, so parallel calls overlap.
+`x` on an Agent call expands its subagent inline, indented under a `│` rule
+and kept live while it runs; `X` expands every subagent, nested ones too.
+Search and filters reach into subagents: a collapsed call whose subagent has
+matches is kept and marked `●`.
 
 **Tools**: every tool call grouped by kind (built-in, skills, MCP,
 subagents), then by name (tool, skill, MCP `server·tool`, subagent type),
@@ -81,6 +85,7 @@ Press `?` anywhere for the keys of the current screen. The full list:
 | `f` / `F` | cycle filter: all, chat, tools, skills, mcp, agents, errors |
 | `t` | show thinking blocks |
 | `n` / `N` | next / previous prompt |
+| `x` / `X` | expand a subagent inline / expand or collapse all |
 | `a` | open the subagent transcript for an Agent call (`esc` returns) |
 | `g G` | top / bottom (bottom re-enables following) |
 | `1 2 3 4`, `[ ]` | switch tabs |

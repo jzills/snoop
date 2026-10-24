@@ -81,6 +81,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case tickMsg:
 		cmds := []tea.Cmd{tick()}
+		for _, v := range a.stack {
+			if v.pollSubs() {
+				v.refresh()
+			}
+		}
 		if a.opts.Stall > 0 {
 			for _, v := range a.stack {
 				as := v.checkStalls(time.Now(), a.opts.Stall)

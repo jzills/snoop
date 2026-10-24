@@ -46,7 +46,7 @@ func TestTurnSummaryNarrow(t *testing.T) {
 func TestPromptRowFitsWidth(t *testing.T) {
 	s, _ := parse.Parse(strings.NewReader(costFixture))
 	for _, w := range []int{50, 80, 140} {
-		if row := renderTimelineRow(s, s.Events[0], false, w); lipgloss.Width(row) != w {
+		if row := renderTimelineRow(s, s.Events[0], false, w, rowOpts{}); lipgloss.Width(row) != w {
 			t.Errorf("w=%d: row is %d wide: %q", w, lipgloss.Width(row), row)
 		}
 	}

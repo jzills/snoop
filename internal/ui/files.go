@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -172,18 +171,12 @@ func buildFiles(sources []fileSource, cwd string, keep func(string) bool) []*fil
 	return out
 }
 
-// subTranscript is a subagent transcript loaded for the Files tab.
-type subTranscript struct {
-	sess *parse.Session
-	size int64
-}
-
 // How often the Files tab re-reads subagent transcripts, which grow without
 // the session's own transcript changing.
 const filesTTL = 2 * time.Second
 
 // fileSources is the session plus, for top-level sessions, every subagent
-// transcript on disk (reloaded only when its size changed).
+// transcript on disk.
 func (v *view) fileSources() []fileSource {
 	srcs := []fileSource{{events: v.sess.Events}}
 	if v.label != "" {
@@ -196,23 +189,11 @@ func (v *view) fileSources() []fileSource {
 		}
 	}
 	for _, id := range store.SubagentIDs(v.rootPath) {
-		meta, ok := v.subagent(id)
-		if !ok {
+		sub, _ := v.sub(id)
+		if sub == nil {
 			continue
 		}
-		st, err := os.Stat(meta.Path)
-		if err != nil {
-			continue
-		}
-		sub := v.subs[id]
-		if sub == nil || sub.size != st.Size() {
-			s, _, err := store.Load(meta.Path)
-			if err != nil {
-				continue
-			}
-			sub = &subTranscript{sess: s, size: st.Size()}
-			v.subs[id] = sub
-		}
+		meta, _ := v.subagent(id)
 		label := meta.Description
 		if label == "" {
 			label = meta.AgentType
