@@ -16,7 +16,7 @@ type helpSection struct {
 }
 
 var helpTabs = helpSection{"Tabs", [][2]string{
-	{"1 2 3", "Timeline, Tools, Stats"},
+	{"1 2 3 4", "Timeline, Tools, Stats, Files"},
 	{"[ ]", "previous / next tab"},
 }}
 
@@ -112,6 +112,27 @@ var helpStats = []helpSection{
 	helpGeneral,
 }
 
+var helpFiles = []helpSection{
+	{"Move", [][2]string{
+		{"↑↓  j k", "move"},
+		{"pgup pgdn", "page (also space)"},
+		{"g  G", "first / last file"},
+	}},
+	{"Files", [][2]string{
+		{"enter", "show the file's latest change in the timeline (a subagent's change shows its Agent call)"},
+		{"n  N", "next / previous change in the detail pane"},
+		{"/", "keep only files whose path matches"},
+		{"", "changed files first, then files only read; most recent first"},
+		{"", "changes made through Bash aren't tracked"},
+	}},
+	{"Detail pane", [][2]string{
+		{"tab  →", "focus it"},
+		{"J K", "scroll it (also ctrl+d ctrl+u)"},
+	}},
+	helpTabs,
+	helpGeneral,
+}
+
 // helpContent picks the sections and title for the current screen.
 func (a *App) helpContent() (string, []helpSection) {
 	v := a.top()
@@ -122,6 +143,8 @@ func (a *App) helpContent() (string, []helpSection) {
 		return "Tools", helpTools
 	case v.tab == tabStats:
 		return "Stats", helpStats
+	case v.tab == tabFiles:
+		return "Files", helpFiles
 	}
 	return "Timeline", helpTimeline
 }

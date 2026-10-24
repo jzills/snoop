@@ -197,6 +197,17 @@ func SubagentPath(sessionPath, agentID string) string {
 	return filepath.Join(strings.TrimSuffix(sessionPath, ".jsonl"), "subagents", "agent-"+agentID+".jsonl")
 }
 
+// SubagentIDs lists the ids of every subagent transcript of a session,
+// nested subagents included.
+func SubagentIDs(sessionPath string) []string {
+	ps, _ := filepath.Glob(filepath.Join(strings.TrimSuffix(sessionPath, ".jsonl"), "subagents", "agent-*.jsonl"))
+	ids := make([]string, len(ps))
+	for i, p := range ps {
+		ids[i] = strings.TrimSuffix(strings.TrimPrefix(filepath.Base(p), "agent-"), ".jsonl")
+	}
+	return ids
+}
+
 // Subagent reads a subagent's metadata, if present.
 func Subagent(sessionPath, agentID string) (SubagentMeta, bool) {
 	p := SubagentPath(sessionPath, agentID)

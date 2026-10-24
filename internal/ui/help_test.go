@@ -31,6 +31,7 @@ func TestHelpOverlayPerScreen(t *testing.T) {
 		{"1", "Search and filter"},
 		{"2", "expand everything"},
 		{"3", "Scroll"},
+		{"4", "next / previous change"},
 	}
 	for _, c := range cases {
 		a.Update(key(c.tab))

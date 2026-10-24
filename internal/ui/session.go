@@ -21,9 +21,10 @@ const (
 	tabTimeline = iota
 	tabTools
 	tabStats
+	tabFiles
 )
 
-var tabNames = []string{"Timeline", "Tools", "Stats"}
+var tabNames = []string{"Timeline", "Tools", "Stats", "Files"}
 
 // Kind filters, cycled with f.
 var kindFilters = []struct {
@@ -82,6 +83,15 @@ type view struct {
 	gOffset int
 	gOpen   map[string]bool
 
+	// Files tab: files touched, rebuilt when dirty or every filesTTL.
+	files      []*fileEntry
+	fCursor    int
+	fOffset    int
+	fMarks     []int // detail pane line of each change, for n/N
+	filesBuilt time.Time
+	filesDirty bool
+	subs       map[string]*subTranscript
+
 	tl       *tail.Tailer
 	lastLive time.Time
 
@@ -119,7 +129,7 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	ti.Placeholder = "search text, commands, paths, results"
 	v := &view{
 		path: path, rootPath: rootPath, label: label, sess: s,
-		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{},
+		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*subTranscript{},
 		detail: viewport.New(0, 0), page: viewport.New(0, 0),
 	}
 	v.tl, _ = tail.Open(path, off, followNew)
@@ -161,6 +171,7 @@ func (v *view) refresh() {
 		v.shown = append(v.shown, e)
 	}
 	v.rebuildGroups()
+	v.filesDirty = true
 	if v.follow {
 		v.cursor = max(len(v.shown)-1, 0)
 		return
@@ -244,7 +255,7 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 		}
 		bodyH := h - 4
 		switch k.String() {
-		case "1", "2", "3":
+		case "1", "2", "3", "4":
 			v.tab = int(k.String()[0] - '1')
 			v.page.GotoTop()
 			return nil, nil
@@ -285,8 +296,11 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 				return cmd, nil
 			}
 		}
-		if v.tab == tabTools {
+		switch v.tab {
+		case tabTools:
 			return v.updateTools(k, w, bodyH)
+		case tabFiles:
+			return v.updateFiles(k, w, bodyH)
 		}
 		switch k.String() {
 		case "up", "k":
@@ -377,6 +391,8 @@ func (v *view) wheel(d int, overDetail bool) {
 		scroll(&v.detail)
 	case v.tab == tabTools:
 		v.moveGroup(d)
+	case v.tab == tabFiles:
+		v.moveFile(d)
 	default:
 		v.move(d)
 	}
@@ -414,6 +430,10 @@ func (v *view) onTail(u tail.Update) {
 const wideLayout = 110
 
 func (v *view) render(w, h int) string {
+	// Before the header, which shows the file count.
+	if v.tab == tabFiles && (v.filesDirty || time.Since(v.filesBuilt) > filesTTL) {
+		v.rebuildFiles()
+	}
 	var b strings.Builder
 	b.WriteString(v.header(w) + "\n")
 	b.WriteString(v.tabs(w) + "\n")
@@ -427,6 +447,8 @@ func (v *view) render(w, h int) string {
 		body = v.toolsView(w, bodyH)
 	case tabStats:
 		body = v.pageView(renderStats(v.sess, v.stats, w-2), w, bodyH)
+	case tabFiles:
+		body = v.filesView(w, bodyH)
 	}
 	b.WriteString(body + "\n")
 	b.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
@@ -509,6 +531,14 @@ func (v *view) tabs(w int) string {
 		flags = append(flags, sDim.Render(fmt.Sprintf("%d calls", calls)))
 		right = strings.Join(flags, "  ")
 	}
+	if v.tab == tabFiles {
+		var flags []string
+		if q := v.search.Value(); q != "" {
+			flags = append(flags, sKey.Render("“"+q+"”"))
+		}
+		flags = append(flags, sDim.Render(fmt.Sprintf("%d files", len(v.files))))
+		right = strings.Join(flags, "  ")
+	}
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 1
 	if gap < 1 {
 		return fit(left, w)
@@ -523,11 +553,13 @@ func (v *view) footer(w int) string {
 	var help string
 	switch {
 	case v.tab == tabStats:
-		help = keyHelp("↑↓", "scroll", "1-3", "tabs", "esc", "back", "?", "help")
+		help = keyHelp("↑↓", "scroll", "1-4", "tabs", "esc", "back", "?", "help")
 	case v.focusR || v.zoom:
 		help = keyHelp("↑↓", "scroll", "tab", "back to list", "a", "subagent", "?", "help")
 	case v.tab == tabTools:
 		help = keyHelp("↑↓", "move", "space", "expand", "enter", "show in timeline", "E", "expand all", "?", "help")
+	case v.tab == tabFiles:
+		help = keyHelp("↑↓", "move", "n N", "next change", "enter", "show in timeline", "/", "search", "?", "help")
 	default:
 		help = keyHelp("↑↓", "move", "enter", "detail", "/", "search", "f", "filter", "a", "subagent", "?", "help")
 	}
@@ -579,6 +611,10 @@ func (v *view) detailPane(w, h int) string {
 	}
 	e := v.selected()
 	var group *groupNode
+	var file *fileEntry
+	if v.tab == tabFiles {
+		e, file = nil, v.selectedFile()
+	}
 	if v.tab == tabTools {
 		e = nil
 		if g := v.selectedGroup(); g != nil {
@@ -601,6 +637,15 @@ func (v *view) detailPane(w, h int) string {
 	if turn != nil {
 		groupSig = fmt.Sprintf("t%d/%d/%v", len(turn.Events), turn.End.UnixNano(), turn.Done)
 	}
+	if file != nil {
+		done := 0
+		for _, t := range file.touches {
+			if t.ev.Tool.HasResult {
+				done++
+			}
+		}
+		groupKey, groupSig = "f:"+file.path, fmt.Sprintf("%d/%d", len(file.touches), done)
+	}
 	done := e != nil && e.Tool != nil && e.Tool.HasResult
 	agent := false
 	if e != nil && e.Tool != nil && e.Tool.AgentID != "" {
@@ -611,6 +656,10 @@ func (v *view) detailPane(w, h int) string {
 		switch {
 		case group != nil:
 			v.detail.SetContent(renderGroupDetail(group, innerW))
+		case file != nil:
+			content, marks := renderFileDetail(file, innerW)
+			v.detail.SetContent(content)
+			v.fMarks = marks
 		case turn != nil:
 			v.detail.SetContent(renderDetail(e, v.subagent, innerW) + "\n" + renderTurnDetail(v.sess, turn, innerW, time.Now()))
 		default:

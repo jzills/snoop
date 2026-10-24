@@ -34,6 +34,13 @@ then the individual calls, with counts, errors and average latency. Selecting
 a group summarises it in the right pane; `enter` on a call jumps to it in the
 timeline.
 
+**Files**: every file the session and its subagents read, edited or wrote,
+with read/edit/write counts and lines added and removed. Changed files come
+first, then files only read, each most recent first. The right pane shows a
+file's history with every change as a diff (`n`/`N` step through them), and
+`enter` shows the latest change in the timeline. Changes made through Bash
+aren't tracked.
+
 **Stats**: duration, prompts, tool mix, token usage (input, output, cache,
 thinking), context (current, peak, compactions), cost when Claude Code
 recorded it, skills, MCP servers, subagent types and models, and a Turns
@@ -60,7 +67,7 @@ Press `?` anywhere for the keys of the current screen. The full list:
 | `n` / `N` | next / previous prompt |
 | `a` | open the subagent transcript for an Agent call (`esc` returns) |
 | `g G` | top / bottom (bottom re-enables following) |
-| `1 2 3`, `[ ]` | switch tabs |
+| `1 2 3 4`, `[ ]` | switch tabs |
 | `esc` | clear search/filter, then go back |
 | `?` | every key for the current screen |
 | `q` | quit |
