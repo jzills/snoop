@@ -1,0 +1,171 @@
+package ui
+
+import (
+	"strings"
+
+	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/lipgloss"
+)
+
+// The ? overlay lists every key for the current screen. Footers show only
+// the most used keys plus "? help", so they always fit.
+
+type helpSection struct {
+	title string
+	keys  [][2]string // key, description
+}
+
+var helpTabs = helpSection{"Tabs", [][2]string{
+	{"1 2 3", "Timeline, Tools, Stats"},
+	{"[ ]", "previous / next tab"},
+}}
+
+var helpGeneral = helpSection{"General", [][2]string{
+	{"esc", "clear search and filter, then go back"},
+	{"?", "show or hide this help"},
+	{"q  ctrl+c", "quit"},
+}}
+
+var helpPicker = []helpSection{
+	{"Sessions", [][2]string{
+		{"↑↓  j k", "move"},
+		{"pgup pgdn", "page (also ctrl+u ctrl+d)"},
+		{"g  G", "first / last"},
+		{"enter  →", "open the session"},
+		{"wheel", "move"},
+	}},
+	{"Search", [][2]string{
+		{"/", "fuzzy search titles, projects and branches"},
+		{"enter", "keep the search and browse results"},
+		{"esc", "clear the search (with none: quit)"},
+		{"c", "only sessions for this directory"},
+	}},
+	{"General", [][2]string{
+		{"?", "show or hide this help"},
+		{"q  ctrl+c", "quit"},
+	}},
+}
+
+var helpTimeline = []helpSection{
+	{"Move", [][2]string{
+		{"↑↓  j k", "move"},
+		{"pgup pgdn", "page (also ctrl+b ctrl+f, space)"},
+		{"g", "first event"},
+		{"G", "last event, and resume following"},
+		{"n  N", "next / previous prompt"},
+		{"wheel", "move (scrolls the detail pane under the mouse)"},
+	}},
+	{"Search and filter", [][2]string{
+		{"/", "search text, commands, paths and results; every word must match"},
+		{"enter  esc", "keep / clear the search"},
+		{"f  F", "cycle filter: all, chat, tools, skills, mcp, agents, errors"},
+		{"t", "show thinking blocks"},
+	}},
+	{"Detail pane", [][2]string{
+		{"enter  tab  →", "focus it (fills the screen on narrow terminals)"},
+		{"J K", "scroll it without leaving the list (also ctrl+d ctrl+u)"},
+		{"↑↓ g G", "scroll, when focused"},
+		{"tab  ←  esc", "back to the list"},
+	}},
+	{"Subagents", [][2]string{
+		{"a  o", "open the subagent transcript of an Agent call"},
+		{"esc", "return to the parent session"},
+	}},
+	{"Live", [][2]string{
+		{"↓", "in the header: following, so new events are selected as they arrive"},
+		{"", "moving up pauses following; G resumes it"},
+	}},
+	helpTabs,
+	helpGeneral,
+}
+
+var helpTools = []helpSection{
+	{"Move", [][2]string{
+		{"↑↓  j k", "move"},
+		{"pgup pgdn", "page"},
+		{"g  G", "first / last row"},
+	}},
+	{"Groups", [][2]string{
+		{"space", "expand or collapse a group"},
+		{"enter", "expand a group; on a call, show it in the timeline"},
+		{"→  l", "expand a group, or focus the detail pane"},
+		{"←  h", "collapse a group, or move to the group of a call"},
+		{"E", "expand everything; again to reset"},
+		{"/", "keep only matching calls, with their groups open"},
+		{"a  o", "open the subagent transcript of an Agent call"},
+	}},
+	{"Detail pane", [][2]string{
+		{"tab", "focus it"},
+		{"J K", "scroll it (also ctrl+d ctrl+u)"},
+	}},
+	helpTabs,
+	helpGeneral,
+}
+
+var helpStats = []helpSection{
+	{"Scroll", [][2]string{
+		{"↑↓  j k", "scroll"},
+		{"pgup pgdn", "page"},
+		{"wheel", "scroll"},
+	}},
+	helpTabs,
+	helpGeneral,
+}
+
+// helpContent picks the sections and title for the current screen.
+func (a *App) helpContent() (string, []helpSection) {
+	v := a.top()
+	switch {
+	case v == nil:
+		return "Session picker", helpPicker
+	case v.tab == tabTools:
+		return "Tools", helpTools
+	case v.tab == tabStats:
+		return "Stats", helpStats
+	}
+	return "Timeline", helpTimeline
+}
+
+func renderHelp(title string, sections []helpSection, w int) string {
+	keyW := 0
+	for _, s := range sections {
+		for _, k := range s.keys {
+			keyW = max(keyW, lipgloss.Width(k[0]))
+		}
+	}
+	descW := max(w-keyW-3, 10)
+	var b strings.Builder
+	b.WriteString(sTitle.Render("Keys") + sDim.Render(" · "+title))
+	for _, s := range sections {
+		b.WriteString("\n" + sSection.Render(s.title))
+		for _, k := range s.keys {
+			desc := strings.Split(wrap(k[1], descW), "\n")
+			b.WriteString("\n " + sKey.Render(fit(k[0], keyW)) + "  " + sText.Render(desc[0]))
+			for _, more := range desc[1:] {
+				b.WriteString("\n " + strings.Repeat(" ", keyW) + "  " + sText.Render(more))
+			}
+		}
+	}
+	return b.String()
+}
+
+// helpView draws the overlay as a centred, scrollable box.
+func (a *App) helpView() string {
+	title, sections := a.helpContent()
+	boxW := min(a.w-4, 84)
+	innerW := boxW - 4
+	content := renderHelp(title, sections, innerW)
+	footer := sDim.Render("? or esc to close")
+	innerH := min(lipgloss.Height(content), max(a.h-6, 3))
+	if a.helpVP.Width != innerW || a.helpVP.Height != innerH {
+		a.helpVP = viewport.New(innerW, innerH)
+	}
+	a.helpVP.SetContent(content)
+	if !a.helpVP.AtBottom() || a.helpVP.YOffset > 0 {
+		footer = sDim.Render("↑↓ scroll · ? or esc to close")
+	}
+	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cAccent).
+		Padding(0, 1).Width(boxW).
+		Render(a.helpVP.View() + "\n\n" + footer)
+	return lipgloss.Place(a.w, a.h, lipgloss.Center, lipgloss.Center, box)
+}
