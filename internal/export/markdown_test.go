@@ -18,7 +18,7 @@ const fixture = `{"type":"ai-title","sessionId":"0123456789ab","aiTitle":"Fix it
 
 func TestMarkdown(t *testing.T) {
 	s, _ := parse.Parse(strings.NewReader(fixture))
-	md := Markdown(s, All(s))
+	md := Markdown(s, "", All(s))
 	for _, want := range []string{
 		"# Fix it\n",
 		"`repo` · branch `main`",
@@ -41,7 +41,7 @@ func TestMarkdown(t *testing.T) {
 
 func TestSubagentEventsQuoted(t *testing.T) {
 	s, _ := parse.Parse(strings.NewReader(fixture))
-	md := Markdown(s, []Item{{Ev: s.Events[len(s.Events)-1], Depth: 2}})
+	md := Markdown(s, "", []Item{{Ev: s.Events[len(s.Events)-1], Depth: 2}})
 	if !strings.Contains(md, "\n> > Fixed.\n") {
 		t.Errorf("depth 2 not quoted:\n%s", md)
 	}
@@ -49,8 +49,15 @@ func TestSubagentEventsQuoted(t *testing.T) {
 
 func TestFilename(t *testing.T) {
 	s, _ := parse.Parse(strings.NewReader(fixture))
-	if got := Filename(s, time.Date(2026, 10, 24, 9, 5, 0, 0, time.Local)); got != "01234567-20261024-0905.md" {
+	if got := Filename(s.ID, time.Date(2026, 10, 24, 9, 5, 0, 0, time.Local)); got != "01234567-20261024-0905.md" {
 		t.Errorf("filename = %q", got)
+	}
+}
+
+func TestMarkdownTitle(t *testing.T) {
+	s, _ := parse.Parse(strings.NewReader(fixture))
+	if md := Markdown(s, "map the parser", nil); !strings.HasPrefix(md, "# map the parser\n") {
+		t.Errorf("heading = %q", strings.SplitN(md, "\n", 2)[0])
 	}
 }
 

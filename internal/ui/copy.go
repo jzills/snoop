@@ -106,8 +106,14 @@ func (v *view) exportView(now time.Time) {
 	for i, e := range v.shown {
 		items[i] = export.Item{Ev: e, Depth: v.depth[e]}
 	}
-	name := export.Filename(v.sess, now)
-	if err := os.WriteFile(name, []byte(export.Markdown(v.sess, items)), 0o644); err != nil {
+	// A subagent's transcript carries its parent's session id, so it is
+	// named and titled after itself.
+	name, title := export.Filename(v.sess.ID, now), ""
+	if v.label != "" {
+		id := strings.TrimPrefix(strings.TrimSuffix(filepath.Base(v.path), ".jsonl"), "agent-")
+		name, title = "agent-"+export.Filename(id, now), v.label
+	}
+	if err := os.WriteFile(name, []byte(export.Markdown(v.sess, title, items)), 0o644); err != nil {
 		v.flash = sErr.Render(" " + glyphErr + " " + err.Error())
 		return
 	}

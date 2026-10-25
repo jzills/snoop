@@ -166,7 +166,7 @@ func exportCmd(root string, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	md := export.Markdown(s, export.All(s))
+	md := export.Markdown(s, "", export.All(s))
 	if *out == "" {
 		fmt.Print(md)
 		return

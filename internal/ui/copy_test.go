@@ -67,3 +67,21 @@ func TestExportViewWritesShownEvents(t *testing.T) {
 		t.Errorf("export lacks the subagent prompt or reply:\n%s", md)
 	}
 }
+
+func TestExportSubagentNamedAfterItself(t *testing.T) {
+	t.Chdir(t.TempDir())
+	v, sp := newInlineView(t)
+	sub, err := openView(sp, v.rootPath, "helper", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(sub.close)
+	sub.exportView(time.Date(2026, 10, 24, 9, 5, 0, 0, time.Local))
+	b, err := os.ReadFile("agent-sub1-20261024-0905.md")
+	if err != nil {
+		t.Fatalf("%v (flash %q)", err, ansi.Strip(sub.flash))
+	}
+	if !strings.HasPrefix(string(b), "# helper\n") {
+		t.Errorf("heading = %q", strings.SplitN(string(b), "\n", 2)[0])
+	}
+}

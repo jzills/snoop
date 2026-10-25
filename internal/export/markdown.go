@@ -34,9 +34,9 @@ func All(s *parse.Session) []Item {
 	return out
 }
 
-// Filename is the default export name: <session-id-8>-<YYYYMMDD-HHMM>.md.
-func Filename(s *parse.Session, now time.Time) string {
-	id := s.ID
+// Filename is the default export name: <id-8>-<YYYYMMDD-HHMM>.md, from a
+// session's or subagent's id.
+func Filename(id string, now time.Time) string {
 	if len(id) > 8 {
 		id = id[:8]
 	}
@@ -45,9 +45,12 @@ func Filename(s *parse.Session, now time.Time) string {
 
 // Markdown renders items: prompts as headings, replies as text, tool calls
 // as collapsible <details> blocks, subagent events quoted one level per depth.
-func Markdown(s *parse.Session, items []Item) string {
+// The heading is title, or else the session's.
+func Markdown(s *parse.Session, title string, items []Item) string {
 	var b strings.Builder
-	title := s.Title
+	if title == "" {
+		title = s.Title
+	}
 	if title == "" {
 		title = s.ID
 	}
