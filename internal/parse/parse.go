@@ -11,6 +11,7 @@ import (
 	json "github.com/goccy/go-json"
 	"io"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -192,6 +193,7 @@ type Session struct {
 	Context     int // context size of the latest request
 	PeakContext int
 	Compactions int
+	Errors      int // tool calls whose result was an error
 
 	tools        map[string]*ToolCall
 	messages     map[string]int // message id -> context size of the request
@@ -230,7 +232,9 @@ func Parse(r io.Reader) (*Session, error) {
 // consumed. A trailing partial line (a file still being written) is left
 // unconsumed so a tailer can resume from the returned offset.
 func (s *Session) Read(r io.Reader) (int64, error) {
-	br := bufio.NewReaderSize(r, 1<<20)
+	br := readers.Get().(*bufio.Reader)
+	br.Reset(r)
+	defer func() { br.Reset(nil); readers.Put(br) }()
 	var n int64
 	for {
 		line, err := br.ReadBytes('\n')
@@ -244,6 +248,10 @@ func (s *Session) Read(r io.Reader) (int64, error) {
 		s.Feed(line)
 	}
 }
+
+// readers are reused across reads: following a live session reads a few
+// lines a second, and each read would otherwise allocate a large buffer.
+var readers = sync.Pool{New: func() any { return bufio.NewReaderSize(nil, 1<<20) }}
 
 type rawRecord struct {
 	Type          string          `json:"type"`
@@ -513,6 +521,9 @@ func (s *Session) feedUser(rec *rawRecord, ts time.Time) []*Event {
 			t := s.tools[b.ToolUseID]
 			if t == nil {
 				continue
+			}
+			if b.IsError && !t.IsError {
+				s.Errors++
 			}
 			t.HasResult = true
 			t.IsError = b.IsError

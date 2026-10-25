@@ -97,19 +97,8 @@ type liveState struct {
 	done                bool
 }
 
-// errorCount counts tool calls that failed.
-func errorCount(s *parse.Session) int {
-	n := 0
-	for _, e := range s.Events {
-		if e.Tool != nil && e.Tool.IsError {
-			n++
-		}
-	}
-	return n
-}
-
 func (w *watch) snap(s *parse.Session) liveState {
-	st := liveState{events: len(s.Events), errors: errorCount(s), ctx: ctxPct(s)}
+	st := liveState{events: len(s.Events), errors: s.Errors, ctx: ctxPct(s)}
 	if n := len(s.Turns); n > 0 {
 		st.turn = s.Turns[n-1]
 		st.done = st.turn.Done
@@ -152,7 +141,7 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 			out = append(out, &alert{kind: alertTurn, text: glyphOK + " your turn", note: note, ev: t.Events[len(t.Events)-1]})
 		}
 	}
-	if n := errorCount(s) - before.errors; n > 0 {
+	if n := s.Errors - before.errors; n > 0 {
 		w.unseenErrs += n
 		var last *parse.Event
 		for _, e := range s.Events {

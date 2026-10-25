@@ -211,3 +211,17 @@ func TestEdits(t *testing.T) {
 		t.Errorf(`Lines("a\nb\n") = %q`, got)
 	}
 }
+
+func TestErrorsCounted(t *testing.T) {
+	s := NewSession()
+	for _, l := range []string{
+		`{"type":"assistant","uuid":"a1","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{}},{"type":"tool_use","id":"t2","name":"Bash","input":{}}]}}`,
+		`{"type":"user","uuid":"r1","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"x","is_error":true},{"type":"tool_result","tool_use_id":"t2","content":"ok"}]}}`,
+		`{"type":"user","uuid":"r2","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"x","is_error":true}]}}`,
+	} {
+		s.Feed([]byte(l))
+	}
+	if s.Errors != 1 {
+		t.Errorf("Errors = %d, want 1 (a repeated result counts once)", s.Errors)
+	}
+}
