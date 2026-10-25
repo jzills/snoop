@@ -31,8 +31,13 @@ func turnAlert(path, id string) *alert {
 }
 
 func runNote(cmd tea.Cmd) {
-	if cmd != nil {
-		cmd()
+	if cmd == nil {
+		return
+	}
+	if b, ok := cmd().(tea.BatchMsg); ok {
+		for _, c := range b {
+			runNote(c)
+		}
 	}
 }
 
@@ -92,6 +97,18 @@ func TestTwoSnoopsSendOneNotification(t *testing.T) {
 	runNote(a2.notifyCmd([]*alert{turnAlert("/b.jsonl", "e9")}, now))
 	if len(s2.notes) != 1 {
 		t.Errorf("second snoop's own session did not notify")
+	}
+}
+
+func TestEverySessionsAlertNotifies(t *testing.T) {
+	a, s := noteApp(t)
+	stall := func(path, id string) *alert {
+		return &alert{kind: alertStall, note: "Waiting", path: path, title: path, ev: &parse.Event{UUID: id}}
+	}
+	// One board tick: two sessions stall, one of them twice.
+	runNote(a.notifyCmd([]*alert{stall("/a.jsonl", "e1"), stall("/b.jsonl", "e2"), stall("/a.jsonl", "e3")}, time.Now()))
+	if len(s.notes) != 2 || s.notes[0].Title != "/b.jsonl" || s.notes[1].Title != "/a.jsonl" {
+		t.Errorf("notes = %+v, want one each for /b.jsonl and /a.jsonl", s.notes)
 	}
 }
 

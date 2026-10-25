@@ -39,15 +39,41 @@ func chosen(as []*alert, on map[string]bool) *alert {
 	return nil
 }
 
+// chosenPerSession is the newest chosen alert of each session, in the
+// order they were raised: the live board raises alerts for many sessions
+// at once, and each gets its own notification.
+func chosenPerSession(as []*alert, on map[string]bool) []*alert {
+	newest := map[string]int{}
+	for i, a := range as {
+		if on[a.kind] {
+			newest[a.path] = i
+		}
+	}
+	var out []*alert
+	for i, a := range as {
+		if j, ok := newest[a.path]; ok && j == i {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
 type notifyErrMsg struct{ err error }
 
-// notifyCmd sends a notification for the newest chosen alert, unless it
-// shouldn't go out.
+// notifyCmd sends a notification for the newest chosen alert of each
+// session, unless it shouldn't go out.
 func (a *App) notifyCmd(as []*alert, now time.Time) tea.Cmd {
-	c := chosen(as, a.opts.BellOn)
-	if c == nil || a.opts.Notifier == nil || a.focused {
+	if a.opts.Notifier == nil || a.focused {
 		return nil
 	}
+	var cmds []tea.Cmd
+	for _, c := range chosenPerSession(as, a.opts.BellOn) {
+		cmds = append(cmds, a.notifyOne(c, now))
+	}
+	return tea.Batch(cmds...)
+}
+
+func (a *App) notifyOne(c *alert, now time.Time) tea.Cmd {
 	every := c.path + "|" + c.kind
 	if last, ok := a.noted[every]; ok && now.Sub(last) < noteEvery {
 		return nil
