@@ -157,3 +157,31 @@ func TestContextAlertWithoutEvents(t *testing.T) {
 		t.Errorf("alerts = %+v", as)
 	}
 }
+
+func TestJumpClearsTheSearchHidingTheEvent(t *testing.T) {
+	v := newTestView(t)
+	v.search.SetValue("nothing matches this")
+	v.refresh()
+	v.onTail(lines(
+		`{"type":"assistant","uuid":"a9","timestamp":"2026-10-24T10:01:00Z","message":{"id":"m9","content":[{"type":"tool_use","id":"t9","name":"Bash","input":{"command":"false"}}]}}`,
+		`{"type":"user","uuid":"r9","timestamp":"2026-10-24T10:01:01Z","message":{"content":[{"type":"tool_result","tool_use_id":"t9","content":"exit 1","is_error":true}]}}`,
+	))
+	v.update(key("!"), 140, 30)
+	if sel := v.selected(); sel == nil || sel.Tool == nil || sel.Tool.ID != "t9" || v.search.Value() != "" {
+		t.Errorf("! selected %+v with search %q", sel, v.search.Value())
+	}
+}
+
+func TestJumpToHiddenThinkingSelectsTheEventBefore(t *testing.T) {
+	v := newTestView(t)
+	v.onTail(lines(
+		`{"type":"assistant","uuid":"a8","timestamp":"2026-10-24T10:01:00Z","message":{"id":"m8","content":[{"type":"text","text":"before"}]}}`,
+		`{"type":"assistant","uuid":"a9","timestamp":"2026-10-24T10:01:01Z","message":{"id":"m9","content":[{"type":"thinking","thinking":"hmm"}]}}`,
+	))
+	think := v.sess.Events[len(v.sess.Events)-1]
+	v.cursor = 0
+	v.jumpTo(think)
+	if sel := v.selected(); sel == nil || sel.Text != "before" {
+		t.Errorf("jump to hidden thinking selected %+v", sel)
+	}
+}

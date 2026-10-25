@@ -159,21 +159,38 @@ func (v *view) moveGroup(d int) {
 	v.gCursor = max(0, min(v.gCursor+d, len(v.gRows)-1))
 }
 
-// jumpTo shows a call in the timeline, clearing the kind filter if it
-// would hide it.
+// jumpTo shows an event in the timeline, clearing the kind filter and the
+// search if they would hide it. An event still hidden (thinking, while
+// thinking is off) selects the last shown event before it.
 func (v *view) jumpTo(e *parse.Event) {
 	v.tab = tabTimeline
 	v.follow = false
-	for pass := 0; pass < 2; pass++ {
-		for i, x := range v.shown {
-			if x == e {
-				v.cursor = i
-				return
-			}
-		}
-		v.kind = 0
-		v.refresh()
+	if v.selectShown(e) {
+		return
 	}
+	v.kind = 0
+	v.typing = false
+	v.search.Blur()
+	v.search.SetValue("")
+	v.refresh()
+	if v.selectShown(e) {
+		return
+	}
+	for i, x := range v.shown {
+		if v.depth[x] == 0 && !x.Time.After(e.Time) {
+			v.cursor = i
+		}
+	}
+}
+
+func (v *view) selectShown(e *parse.Event) bool {
+	for i, x := range v.shown {
+		if x == e {
+			v.cursor = i
+			return true
+		}
+	}
+	return false
 }
 
 func (v *view) updateTools(k tea.KeyMsg, w, bodyH int) (tea.Cmd, *view) {
