@@ -1,4 +1,10 @@
-# snoop
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/static/mark-dark.svg">
+    <img src="site/static/mark-light.svg" alt="" height="28">
+  </picture>
+  snoop
+</h1>
 
 A fast terminal viewer for Claude Code session transcripts
 (`~/.claude/projects/**/*.jsonl`). Keep it open in a second terminal next to

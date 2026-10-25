@@ -65,7 +65,7 @@ body {
 }
 
 .snoop-navbar-mark svg {
-  height: 1.7rem;
+  height: 1.05rem;
   width: auto;
   display: block;
 }
@@ -95,7 +95,7 @@ body {
 }
 
 .snoop-hero__logo svg {
-  height: clamp(3.5rem, 10vw, 5.5rem);
+  height: clamp(2.4rem, 7vw, 3.6rem);
   width: auto;
   display: block;
   margin: 0 auto;
