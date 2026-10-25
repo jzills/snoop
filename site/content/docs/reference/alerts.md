@@ -18,15 +18,17 @@ alerts.
 | `compact` | `⟳ compacted` | the context is compacted |
 | `ctx` | `ctx 90%` | the context window passes 90% |
 
-Any key hides the alert. `!` jumps to the event that raised it.
+Any key hides the alert. Press `!` to jump to the event that raised it.
 
 Calls that run a subagent, through the Agent tool or a forked skill, never
 raise `stall`.
 
 ## Bell and notifications
 
-`--bell` rings the terminal bell and `--notify` sends a desktop notification,
-both for the alerts chosen with `--alerts` (by default `error,turn`):
+The bell and desktop notifications are both off by default. With `--bell`,
+snoop rings the terminal bell, and with `--notify` it sends a desktop
+notification, both for the alerts chosen with `--alerts` (by default
+`error,turn`):
 
 ```sh
 snoop --follow --bell
@@ -53,7 +55,7 @@ snoop picks one way to deliver notifications for where it runs:
 | Linux desktop | `notify-send` |
 | anywhere else | the terminal's escape sequence (OSC 777) |
 
-`--notify=terminal` or `--notify=system` overrides the choice.
+To override the choice, use `--notify=terminal` or `--notify=system`.
 
 ## When notifications are held back
 

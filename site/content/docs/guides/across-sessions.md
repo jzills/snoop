@@ -13,9 +13,9 @@ command they ran, or a prompt, subagents included.
 {{< shot src="find.png" alt="Find results: a session that edited a file matching the query" caption="Each result shows what matched." >}}
 
 Every word you type must match the same file, command or prompt. Each result
-shows the match, and `+N more` when there are others. `enter` keeps the
-results; `enter` again opens the session with its timeline searched for the
-same words. `esc` leaves find.
+shows the match, and `+N more` when there are others. Press `enter` to keep
+the results, then `enter` again to open a session with its timeline searched
+for the same words. Press `esc` to leave find.
 
 ## Summary
 

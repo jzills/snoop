@@ -15,10 +15,10 @@ the session writes.
 snoop --follow
 ```
 
-`--follow` opens the newest session for the current directory, or for
-`--project DIR`, and switches to a new one when Claude Code starts it. While
-following, the newest event is selected as it arrives and the header shows
-`↓`. Moving up pauses following; `G` resumes it.
+With `--follow`, snoop opens the newest session for the current directory,
+or for `--project DIR`, and switches to a new one when Claude Code starts it.
+While following, the newest event is selected as it arrives and the header
+shows `↓`. Moving up pauses following, and pressing `G` resumes it.
 
 You can also open any session directly, by an id prefix or a path:
 
@@ -52,10 +52,10 @@ focused pane fills the screen.
 
 ## Search and filter
 
-`/` searches text, commands, paths and results; every word must match.
-`enter` keeps the search, `esc` clears it. `f` cycles a filter through all,
-chat, tools, skills, MCP, agents and errors. `t` shows thinking blocks, which
-are hidden by default.
+Press `/` to search text, commands, paths and results; every word must
+match. Press `enter` to keep the search or `esc` to clear it. The `f` key
+cycles a filter through all, chat, tools, skills, MCP, agents and errors, and
+`t` shows thinking blocks, which are hidden by default.
 
 Search and filters reach into subagents. A collapsed Agent call whose
 subagent has matches stays in the list, marked `●`.

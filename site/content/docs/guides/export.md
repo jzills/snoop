@@ -5,7 +5,7 @@ weight: 7
 
 ## Copy
 
-`y` copies the selected event to the clipboard:
+Press `y` to copy the selected event to the clipboard:
 
 | Selection | Copies |
 | --- | --- |
@@ -16,13 +16,14 @@ weight: 7
 | any other call | its result |
 | a file, in the Files tab | all of its changes |
 
-snoop copies over OSC 52, which works over SSH. In tmux, enable it with
-`set -g set-clipboard on`.
+snoop copies over OSC 52, which works over SSH. In tmux, enable it by adding
+`set -g set-clipboard on` to your configuration.
 
 ## Export to Markdown
 
-`e` exports the timeline as shown, including the search, filter, thinking
-blocks and expanded subagents, to a Markdown file in the current directory:
+Press `e` to export the timeline as shown, including the search, filter,
+thinking blocks and expanded subagents, to a Markdown file in the current
+directory:
 
 ```text
 ./64f3ec44-20261025-1430.md

@@ -28,8 +28,8 @@ The header counts the sessions waiting on you. Each row shows the project,
 the session, how full its context is, its cost, and when it last wrote.
 Sessions leave the board after 30 minutes without writes.
 
-`enter` opens a session and `esc` comes back to the board. `esc` or `w` on
-the board returns to the session picker.
+Press `enter` to open a session and `esc` to come back to the board. From
+the board, `esc` or `w` returns to the session picker.
 
 The waiting threshold is `--stall`, 30 seconds by default. Permission
 prompts aren't recorded in the transcript until you answer them, so a tool

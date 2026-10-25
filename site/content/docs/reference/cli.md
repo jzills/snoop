@@ -31,7 +31,7 @@ snoop export <session-id|path> [-o file]
 | `--alerts LIST` | `error,turn` | which alerts ring the bell or notify: any of `error`, `stall`, `turn`, `compact`, `ctx` |
 | `--version` | | print the version and exit |
 
-`snoop export` takes `-o FILE` to write to a file instead of stdout.
+The export command takes `-o FILE` to write to a file instead of stdout.
 
 ## Environment
 

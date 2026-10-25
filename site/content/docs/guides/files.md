@@ -12,16 +12,16 @@ edited or wrote.
 
 Each file shows its read, edit and write counts and the lines added and
 removed. Changed files come first, then files only read, each most recent
-first. `/` keeps only files whose path matches.
+first. Press `/` to keep only files whose path matches.
 
 ## A file's history
 
 The right pane shows the selected file's history, with every change as a
-diff. `n` and `N` step through the changes. `enter` shows the file's latest
-change in the timeline; for a change a subagent made, it shows the Agent
-call.
+diff. Press `n` and `N` to step through the changes, or `enter` to show the
+file's latest change in the timeline; for a change a subagent made, that is
+the Agent call.
 
-`y` copies all of the file's changes to the clipboard.
+Pressing `y` copies all of the file's changes to the clipboard.
 
 {{< callout type="info" >}}
 Changes made through Bash, such as `sed -i` or a code generator, aren't

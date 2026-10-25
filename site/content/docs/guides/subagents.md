@@ -10,15 +10,16 @@ call that started it.
 ## Expand inline
 
 Press `x` on an Agent call to expand what its subagent did, indented under a
-`│` rule. The expanded events stay live while the subagent runs. `X` expands
-every subagent, nested ones included; press it again to collapse them all.
+`│` rule. The expanded events stay live while the subagent runs. Press `X`
+to expand every subagent, nested ones included, and again to collapse them
+all.
 
 {{< shot src="subagent.png" alt="An Agent call expanded inline, showing the subagent's prompt and tool calls indented beneath it" caption="An Explore subagent expanded under its Agent call." >}}
 
 ## Open in its own view
 
 Press `a` on an Agent call to open the subagent's transcript in a view of its
-own, with all four tabs. `esc` returns to the parent session.
+own, with all four tabs. Press `esc` to return to the parent session.
 
 ## Search and files
 

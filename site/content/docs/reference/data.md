@@ -23,7 +23,7 @@ instead. It never writes to these files.
 | `<cache>/snoop/notified/` | one small file per notification sent, so several snoops send it once. Removed after an hour |
 | `./<id>-<date>-<time>.md` | timelines you export with `e` |
 
-`<cache>` is your user cache directory:
+Here `<cache>` is your user cache directory:
 
 | Platform | Cache directory |
 | --- | --- |
