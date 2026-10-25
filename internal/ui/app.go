@@ -239,7 +239,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if msg.String() == "q" && !a.picker.filtering {
 				return a, tea.Quit
 			}
-			if msg.String() == "esc" && !a.picker.filtering && a.picker.input.Value() == "" {
+			if msg.String() == "esc" && !a.picker.filtering && a.picker.input.Value() == "" && !a.picker.find {
 				if a.picker.summary {
 					return a, a.picker.toggleSummary()
 				}

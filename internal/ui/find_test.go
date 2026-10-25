@@ -98,3 +98,19 @@ func TestExcerptShowsTheMatch(t *testing.T) {
 		t.Errorf("a match already in view moved: %q", got)
 	}
 }
+
+func TestEscAfterAnEmptyFindDoesNotQuit(t *testing.T) {
+	a := newFindApp(t)
+	a.Update(key("f"))
+	a.Update(tea.KeyMsg{Type: tea.KeyEnter}) // nothing typed
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("esc quit instead of leaving find")
+		}
+	}
+	if a.picker.find {
+		t.Error("esc did not leave find")
+	}
+}
+
