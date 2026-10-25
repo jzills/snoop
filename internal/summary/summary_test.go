@@ -93,3 +93,81 @@ func TestScanUsesCache(t *testing.T) {
 		t.Error("deleted session kept in cache")
 	}
 }
+
+const indexFixture = `{"type":"user","uuid":"u1","timestamp":"2026-10-23T10:00:00Z","message":{"content":"Fix the flaky parser test\nit fails on CI"}}
+{"type":"assistant","uuid":"a1","timestamp":"2026-10-23T10:00:01Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":"/src/api/internal/parse/parse.go"}},{"type":"tool_use","id":"t2","name":"Bash","input":{"command":"go test ./internal/parse/\necho done"}},{"type":"tool_use","id":"t3","name":"Bash","input":{"command":"go test ./internal/parse/"}},{"type":"tool_use","id":"t4","name":"Agent","input":{"subagent_type":"Explore"}}]}}
+{"type":"user","uuid":"r4","timestamp":"2026-10-23T10:00:09Z","toolUseResult":{"agentId":"a1b2"},"message":{"content":[{"type":"tool_result","tool_use_id":"t4","content":"done"}]}}
+`
+
+const subFixture = `{"type":"assistant","uuid":"s1","timestamp":"2026-10-23T10:00:03Z","message":{"id":"sm1","content":[{"type":"tool_use","id":"st1","name":"Edit","input":{"file_path":"/src/api/internal/parse/turns.go","old_string":"a","new_string":"b"}},{"type":"tool_use","id":"st2","name":"Bash","input":{"command":"gofmt -l ."}}]}}
+`
+
+func TestScanIndexesPromptsFilesAndCommands(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "s.jsonl")
+	os.WriteFile(p, []byte(indexFixture), 0o644)
+	sub := store.SubagentPath(p, "a1b2")
+	os.MkdirAll(filepath.Dir(sub), 0o755)
+	os.WriteFile(sub, []byte(subFixture), 0o644)
+
+	var r Result
+	for r = range Scan([]store.SessionInfo{store.Info(p)}, OpenCache("")) {
+	}
+	idx := r.Sum.Find
+	if idx == nil {
+		t.Fatalf("no index: %+v", r)
+	}
+	if len(idx.Prompts) != 1 || idx.Prompts[0] != "Fix the flaky parser test" {
+		t.Errorf("prompts = %q, want the first line of each", idx.Prompts)
+	}
+	if want := []string{"/src/api/internal/parse/parse.go", "/src/api/internal/parse/turns.go"}; strings.Join(idx.Files, ",") != strings.Join(want, ",") {
+		t.Errorf("files = %q, want %q (a subagent's edit included)", idx.Files, want)
+	}
+	if want := []string{"go test ./internal/parse/", "gofmt -l ."}; strings.Join(idx.Commands, ",") != strings.Join(want, ",") {
+		t.Errorf("commands = %q, want %q (first lines, once each)", idx.Commands, want)
+	}
+}
+
+func TestOldCacheVersionIsDiscarded(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "summaries.json"), []byte(`{"version":1,"sessions":{"/x.jsonl":{"size":1,"prompts":3}}}`), 0o644)
+	if c := OpenCache(dir); len(c.entries) != 0 {
+		t.Errorf("entries from a version 1 cache: %v", c.entries)
+	}
+}
+
+func TestFind(t *testing.T) {
+	sums := map[string]Session{
+		"/a.jsonl": {Find: &Index{
+			Prompts:  []string{"rename the parser package"},
+			Files:    []string{"/src/api/internal/parse/parse.go", "/src/api/internal/parse/turns.go"},
+			Commands: []string{"go test ./internal/parse/"},
+		}},
+		"/b.jsonl": {Find: &Index{Prompts: []string{"write the changelog"}, Commands: []string{"git log"}}},
+		"/c.jsonl": {}, // not indexed yet
+	}
+	paths := []string{"/c.jsonl", "/b.jsonl", "/a.jsonl"}
+
+	hits := Find(sums, paths, "PARSE go")
+	if len(hits) != 1 || hits[0].Path != "/a.jsonl" {
+		t.Fatalf("hits = %+v, want /a.jsonl", hits)
+	}
+	// Files come first; every matching entry counts.
+	if h := hits[0]; h.Kind != HitFile || h.Text != "/src/api/internal/parse/parse.go" || h.N != 3 {
+		t.Errorf("hit = %+v, want parse.go of 3 matches", h)
+	}
+	// Words match within one entry, not across a session.
+	if hits := Find(sums, paths, "changelog git"); len(hits) != 0 {
+		t.Errorf("words split across entries matched: %+v", hits)
+	}
+	if hits := Find(sums, paths, "log"); len(hits) != 1 || hits[0].Kind != HitCommand || hits[0].Text != "git log" {
+		t.Errorf("hits = %+v, want b's command before its prompt", hits)
+	}
+	// Order and scope are the caller's.
+	if hits := Find(sums, []string{"/b.jsonl"}, "parse"); len(hits) != 0 {
+		t.Errorf("a path not passed matched: %+v", hits)
+	}
+	if hits := Find(sums, paths, "  "); len(hits) != 0 {
+		t.Errorf("a blank query matched: %+v", hits)
+	}
+}

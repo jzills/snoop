@@ -51,10 +51,17 @@ func (p *picker) onScan(msg tea.Msg) tea.Cmd {
 			p.sums[msg.r.Path] = msg.r.Sum
 			delete(p.bad, msg.r.Path)
 		}
+		// Find results fill in as sessions are indexed, a batch at a time.
+		if p.find && p.scanned%findBatch == 0 {
+			p.refilter()
+		}
 		return waitScan(msg.ch)
 	case scanDoneMsg:
 		p.scanning = false
 		p.cache.Save(p.all)
+		if p.find {
+			p.refilter()
+		}
 	}
 	return nil
 }
@@ -64,7 +71,19 @@ func (p *picker) onScan(msg tea.Msg) tea.Cmd {
 func (p *picker) toggleSummary() tea.Cmd {
 	p.summary = !p.summary
 	p.page.GotoTop()
-	if !p.summary || p.scanning || !p.loaded {
+	if !p.summary {
+		return nil
+	}
+	return p.startScan()
+}
+
+// findBatch is how many scanned sessions update find's results at once.
+const findBatch = 25
+
+// startScan summarises every session in the background, unless a scan is
+// running; once cached, a scan only stats the files.
+func (p *picker) startScan() tea.Cmd {
+	if p.scanning || !p.loaded {
 		return nil
 	}
 	p.scanning, p.scanned = true, 0

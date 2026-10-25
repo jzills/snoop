@@ -59,7 +59,7 @@ func (a *App) Init() tea.Cmd {
 	}
 	if a.opts.Path != "" {
 		path := a.opts.Path
-		cmds = append(cmds, func() tea.Msg { return openMsg{path} })
+		cmds = append(cmds, func() tea.Msg { return openMsg{path: path} })
 	}
 	return tea.Batch(cmds...)
 }
@@ -170,6 +170,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.pop()
 			}
 		}
+		if msg.search != "" {
+			// From find: show what matched, from the first match.
+			v.search.SetValue(msg.search)
+			v.refresh()
+			v.cursor, v.follow = 0, false
+		}
 		return a, a.push(v)
 	case tailMsg:
 		if msg.u.Err == tail.ErrClosed {
@@ -177,7 +183,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.u.NewSession != "" && a.opts.Follow && len(a.stack) > 0 && msg.v == a.stack[0] {
 			path := msg.u.NewSession
-			return a, tea.Batch(msg.v.waitTail(), func() tea.Msg { return openMsg{path} })
+			return a, tea.Batch(msg.v.waitTail(), func() tea.Msg { return openMsg{path: path} })
 		}
 		as := msg.v.onTail(msg.u)
 		return a, tea.Batch(msg.v.waitTail(), a.signal(as, msg.v.project()))

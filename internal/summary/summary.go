@@ -18,7 +18,7 @@ import (
 )
 
 // Bump when Session changes shape, so stale cache entries are re-read.
-const cacheVersion = 1
+const cacheVersion = 2
 
 type Count struct {
 	N      int `json:"n"`
@@ -48,6 +48,8 @@ type Session struct {
 	Agents map[string]Count `json:"agents,omitempty"`
 	Models map[string]int   `json:"models,omitempty"` // API requests
 	Days   map[string]Day   `json:"days,omitempty"`   // by local date, from each turn's start
+
+	Find *Index `json:"find,omitempty"` // what the picker's find searches
 }
 
 // Of summarises a parsed session.
@@ -217,6 +219,14 @@ func scanOne(i store.SessionInfo, c *Cache) Result {
 	}
 	s := Of(sess)
 	s.Size, s.ModTime = i.Size, i.ModTime
+	x := newIndexer()
+	x.session(sess, true)
+	for _, id := range store.SubagentIDs(i.Path) {
+		if sub, _, err := store.Load(store.SubagentPath(i.Path, id)); err == nil {
+			x.session(sub, false)
+		}
+	}
+	s.Find = &x.idx
 	c.put(i.Path, s)
 	return Result{Path: i.Path, Sum: s}
 }

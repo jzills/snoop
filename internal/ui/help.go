@@ -43,6 +43,12 @@ var helpPicker = []helpSection{
 		{"esc", "clear the search (with none: quit)"},
 		{"c", "only sessions for this directory"},
 	}},
+	{"Find", [][2]string{
+		{"f", "find sessions by a file they read or changed, a command they ran or a prompt; every word must match one of them"},
+		{"", "subagents count too; transcripts are indexed in the background and cached"},
+		{"enter", "keep the results, then open a session with the timeline searched for the same words"},
+		{"esc", "leave find"},
+	}},
 	{"Live", [][2]string{
 		{"w", "the live board: every session written in the last 30 minutes, across projects (also snoop --live)"},
 	}},

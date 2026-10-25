@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/sahilm/fuzzy"
 
 	"github.com/jzills/snoop/internal/store"
@@ -20,7 +21,11 @@ type sessionsMsg struct {
 	err   error
 }
 
-type openMsg struct{ path string }
+// openMsg opens a session, with search set in its timeline when given.
+type openMsg struct {
+	path   string
+	search string
+}
 
 // showBoardMsg switches from the picker to the live board.
 type showBoardMsg struct{}
@@ -37,6 +42,11 @@ type picker struct {
 	loaded      bool
 	err         error
 
+	// Find in every session's prompts, files and commands (f); the input
+	// is shared with the fuzzy search.
+	find bool
+	hits map[string]summary.Hit // by transcript path
+
 	// Summary across the listed sessions (s).
 	summary  bool
 	page     viewport.Model
@@ -49,11 +59,23 @@ type picker struct {
 
 func newPicker(projectDir, cacheDir string) picker {
 	ti := textinput.New()
-	ti.Prompt = "/ "
 	ti.PromptStyle = sKey
-	ti.Placeholder = "fuzzy search titles, projects, branches"
-	return picker{input: ti, projectDir: projectDir, page: viewport.New(0, 0),
+	p := picker{input: ti, projectDir: projectDir, page: viewport.New(0, 0),
 		cache: summary.OpenCache(cacheDir), sums: map[string]summary.Session{}, bad: map[string]bool{}}
+	p.setFind(false)
+	return p
+}
+
+// setFind switches the input between fuzzy search and find.
+func (p *picker) setFind(on bool) {
+	p.find = on
+	if on {
+		p.input.Prompt = "find "
+		p.input.Placeholder = "a file, command or prompt in any session"
+	} else {
+		p.input.Prompt = "/ "
+		p.input.Placeholder = "fuzzy search titles, projects, branches"
+	}
 }
 
 func loadSessions(root string) tea.Cmd {
@@ -79,9 +101,22 @@ func (p *picker) refilter() {
 		}
 	}
 	q := strings.TrimSpace(p.input.Value())
-	if q == "" {
+	switch {
+	case p.find:
+		paths := make([]string, len(base))
+		at := make(map[string]int, len(base))
+		for j, i := range base {
+			paths[j], at[p.all[i].Path] = p.all[i].Path, i
+		}
+		p.hits = map[string]summary.Hit{}
+		p.shown = p.shown[:0]
+		for _, h := range summary.Find(p.sums, paths, q) {
+			p.hits[h.Path] = h
+			p.shown = append(p.shown, at[h.Path])
+		}
+	case q == "":
 		p.shown = base
-	} else {
+	default:
 		src := make(pickerSource, len(base))
 		for j, i := range base {
 			src[j] = p.all[i]
@@ -106,6 +141,7 @@ func (p *picker) update(msg tea.Msg, height int) tea.Cmd {
 				p.filtering = false
 				p.input.Blur()
 				p.input.SetValue("")
+				p.setFind(false)
 				p.refilter()
 				return nil
 			case "enter":
@@ -138,10 +174,20 @@ func (p *picker) update(msg tea.Msg, height int) tea.Cmd {
 			return func() tea.Msg { return showBoardMsg{} }
 		case "esc":
 			p.input.SetValue("")
+			p.setFind(false)
 			p.cursor = 0
 			p.refilter()
-		case "/":
+		case "/", "f":
+			if find := msg.String() == "f"; find != p.find {
+				p.input.SetValue("")
+				p.setFind(find)
+				p.cursor = 0
+				p.refilter()
+			}
 			p.filtering = true
+			if p.find {
+				return tea.Batch(p.input.Focus(), p.startScan())
+			}
 			return p.input.Focus()
 		case "up", "k", "ctrl+p":
 			p.cursor = max(p.cursor-1, 0)
@@ -161,8 +207,11 @@ func (p *picker) update(msg tea.Msg, height int) tea.Cmd {
 			p.refilter()
 		case "enter", "l", "right":
 			if len(p.shown) > 0 {
-				path := p.all[p.shown[p.cursor]].Path
-				return func() tea.Msg { return openMsg{path} }
+				msg := openMsg{path: p.all[p.shown[p.cursor]].Path}
+				if p.find {
+					msg.search = strings.TrimSpace(p.input.Value())
+				}
+				return func() tea.Msg { return msg }
 			}
 		}
 	}
@@ -181,6 +230,10 @@ func (p *picker) view(w, h int) string {
 	}
 	head := sTitle.Render(" snoop") + sDim.Render(what) +
 		sText.Render(fmt.Sprintf("%d", len(p.shown))) + sDim.Render(" sessions in "+scope)
+	if p.find && !p.summary {
+		head = sTitle.Render(" snoop") + sDim.Render("  Find · ") +
+			sText.Render(fmt.Sprintf("%d", len(p.shown))) + sDim.Render(" matching in "+scope)
+	}
 	if prog := p.scanProgress(); prog != "" {
 		head += "  " + prog
 	}
@@ -203,6 +256,12 @@ func (p *picker) view(w, h int) string {
 		b.WriteString(sErr.Render(" " + p.err.Error()))
 	case !p.loaded:
 		b.WriteString(sDim.Render(" loading…"))
+	case p.find && strings.TrimSpace(p.input.Value()) == "":
+		b.WriteString(sDim.Render(" type to find a file, command or prompt in any session; every word must match"))
+	case p.find && len(p.shown) == 0 && p.scanning:
+		b.WriteString(sDim.Render(" no matches yet"))
+	case len(p.shown) == 0 && p.find:
+		b.WriteString(sDim.Render(" no matches"))
 	case len(p.shown) == 0:
 		b.WriteString(sDim.Render(" no sessions"))
 	}
@@ -231,7 +290,7 @@ func (p *picker) view(w, h int) string {
 			st(sDim).Render(fit(" "+ago(s.ModTime), 7)) + st(sDim).Render(" ") +
 			st(sAccent).Render(fit(filepath.Base(s.Project()), projW)) + st(sDim).Render(" ") +
 			st(sDim).Render(fit(s.Branch, branchW)) + st(sDim).Render(" ") +
-			st(nameStyle).Render(fit(s.Name(), max(w-fixed, 10))) +
+			p.nameCell(s, st, nameStyle, max(w-fixed, 10)) +
 			st(sDim).Render(fit(fmt.Sprintf("%7s", bytesize(s.Size)), 7))
 		b.WriteString(fit(line, w) + "\n")
 	}
@@ -244,7 +303,49 @@ func (p *picker) view(w, h int) string {
 	if p.filtering || p.input.Value() != "" {
 		b.WriteString(fit(p.input.View(), w))
 	} else {
-		b.WriteString(fit(" "+keyHelp("↑↓", "move", "enter", "open", "/", "search", "c", "this project", "s", "summary", "?", "help"), w))
+		b.WriteString(fit(" "+keyHelp("↑↓", "move", "enter", "open", "/", "search", "f", "find", "w", "live", "s", "summary", "?", "help"), w))
 	}
 	return b.String()
+}
+
+// nameCell is the session's name, or in find its matching entry.
+func (p *picker) nameCell(s store.SessionInfo, st func(lipgloss.Style) lipgloss.Style, nameStyle lipgloss.Style, w int) string {
+	h, ok := p.hits[s.Path]
+	if !p.find || !ok {
+		return st(nameStyle).Render(fit(s.Name(), w))
+	}
+	glyph := [...]string{"▸ ", "$ ", glyphUser + " "}[h.Kind]
+	more := ""
+	if h.N > 1 {
+		more = fmt.Sprintf("  +%d more", h.N-1)
+	}
+	avail := max(w-lipgloss.Width(more)-lipgloss.Width(glyph), 1)
+	text := ansi.Truncate(glyph+excerpt(oneLine(h.Text), p.input.Value(), avail), max(w-lipgloss.Width(more), 1), "…")
+	return fit(st(nameStyle).Render(text)+st(sDim).Render(more), w)
+}
+
+// excerpt drops the start of a long s, so the first word of query it
+// contains shows within w cells.
+func excerpt(s, query string, w int) string {
+	r := []rune(s)
+	if len(r) <= w {
+		return s
+	}
+	lower := []rune(strings.ToLower(s))
+	if len(lower) != len(r) {
+		return s
+	}
+	for _, t := range strings.Fields(strings.ToLower(query)) {
+		i := strings.Index(string(lower), t)
+		if i < 0 {
+			continue
+		}
+		at := len([]rune(string(lower)[:i]))
+		if end := at + len([]rune(t)); end > w-1 {
+			start := min(max(at-w/3, 1), len(r)-1)
+			return "…" + string(r[start:])
+		}
+		return s
+	}
+	return s
 }

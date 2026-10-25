@@ -1,5 +1,7 @@
 # Many sessions at once — design
 
+Status: implemented 2026-10-25. Deviations: the site reworks two existing feature cards instead of adding a seventh (seven left one card alone on a row), and long find results scroll to show the match.
+
 ## Context
 
 snoop follows one session at a time. Heavy Claude Code users run several sessions in parallel, often across projects, and the first thing they need is to know which one wants them.

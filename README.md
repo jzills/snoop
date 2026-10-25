@@ -37,6 +37,7 @@ issue if something goes missing.
 snoop                  # pick a session (all projects)
 snoop --follow         # follow the newest session for this directory, live;
                        # switches automatically when a new session starts
+snoop --live           # every session at work right now, across projects
 snoop 64f3ec44         # open by session id prefix (or a .jsonl path)
 snoop --project DIR    # treat DIR as the current project
 snoop --version
@@ -84,6 +85,27 @@ cost for the session, so that total is split across prompts by token use
 (weighted by relative token price). The prompt costs add up to the recorded
 total. Sessions without a recorded cost show tokens only.
 
+## Many sessions at once
+
+**Live board**: `snoop --live`, or `w` in the picker, lists every session
+written in the last 30 minutes, across projects, most urgent first:
+
+- `◌ waiting`: a tool call has had no result for `--stall` (30s), usually a
+  permission prompt. The board's header counts these (`1 waiting on you`).
+- `✓ your turn`: the turn ended, or you interrupted it.
+- `● working`: replying, or running a tool or subagent (shown underneath).
+- `· idle`: no prompts yet, or nothing written for 10 minutes.
+
+Each row shows the project, the session, how full its context is, its cost
+and when it last wrote. `enter` opens a session and `esc` comes back. Only
+sessions on the board are read, and after the first read only what they add.
+
+**Find**: `f` in the picker finds sessions by a file they read or changed, a
+command they ran, or a prompt, subagents included. Every word must match the
+same file, command or prompt. Each result shows what matched, and opening it
+searches its timeline for the same words. Sessions are indexed by the same
+background scan as the summary, and cached with it.
+
 ## Summary across sessions
 
 `s` in the session picker switches to a summary of the sessions listed (so
@@ -124,9 +146,19 @@ alerts.
 
 ```
 snoop --follow --bell                    # ring the bell on errors and turn ends
+snoop --live --notify                    # a desktop notification when any session needs you
 snoop --follow --bell --alerts error,stall,turn,compact,ctx
 snoop --stall 2m                         # 0 disables the waiting alert
 ```
+
+The live board raises the same alerts for every session on it, prefixed with
+the project (`api: ✓ your turn`).
+
+`--notify` sends desktop notifications through the terminal, so they work
+over SSH: OSC 9 in iTerm2, WezTerm and Ghostty, OSC 99 in kitty, OSC 777
+elsewhere (foot, rxvt, VTE terminals with notification support). In tmux,
+allow them through with `set -g allow-passthrough on`. Terminals that don't
+understand them ignore them.
 
 ## Keys
 
@@ -156,8 +188,9 @@ shows it in the timeline, `←`/`→` collapse and expand (`←` on a call moves
 its group), `E` expands everything (again to reset), and `/` search keeps
 only matching calls with their groups opened.
 
-In the picker: `/` fuzzy search, `esc` clears it, `c` toggles this project only,
-`s` switches to the summary.
+In the picker: `/` fuzzy search, `f` find across sessions, `esc` clears either,
+`c` toggles this project only, `s` switches to the summary, `w` opens the live
+board.
 
 ## Notes
 

@@ -283,7 +283,7 @@ func (b *board) update(msg tea.KeyMsg, height int) tea.Cmd {
 	case "enter", "l", "right":
 		if b.cursor < n {
 			path := b.order[b.cursor].f.Path
-			return func() tea.Msg { return openMsg{path} }
+			return func() tea.Msg { return openMsg{path: path} }
 		}
 	}
 	return nil

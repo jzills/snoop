@@ -69,8 +69,8 @@ toc: false
   </p>
   <div class="snoop-features">
     <div class="snoop-feature">
-      <p class="snoop-feature__title">Follow a session live</p>
-      <p class="snoop-feature__body">Keep <code>snoop --follow</code> open beside <code>claude</code>. Every prompt, reply and tool call lands as it happens, and the header flags errors, a tool waiting on you, the end of a turn and a compaction.</p>
+      <p class="snoop-feature__title">Every session at a glance</p>
+      <p class="snoop-feature__body"><code>snoop --live</code> lists every session at work across your projects, and which ones are waiting on you. Add <code>--notify</code> for a desktop notification when one needs you, or <code>--follow</code> one session as it happens.</p>
     </div>
     <div class="snoop-feature">
       <p class="snoop-feature__title">What each prompt cost</p>
@@ -90,7 +90,7 @@ toc: false
     </div>
     <div class="snoop-feature">
       <p class="snoop-feature__title">Across all your sessions</p>
-      <p class="snoop-feature__body">A summary of every session: cost by day for the last 30 days, error rates, and the tools, skills, MCP servers and models you use most.</p>
+      <p class="snoop-feature__body">Find the session that touched a file, ran a command or got a prompt. Or see a summary of them all: cost by day, error rates, and the tools, skills, MCP servers and models you use most.</p>
     </div>
   </div>
   <p class="snoop-fineprint">
