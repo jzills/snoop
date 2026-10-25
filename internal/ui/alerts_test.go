@@ -95,13 +95,18 @@ func TestStallAlertOncePerCall(t *testing.T) {
 	}
 }
 
-func TestBellOnlyForChosenKinds(t *testing.T) {
-	on := map[string]bool{alertError: true}
-	if bell([]*alert{{kind: alertCompact}}, on) != nil {
-		t.Error("bell rang for compaction")
+func TestSignalOnlyForChosenKinds(t *testing.T) {
+	a := New(Options{Bell: true, Notify: true, BellOn: map[string]bool{alertError: true}})
+	if got := a.signalText([]*alert{{kind: alertCompact, text: "compacted"}}, "api"); got != "" {
+		t.Errorf("signalled %q for a compaction", got)
 	}
-	if bell([]*alert{{kind: alertCompact}, {kind: alertError}}, on) == nil {
-		t.Error("bell silent for error")
+	got := a.signalText([]*alert{{kind: alertCompact}, {kind: alertError, text: "✗ error: Bash"}}, "api")
+	if !strings.HasPrefix(got, "\a") || !strings.Contains(got, "api: ✗ error: Bash") {
+		t.Errorf("signal for an error = %q, want the bell and a notification naming the project", got)
+	}
+	a.opts.Notify = false
+	if got := a.signalText([]*alert{{kind: alertError, text: "x"}}, ""); got != "\a" {
+		t.Errorf("bell only = %q", got)
 	}
 }
 

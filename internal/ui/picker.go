@@ -22,6 +22,9 @@ type sessionsMsg struct {
 
 type openMsg struct{ path string }
 
+// showBoardMsg switches from the picker to the live board.
+type showBoardMsg struct{}
+
 type picker struct {
 	all         []store.SessionInfo
 	shown       []int
@@ -131,6 +134,8 @@ func (p *picker) update(msg tea.Msg, height int) tea.Cmd {
 		switch msg.String() {
 		case "s":
 			return p.toggleSummary()
+		case "w":
+			return func() tea.Msg { return showBoardMsg{} }
 		case "esc":
 			p.input.SetValue("")
 			p.cursor = 0

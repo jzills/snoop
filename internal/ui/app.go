@@ -3,6 +3,7 @@
 package ui
 
 import (
+	"os"
 	"strings"
 	"time"
 
@@ -20,15 +21,19 @@ type Options struct {
 
 	CacheDir string // where session summaries are cached; "" keeps them in memory
 
+	Live bool // start on the live board
+
 	Stall  time.Duration   // alert when a live tool call has no result after this long
 	Bell   bool            // ring the terminal bell on alerts
-	BellOn map[string]bool // alert kinds that ring the bell
+	Notify bool            // send a desktop notification on alerts
+	BellOn map[string]bool // alert kinds that ring the bell or notify
 }
 
 type App struct {
 	opts   Options
 	w, h   int
 	picker picker
+	board  *board // the live board, while it is showing or under the stack
 	stack  []*view
 	err    string
 
@@ -40,11 +45,18 @@ type tickMsg struct{}
 
 func New(opts Options) *App {
 	p := newPicker(opts.ProjectDir, opts.CacheDir)
-	return &App{opts: opts, picker: p}
+	a := &App{opts: opts, picker: p}
+	if opts.Live {
+		a.board = newBoard(opts.Root)
+	}
+	return a
 }
 
 func (a *App) Init() tea.Cmd {
 	cmds := []tea.Cmd{loadSessions(a.opts.Root), tick()}
+	if a.board != nil {
+		cmds = append(cmds, a.board.scanCmd(time.Now()))
+	}
 	if a.opts.Path != "" {
 		path := a.opts.Path
 		cmds = append(cmds, func() tea.Msg { return openMsg{path} })
@@ -92,10 +104,30 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for _, v := range a.stack {
 				as := v.stalls(time.Now(), a.opts.Stall)
 				v.raise(as)
-				cmds = append(cmds, a.bell(as))
+				cmds = append(cmds, a.signal(as, v.project()))
 			}
 		}
+		if b := a.board; b != nil {
+			now := time.Now()
+			if now.Sub(b.lastScan) >= boardScan {
+				cmds = append(cmds, b.scanCmd(now))
+			}
+			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.isOpen), ""))
+		}
 		return a, tea.Batch(cmds...)
+	case showBoardMsg:
+		a.board = newBoard(a.opts.Root)
+		return a, a.board.scanCmd(time.Now())
+	case boardScanMsg:
+		if a.board == nil {
+			return a, nil
+		}
+		return a, tea.Batch(a.board.onScan(msg)...)
+	case boardLoadedMsg:
+		if a.board != nil {
+			a.board.onLoaded(msg)
+		}
+		return a, nil
 	case tea.MouseMsg:
 		if msg.Action != tea.MouseActionPress {
 			return a, nil
@@ -117,6 +149,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		} else if v := a.top(); v != nil {
 			v.wheel(d, msg.X >= a.w*11/20 && a.w >= wideLayout)
+		} else if b := a.board; b != nil {
+			b.cursor = max(0, min(b.cursor+d, len(b.order)-1))
 		} else {
 			a.picker.cursor = max(0, min(a.picker.cursor+d, len(a.picker.shown)-1))
 		}
@@ -146,7 +180,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(msg.v.waitTail(), func() tea.Msg { return openMsg{path} })
 		}
 		as := msg.v.onTail(msg.u)
-		return a, tea.Batch(msg.v.waitTail(), a.bell(as))
+		return a, tea.Batch(msg.v.waitTail(), a.signal(as, msg.v.project()))
 	case tea.KeyMsg:
 		a.err = ""
 		switch msg.String() {
@@ -185,6 +219,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.helpVP.GotoTop()
 			return a, nil
 		}
+		if v == nil && a.board != nil {
+			switch msg.String() {
+			case "q":
+				return a, tea.Quit
+			case "esc", "w":
+				a.board = nil
+				return a, loadSessions(a.opts.Root)
+			}
+			return a, a.board.update(msg, a.h)
+		}
 		if v == nil {
 			if msg.String() == "q" && !a.picker.filtering {
 				return a, tea.Quit
@@ -213,7 +257,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return a, nil
 				}
 				a.pop()
-				if a.top() == nil {
+				if a.top() == nil && a.board == nil {
 					return a, loadSessions(a.opts.Root)
 				}
 				return a, nil
@@ -231,11 +275,55 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-func (a *App) bell(as []*alert) tea.Cmd {
-	if !a.opts.Bell {
+// signal rings the bell and sends a notification for the newest alert of
+// a kind the user chose. label names the session in the notification.
+func (a *App) signal(as []*alert, label string) tea.Cmd {
+	out := a.signalText(as, label)
+	if out == "" {
 		return nil
 	}
-	return bell(as, a.opts.BellOn)
+	return func() tea.Msg {
+		writeTerm(out)
+		return nil
+	}
+}
+
+func (a *App) signalText(as []*alert, label string) string {
+	c := chosen(as, a.opts.BellOn)
+	if c == nil {
+		return ""
+	}
+	var out string
+	if a.opts.Bell {
+		out = "\a"
+	}
+	if a.opts.Notify {
+		body := c.text
+		if label != "" {
+			body = label + ": " + body
+		}
+		out += notifySeq(os.Getenv, body)
+	}
+	return out
+}
+
+// isOpen reports whether a session is shown in a view on the stack.
+func (a *App) isOpen(path string) bool {
+	for _, v := range a.stack {
+		if v.path == path || v.rootPath == path {
+			return true
+		}
+	}
+	return false
+}
+
+// stallFor is the stall used to show a session as waiting on you; with the
+// alert disabled (--stall 0) the default still applies to the display.
+func (a *App) stallFor() time.Duration {
+	if a.opts.Stall > 0 {
+		return a.opts.Stall
+	}
+	return 30 * time.Second
 }
 
 func (a *App) View() string {
@@ -246,9 +334,12 @@ func (a *App) View() string {
 		return a.helpView()
 	}
 	var out string
-	if v := a.top(); v != nil {
+	switch v := a.top(); {
+	case v != nil:
 		out = v.render(a.w, a.h)
-	} else {
+	case a.board != nil:
+		out = a.board.view(a.w, a.h, time.Now(), a.stallFor())
+	default:
 		out = a.picker.view(a.w, a.h)
 	}
 	// Errors replace the footer until the next key press.

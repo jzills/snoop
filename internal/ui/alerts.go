@@ -2,10 +2,7 @@ package ui
 
 import (
 	"fmt"
-	"os"
 	"time"
-
-	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jzills/snoop/internal/parse"
 )
@@ -135,7 +132,7 @@ func (w *watch) stalls(now time.Time, stall time.Duration) []*alert {
 		case !alerted && now.Sub(e.Time) >= stall:
 			w.pending[e] = true
 			out = append(out, &alert{alertStall, fmt.Sprintf("%s waiting %s on %s · may be a permission prompt",
-				glyphPending, dur(now.Sub(e.Time).Truncate(time.Second)), e.Tool.Name), e})
+				glyphPending, waited(now.Sub(e.Time)), e.Tool.Name), e})
 		}
 	}
 	return out
@@ -146,17 +143,4 @@ func (v *view) raise(as []*alert) {
 	if len(as) > 0 {
 		v.alert, v.alertShown = as[len(as)-1], true
 	}
-}
-
-// bell rings the terminal bell when any alert is one the user chose.
-func bell(as []*alert, on map[string]bool) tea.Cmd {
-	for _, a := range as {
-		if on[a.kind] {
-			return func() tea.Msg {
-				os.Stderr.WriteString("\a")
-				return nil
-			}
-		}
-	}
-	return nil
 }

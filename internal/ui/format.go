@@ -60,6 +60,14 @@ func dur(d time.Duration) string {
 	return fmt.Sprintf("%dh%02dm", int(d.Hours()), int(d.Minutes())%60)
 }
 
+// waited is a wait in whole seconds: "45s", "2m05s".
+func waited(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds", int(d.Seconds()))
+	}
+	return dur(d.Truncate(time.Second))
+}
+
 func bytesize(n int64) string {
 	switch {
 	case n < 1<<10:

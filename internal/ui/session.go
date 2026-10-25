@@ -150,6 +150,14 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	return v, nil
 }
 
+// project names the session's project in notifications.
+func (v *view) project() string {
+	if v.sess.CWD != "" {
+		return filepath.Base(v.sess.CWD)
+	}
+	return ""
+}
+
 func (v *view) close() {
 	if v.tl != nil {
 		v.tl.Close()

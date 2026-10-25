@@ -67,12 +67,14 @@ func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	follow := flag.Bool("follow", false, "follow the newest session for the project and switch to new ones")
 	flag.BoolVar(follow, "f", false, "shorthand for --follow")
+	live := flag.Bool("live", false, "show every session written in the last 30 minutes, across projects")
 	project := flag.String("project", "", "project directory (default: current directory)")
 	stall := flag.Duration("stall", 30*time.Second, "alert when a tool call has no result after this long (0 disables)")
 	ring := flag.Bool("bell", false, "ring the terminal bell on alerts")
-	alerts := flag.String("alerts", "error,turn", "alerts that ring the bell: "+strings.Join(ui.AlertKinds, ","))
+	notify := flag.Bool("notify", false, "send a desktop notification on alerts (through the terminal)")
+	alerts := flag.String("alerts", "error,turn", "alerts that ring the bell or notify: "+strings.Join(ui.AlertKinds, ","))
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: snoop [--follow] [--project dir] [--bell] [--version] [session-id|path]\n\n")
+		fmt.Fprintf(os.Stderr, "usage: snoop [--follow | --live] [--project dir] [--bell] [--notify] [--version] [session-id|path]\n\n")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -91,8 +93,11 @@ func main() {
 		cwd, _ = os.Getwd()
 	}
 	cwd, _ = filepath.Abs(cwd)
-	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow,
-		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir()}
+	if *live && (*follow || flag.NArg() > 0) {
+		fail(fmt.Errorf("--live shows every session; it can't be combined with --follow or a session"))
+	}
+	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow, Live: *live,
+		Stall: *stall, Bell: *ring, Notify: *notify, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir()}
 	for _, k := range strings.Split(*alerts, ",") {
 		k = strings.TrimSpace(k)
 		if k == "" {

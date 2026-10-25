@@ -43,10 +43,37 @@ var helpPicker = []helpSection{
 		{"esc", "clear the search (with none: quit)"},
 		{"c", "only sessions for this directory"},
 	}},
+	{"Live", [][2]string{
+		{"w", "the live board: every session written in the last 30 minutes, across projects (also snoop --live)"},
+	}},
 	{"Summary", [][2]string{
 		{"s", "switch between the list and a summary of the sessions listed: cost, tokens, daily use, tools, skills, MCP, subagents, models"},
 		{"", "follows c and the search; transcripts are scanned in the background and cached"},
 		{"↑↓", "scroll the summary"},
+	}},
+	{"General", [][2]string{
+		{"?", "show or hide this help"},
+		{"q  ctrl+c", "quit"},
+	}},
+}
+
+var helpBoard = []helpSection{
+	{"Live board", [][2]string{
+		{"↑↓  j k", "move"},
+		{"g  G", "first / last"},
+		{"enter  →", "open the session; esc comes back here"},
+		{"esc  w", "back to the session picker"},
+	}},
+	{"States", [][2]string{
+		{glyphPending + " waiting", "a tool call has had no result for --stall (30s): often a permission prompt"},
+		{glyphOK + " your turn", "the turn ended, or was interrupted"},
+		{"● working", "replying or running a tool or subagent"},
+		{glyphSystem + " idle", "no prompts yet, or nothing written for 10 minutes"},
+		{"", "sessions leave the board after 30 minutes without writes"},
+	}},
+	{"Alerts", [][2]string{
+		{"--bell", "ring the terminal bell on the alerts chosen with --alerts"},
+		{"--notify", "send a desktop notification for them, through the terminal (in tmux: set -g allow-passthrough on)"},
 	}},
 	{"General", [][2]string{
 		{"?", "show or hide this help"},
@@ -148,6 +175,8 @@ var helpFiles = []helpSection{
 func (a *App) helpContent() (string, []helpSection) {
 	v := a.top()
 	switch {
+	case v == nil && a.board != nil:
+		return "Live board", helpBoard
 	case v == nil:
 		return "Session picker", helpPicker
 	case v.tab == tabTools:
