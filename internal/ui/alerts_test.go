@@ -83,14 +83,14 @@ func TestStallAlertOncePerCall(t *testing.T) {
 		`{"type":"assistant","uuid":"a9","timestamp":"2026-10-24T10:01:00Z","message":{"id":"m9","content":[{"type":"tool_use","id":"t9","name":"Bash","input":{"command":"sleep"}},{"type":"tool_use","id":"t10","name":"Agent","input":{"description":"long"}}]}}`,
 	))
 	start := time.Date(2026, 10, 24, 10, 1, 0, 0, time.UTC)
-	if as := v.checkStalls(start.Add(29*time.Second), 30*time.Second); len(as) != 0 {
+	if as := v.stalls(start.Add(29*time.Second), 30*time.Second); len(as) != 0 {
 		t.Errorf("stalled early: %+v", as)
 	}
-	as := v.checkStalls(start.Add(31*time.Second), 30*time.Second)
+	as := v.stalls(start.Add(31*time.Second), 30*time.Second)
 	if len(as) != 1 || as[0].ev.Tool.ID != "t9" || !strings.Contains(as[0].text, "may be a permission prompt") {
 		t.Fatalf("stall alerts = %+v (Agent calls are excluded)", as)
 	}
-	if as := v.checkStalls(start.Add(60*time.Second), 30*time.Second); len(as) != 0 {
+	if as := v.stalls(start.Add(60*time.Second), 30*time.Second); len(as) != 0 {
 		t.Errorf("repeated stall alert: %+v", as)
 	}
 }

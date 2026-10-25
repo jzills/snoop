@@ -90,7 +90,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if a.opts.Stall > 0 {
 			for _, v := range a.stack {
-				as := v.checkStalls(time.Now(), a.opts.Stall)
+				as := v.stalls(time.Now(), a.opts.Stall)
 				v.raise(as)
 				cmds = append(cmds, a.bell(as))
 			}

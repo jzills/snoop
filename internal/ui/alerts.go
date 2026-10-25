@@ -52,49 +52,69 @@ func ctxPct(s *parse.Session) int {
 	return 0
 }
 
-// liveState is what onTail compares before and after new lines.
+// watch is the alert state of one live session: the session view and the
+// live board each keep one per session they follow.
+type watch struct {
+	unseenErrs int
+	pending    map[*parse.Event]bool // live tool calls without a result; true once alerted
+}
+
+func newWatch() watch { return watch{pending: map[*parse.Event]bool{}} }
+
+// liveState is what a watch compares before and after new lines.
 type liveState struct {
 	events, errors, ctx int
 	turn                *parse.Turn
 	done                bool
 }
 
-func (v *view) liveState() liveState {
-	st := liveState{events: len(v.sess.Events), errors: v.stats.Errors, ctx: ctxPct(v.sess)}
-	if n := len(v.sess.Turns); n > 0 {
-		st.turn = v.sess.Turns[n-1]
+// errorCount counts tool calls that failed.
+func errorCount(s *parse.Session) int {
+	n := 0
+	for _, e := range s.Events {
+		if e.Tool != nil && e.Tool.IsError {
+			n++
+		}
+	}
+	return n
+}
+
+func (w *watch) snap(s *parse.Session) liveState {
+	st := liveState{events: len(s.Events), errors: errorCount(s), ctx: ctxPct(s)}
+	if n := len(s.Turns); n > 0 {
+		st.turn = s.Turns[n-1]
 		st.done = st.turn.Done
 	}
 	return st
 }
 
-// liveAlerts compares the session against its state before new lines
-// arrived and raises alerts, the most important last.
-func (v *view) liveAlerts(before liveState) []*alert {
+// alerts compares the session against its state before new lines arrived
+// and raises alerts, the most important last.
+func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 	var out []*alert
-	for _, e := range v.sess.Events[before.events:] {
+	for _, e := range s.Events[before.events:] {
 		switch {
 		case e.Kind == parse.KindCompact:
 			out = append(out, &alert{alertCompact, glyphCompact + " compacted", e})
 		case e.Tool != nil && e.Tool.Kind != parse.ToolAgent && !e.Tool.HasResult:
 			// Subagents legitimately run for minutes; other tools are
 			// watched for stalls.
-			v.pending[e] = false
+			w.pending[e] = false
 		}
 	}
-	if pct := ctxPct(v.sess); before.ctx < ctxAlertPct && pct >= ctxAlertPct {
-		out = append(out, &alert{alertContext, fmt.Sprintf("ctx %d%%", pct), v.sess.Events[len(v.sess.Events)-1]})
+	if pct := ctxPct(s); before.ctx < ctxAlertPct && pct >= ctxAlertPct {
+		out = append(out, &alert{alertContext, fmt.Sprintf("ctx %d%%", pct), s.Events[len(s.Events)-1]})
 	}
-	if n := len(v.sess.Turns); n > 0 {
-		t := v.sess.Turns[n-1]
+	if n := len(s.Turns); n > 0 {
+		t := s.Turns[n-1]
 		if t.Done && (t != before.turn || !before.done) {
 			out = append(out, &alert{alertTurn, glyphOK + " your turn", t.Events[len(t.Events)-1]})
 		}
 	}
-	if n := v.stats.Errors - before.errors; n > 0 {
-		v.unseenErrs += n
+	if n := errorCount(s) - before.errors; n > 0 {
+		w.unseenErrs += n
 		var last *parse.Event
-		for _, e := range v.sess.Events {
+		for _, e := range s.Events {
 			if e.Tool != nil && e.Tool.IsError && (last == nil || e.Tool.ResultTime.After(last.Tool.ResultTime)) {
 				last = e
 			}
@@ -104,16 +124,16 @@ func (v *view) liveAlerts(before liveState) []*alert {
 	return out
 }
 
-// checkStalls raises one alert per live tool call still without a result
-// after stall.
-func (v *view) checkStalls(now time.Time, stall time.Duration) []*alert {
+// stalls raises one alert per live tool call still without a result after
+// stall.
+func (w *watch) stalls(now time.Time, stall time.Duration) []*alert {
 	var out []*alert
-	for e, alerted := range v.pending {
+	for e, alerted := range w.pending {
 		switch {
 		case e.Tool.HasResult:
-			delete(v.pending, e)
+			delete(w.pending, e)
 		case !alerted && now.Sub(e.Time) >= stall:
-			v.pending[e] = true
+			w.pending[e] = true
 			out = append(out, &alert{alertStall, fmt.Sprintf("%s waiting %s on %s · may be a permission prompt",
 				glyphPending, dur(now.Sub(e.Time).Truncate(time.Second)), e.Tool.Name), e})
 		}

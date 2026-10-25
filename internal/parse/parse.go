@@ -87,6 +87,17 @@ func (t *ToolCall) inputString(key, def string) string {
 	return def
 }
 
+// FilePath is the file a built-in file tool read, edited or wrote, or "".
+func (t *ToolCall) FilePath() string {
+	switch t.Name {
+	case "Read", "Write", "Edit", "MultiEdit":
+		return t.inputString("file_path", "")
+	case "NotebookEdit":
+		return t.inputString("notebook_path", "")
+	}
+	return ""
+}
+
 // Server and tool name for an mcp__<server>__<tool> call.
 func (t *ToolCall) MCPParts() (server, tool string) {
 	parts := strings.SplitN(strings.TrimPrefix(t.Name, "mcp__"), "__", 2)

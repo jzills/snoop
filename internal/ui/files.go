@@ -62,12 +62,12 @@ func fileCall(t *parse.ToolCall) (path string, op fileOp, added, removed int) {
 	get := func(k string) string { s, _ := in[k].(string); return s }
 	switch t.Name {
 	case "Read":
-		return get("file_path"), opRead, 0, 0
+		return t.FilePath(), opRead, 0, 0
 	case "Write":
-		return get("file_path"), opWrite, lineCount(get("content")), 0
+		return t.FilePath(), opWrite, lineCount(get("content")), 0
 	case "Edit":
 		a, r := lineDelta(get("old_string"), get("new_string"))
-		return get("file_path"), opEdit, a, r
+		return t.FilePath(), opEdit, a, r
 	case "MultiEdit":
 		es, _ := in["edits"].([]any)
 		for _, x := range es {
@@ -78,9 +78,9 @@ func fileCall(t *parse.ToolCall) (path string, op fileOp, added, removed int) {
 				added, removed = added+a, removed+r
 			}
 		}
-		return get("file_path"), opEdit, added, removed
+		return t.FilePath(), opEdit, added, removed
 	case "NotebookEdit":
-		return get("notebook_path"), opEdit, lineCount(get("new_source")), 0
+		return t.FilePath(), opEdit, lineCount(get("new_source")), 0
 	}
 	return "", opNone, 0, 0
 }
@@ -198,7 +198,7 @@ func (v *view) fileSources() []fileSource {
 		if label == "" {
 			label = meta.AgentType
 		}
-		srcs = append(srcs, fileSource{events: sub.sess.Events, agent: label, via: calls[id]})
+		srcs = append(srcs, fileSource{events: sub.Sess.Events, agent: label, via: calls[id]})
 	}
 	return srcs
 }

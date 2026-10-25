@@ -90,7 +90,7 @@ type view struct {
 	fMarks     []int // detail pane line of each change, for n/N
 	filesBuilt time.Time
 	filesDirty bool
-	subs       map[string]*subTranscript
+	subs       map[string]*store.Follower
 
 	// Subagents shown inline in the timeline.
 	expanded map[string]bool       // by agent id
@@ -104,8 +104,7 @@ type view struct {
 	alert      *alert
 	alertShown bool
 	flash      string // replaces the footer until the next key
-	unseenErrs int
-	pending    map[*parse.Event]bool // live tool calls without a result; true once alerted
+	watch
 
 	// Subagent metadata is cached briefly so redraws don't read meta.json.
 	agents map[string]agentEntry
@@ -141,7 +140,7 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	ti.Placeholder = "search text, commands, paths, results"
 	v := &view{
 		path: path, rootPath: rootPath, label: label, sess: s,
-		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*subTranscript{}, expanded: map[string]bool{}, pending: map[*parse.Event]bool{},
+		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(),
 		detail: viewport.New(0, 0), page: viewport.New(0, 0),
 	}
 	v.tl, _ = tail.Open(path, off, followNew)
@@ -189,13 +188,13 @@ func (v *view) refresh() {
 		for _, e := range events {
 			id := agentID(e)
 			open := id != "" && v.expanded[id] && depth < maxSubDepth
-			var sub *subTranscript
+			var sub *store.Follower
 			if id != "" && (open || filtering) {
 				sub, _ = v.sub(id)
 			}
 			inner := false
 			if sub != nil && filtering {
-				for _, x := range sub.sess.Events {
+				for _, x := range sub.Sess.Events {
 					if keep(x) {
 						inner = true
 						break
@@ -211,7 +210,7 @@ func (v *view) refresh() {
 			}
 			switch {
 			case open && sub != nil:
-				walk(sub.sess.Events, depth+1)
+				walk(sub.Sess.Events, depth+1)
 			case inner:
 				v.marked[e] = true
 			}
@@ -484,12 +483,12 @@ func (v *view) onTail(u tail.Update) []*alert {
 		v.sess = parse.NewSession()
 		v.hay = map[*parse.Event]hayEntry{}
 		v.detailEv = nil
-		v.pending = map[*parse.Event]bool{}
+		v.watch = newWatch()
 	}
 	if len(u.Lines) == 0 && !u.Reset {
 		return nil
 	}
-	before := v.liveState()
+	before := v.snap(v.sess)
 	for _, l := range u.Lines {
 		v.sess.Feed(l)
 	}
@@ -500,7 +499,7 @@ func (v *view) onTail(u tail.Update) []*alert {
 	if u.Reset {
 		return nil
 	}
-	as := v.liveAlerts(before)
+	as := v.alerts(v.sess, before)
 	v.raise(as)
 	return as
 }

@@ -175,3 +175,19 @@ func TestUserTextIgnoresQuotedTags(t *testing.T) {
 		}
 	}
 }
+
+func TestFilePath(t *testing.T) {
+	for _, tc := range []struct{ name, input, want string }{
+		{"Read", `{"file_path":"/r/a.go"}`, "/r/a.go"},
+		{"Edit", `{"file_path":"/r/b.go","old_string":"x","new_string":"y"}`, "/r/b.go"},
+		{"MultiEdit", `{"file_path":"/r/c.go","edits":[]}`, "/r/c.go"},
+		{"Write", `{"file_path":"/r/d.go","content":""}`, "/r/d.go"},
+		{"NotebookEdit", `{"notebook_path":"/r/e.ipynb"}`, "/r/e.ipynb"},
+		{"Bash", `{"command":"cat /r/f.go","file_path":"/r/f.go"}`, ""},
+	} {
+		c := ToolCall{Name: tc.name, Input: []byte(tc.input)}
+		if got := c.FilePath(); got != tc.want {
+			t.Errorf("%s FilePath() = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

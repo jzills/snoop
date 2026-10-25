@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"os"
-
 	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/store"
 )
@@ -11,49 +9,26 @@ import (
 // timeline, searched, or listed in the Files tab. Each is read once, then
 // only the lines added since.
 
-type subTranscript struct {
-	sess *parse.Session
-	off  int64
-}
-
 // Deepest subagent nesting shown inline.
 const maxSubDepth = 4
 
 // sub returns subagent id's transcript, reading any lines added since the
 // last call; changed reports whether there were any.
-func (v *view) sub(id string) (t *subTranscript, changed bool) {
+func (v *view) sub(id string) (f *store.Follower, changed bool) {
+	if f = v.subs[id]; f != nil {
+		changed, _ = f.Poll()
+		return f, changed
+	}
 	meta, ok := v.subagent(id)
 	if !ok {
 		return nil, false
 	}
-	st, err := os.Stat(meta.Path)
+	f, err := store.Track(meta.Path)
 	if err != nil {
 		return nil, false
 	}
-	t = v.subs[id]
-	if t == nil || st.Size() < t.off {
-		s, off, err := store.Load(meta.Path)
-		if err != nil {
-			return nil, false
-		}
-		t = &subTranscript{sess: s, off: off}
-		v.subs[id] = t
-		return t, true
-	}
-	if st.Size() == t.off {
-		return t, false
-	}
-	f, err := os.Open(meta.Path)
-	if err != nil {
-		return t, false
-	}
-	defer f.Close()
-	if _, err := f.Seek(t.off, 0); err != nil {
-		return t, false
-	}
-	n, _ := t.sess.Read(f)
-	t.off += n
-	return t, n > 0
+	v.subs[id] = f
+	return f, true
 }
 
 func agentID(e *parse.Event) string {
