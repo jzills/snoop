@@ -24,8 +24,8 @@ version (`claude --version`).
 - **On WSL:** notifications are Windows toasts sent through
   `powershell.exe`. Check that Windows notifications are on, and that Focus
   Assist or Do Not Disturb isn't hiding them.
-- **On Linux:** `notify-send` must be installed, from `libnotify-bin` or
-  `libnotify`, and a desktop session must be running.
+- **On Linux:** notifications need `notify-send`, from `libnotify-bin` or
+  `libnotify`, and a running desktop session.
 - **While snoop has focus:** none are sent while you're looking at snoop.
   Switch to another window to test.
 - **Wrong method:** force one with `--notify=terminal` or `--notify=system`.
