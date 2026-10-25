@@ -18,7 +18,7 @@ import (
 	"testing"
 )
 
-const scriptPath = "../../install.sh"
+const scriptPath = "../../site/static/install.sh"
 
 // release is a fake GitHub release server. It answers the two URL shapes the
 // script uses — latest/download/<asset> and download/<tag>/<asset> — for every

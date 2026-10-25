@@ -1,0 +1,25 @@
+{{ define "main" }}
+  {{- /*
+    Hextra's home layout, with the sidebar's desktop placeholder, the table of
+    contents and the <h1> removed: the theme reserves room for all three on
+    every page, which left a landing page with no headings worth listing in a
+    narrow column, and the <h1> would repeat the hero's own name and tagline.
+    The title stays in <head>, which is what tabs and search results use.
+  */ -}}
+  <div class="hx:mx-auto hx:flex hextra-max-page-width">
+    {{- /*
+      displayPlaceholder false keeps the sidebar from reserving desktop width,
+      but the element has to exist: Hextra's core/menu.js reads
+      .hextra-sidebar-container on every page load, and on mobile it is what
+      the hamburger opens.
+    */ -}}
+    {{ partial "sidebar.html" (dict "context" . "disableSidebar" true "displayPlaceholder" false) }}
+    <article class="hx:w-full hx:break-words hx:flex hx:min-h-[calc(100vh-var(--navbar-height))] hx:min-w-0 hx:justify-center hx:pb-8">
+      <main id="content" class="hx:w-full hx:min-w-0 hextra-max-content-width hx:px-6 hx:pt-4 hx:md:px-12">
+        <div class="content">
+          {{ .Content }}
+        </div>
+      </main>
+    </article>
+  </div>
+{{ end }}

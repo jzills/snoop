@@ -14,7 +14,12 @@ publishes.
 3. **Add snoop to the tap** `jzills/homebrew-tap` (it already holds kx;
    Homebrew finds it as `jzills/tap`): a README entry, and `snoop` alongside
    `kx` in its `formula.yml` audit, install and test steps.
-4. **Add the `HOMEBREW_TAP_TOKEN` secret** to this repository: a fine-grained
+4. **Turn on GitHub Pages** (Settings → Pages → Source: GitHub Actions). The
+   site at https://jzills.github.io/snoop/ serves `install.sh`, so this has to
+   happen before the README's install command works. `.github/workflows/pages.yml`
+   publishes `site/` on every push to `main` that touches it; run it once by
+   hand (Actions → Pages → Run workflow) after turning Pages on.
+5. **Add the `HOMEBREW_TAP_TOKEN` secret** to this repository: a fine-grained
    personal access token with *Contents: read and write* on
    `jzills/homebrew-tap` only. Without it the release still publishes and the
    tap step is skipped with a warning.
@@ -34,13 +39,13 @@ publishes.
 4. Approve the run when it reaches the `release` environment. It then:
    - creates the GitHub Release with six archives (Linux, macOS and Windows,
      amd64 and arm64), version-free copies for `releases/latest/download/`,
-     `SHA256SUMS` and `install.sh`;
+     and `SHA256SUMS`;
    - commits `Formula/snoop.rb` to the tap.
 5. Check the install paths:
 
    ```
    brew install jzills/tap/snoop && snoop --version
-   curl -fsSL https://github.com/jzills/snoop/releases/latest/download/install.sh | sh
+   curl -fsSL https://jzills.github.io/snoop/install.sh | sh
    go install github.com/jzills/snoop/cmd/snoop@v0.1.0
    ```
 
@@ -53,6 +58,15 @@ A run stopped at the approval gate has published nothing. Delete the tag
 scripts/build_binaries.sh 0.1.0      # dist/: binaries and archives
 scripts/check_archives.sh 0.1.0      # what CI and the release check
 scripts/homebrew_formula.sh 0.1.0    # the formula the release would commit
+```
+
+## Previewing the site
+
+The site is Hugo with the Hextra theme, in `site/` as its own Go module. With
+[Hugo extended](https://gohugo.io/installation/) 0.164.0:
+
+```
+cd site && hugo server    # http://localhost:1313/snoop/
 ```
 
 ## Re-rendering the demo

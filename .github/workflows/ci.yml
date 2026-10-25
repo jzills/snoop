@@ -82,7 +82,7 @@ jobs:
       - name: Lint the release scripts
         run: |
           shellcheck scripts/*.sh demo/*.sh
-          shellcheck -s sh install.sh
+          shellcheck -s sh site/static/install.sh
 
       - name: Build every target
         run: scripts/build_binaries.sh 0.0.0-dev

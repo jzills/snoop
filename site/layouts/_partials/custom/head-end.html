@@ -1,0 +1,10 @@
+{{- /*
+  The install cards' copy buttons, on the landing page only. Deferred: the
+  buttons ship hidden and the cards read correctly without them.
+*/ -}}
+{{- if .IsHome }}
+  {{- with resources.Get "js/snoop-install.js" }}
+    {{- $install := . | minify | fingerprint }}
+    <script defer src="{{ $install.RelPermalink }}" integrity="{{ $install.Data.Integrity }}"></script>
+  {{- end }}
+{{- end }}

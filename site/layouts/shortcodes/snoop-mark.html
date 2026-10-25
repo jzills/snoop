@@ -1,0 +1,4 @@
+{{- /* The mark, inlined so it takes the accent color; markdown cannot reach resources.Get. */ -}}
+{{- with resources.Get "snoop-mark.svg" -}}
+  {{- .Content | safeHTML -}}
+{{- end -}}

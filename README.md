@@ -4,7 +4,7 @@ A fast terminal viewer for Claude Code session transcripts
 (`~/.claude/projects/**/*.jsonl`). Keep it open in a second terminal next to
 `claude` to watch a session live, or browse past sessions: what each prompt
 cost, how full the context is, which files changed, what the subagents did,
-and where the time went.
+and where the time went. Site: https://jzills.github.io/snoop/
 
 ![snoop: the summary across sessions, a session's timeline with a turn's
 waterfall, an expanded subagent, the Files tab and Stats](demo/demo.gif)
@@ -13,7 +13,7 @@ waterfall, an expanded subagent, the Files tab and Stats](demo/demo.gif)
 
 ```
 brew install jzills/tap/snoop                      # macOS and Linux
-curl -fsSL https://github.com/jzills/snoop/releases/latest/download/install.sh | sh
+curl -fsSL https://jzills.github.io/snoop/install.sh | sh
 go install github.com/jzills/snoop/cmd/snoop@latest
 ```
 

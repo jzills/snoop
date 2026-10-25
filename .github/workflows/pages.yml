@@ -1,0 +1,94 @@
+name: Pages
+
+# The site, and the install script it serves, are built on every push to main
+# and on pull requests, but only published from main. A change to install.sh
+# is live as soon as it merges, without a release; the install-script checks
+# in ci.yml are what stand between a PR and that.
+#
+# Publishing requires Pages to be enabled on the repository with "GitHub
+# Actions" as the source; until it is, the deploy job is the only thing that
+# fails and the build job still guards the site.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "demo/demo.gif"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "site/**"
+      - "demo/demo.gif"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # Hextra requires the extended build.
+  HUGO_VERSION: 0.164.0
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Hugo fetches Hextra as a Go module.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: site/go.mod
+
+      - name: Install Hugo extended
+        run: |
+          curl -sSL -o hugo.tar.gz \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
+          tar xzf hugo.tar.gz hugo
+          sudo install hugo /usr/local/bin/hugo
+          hugo version
+
+      - name: Build
+        working-directory: site
+        # baseURL comes from site/hugo.toml, so a custom domain is one edit
+        # there.
+        run: hugo --gc --minify
+
+      # Hugo publishes an unstyled page, or one without the demo, as happily
+      # as a whole one, so the parts that matter are asserted.
+      - name: Check the build
+        working-directory: site/public
+        run: |
+          shopt -s nullglob
+          compiled=(css/compiled/*.css)
+          [ ${#compiled[@]} -gt 0 ] || { echo "::error::no compiled stylesheet; the site would publish unstyled"; exit 1; }
+          cmp install.sh ../static/install.sh || { echo "::error::install.sh is missing or differs from site/static/install.sh"; exit 1; }
+          cmp demo/demo.gif ../../demo/demo.gif || { echo "::error::the demo GIF is missing"; exit 1; }
+
+      - name: Upload artifact
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/public
+
+  deploy:
+    name: Deploy
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

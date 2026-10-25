@@ -1,7 +1,7 @@
 #!/bin/sh
 # Installs snoop — https://github.com/jzills/snoop
 #
-#   curl -fsSL https://github.com/jzills/snoop/releases/latest/download/install.sh | sh
+#   curl -fsSL https://jzills.github.io/snoop/install.sh | sh
 #
 # Downloads the newest snoop for Linux or macOS (amd64 or arm64), checks it
 # against the release's SHA256SUMS, and installs it to ~/.local/bin. It never
