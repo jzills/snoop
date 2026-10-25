@@ -13,12 +13,10 @@ on:
     branches: [main]
     paths:
       - "site/**"
-      - "demo/demo.gif"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
       - "site/**"
-      - "demo/demo.gif"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -60,7 +58,7 @@ jobs:
         # there.
         run: hugo --gc --minify
 
-      # Hugo publishes an unstyled page, or one without the demo, as happily
+      # Hugo publishes an unstyled page, or one without its screenshots, as happily
       # as a whole one, so the parts that matter are asserted.
       - name: Check the build
         working-directory: site/public
@@ -69,7 +67,10 @@ jobs:
           compiled=(css/compiled/*.css)
           [ ${#compiled[@]} -gt 0 ] || { echo "::error::no compiled stylesheet; the site would publish unstyled"; exit 1; }
           cmp install.sh ../static/install.sh || { echo "::error::install.sh is missing or differs from site/static/install.sh"; exit 1; }
-          cmp demo/demo.gif ../../demo/demo.gif || { echo "::error::the demo GIF is missing"; exit 1; }
+          for shot in timeline live; do
+            [ -s "shots/$shot.png" ] || { echo "::error::shots/$shot.png is missing; render it with demo/shots.sh"; exit 1; }
+          done
+          [ -d docs ] || { echo "::error::the docs were not built"; exit 1; }
 
       - name: Upload artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

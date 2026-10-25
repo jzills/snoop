@@ -1,11 +1,9 @@
 # Hugo configuration for the snoop site.
 #
-# A landing page at / for now. Hextra is here, rather than a hand-written
-# page, so documentation can go under content/docs/ later and pick up the
-# theme's sidebar, table of contents and search without moving anything.
+# A landing page at / (layouts/home.html) and the documentation under
+# content/docs/, which takes Hextra's sidebar, table of contents and search.
 baseURL = "https://jzills.github.io/snoop/"
-# The tab's text: the tagline, since the favicon already says "snoop".
-title = "Watch Claude Code work."
+title = "snoop"
 [languages.en]
   label = "English"
 
@@ -21,23 +19,20 @@ title = "Watch Claude Code work."
   [[module.mounts]]
     source = "static"
     target = "static"
-  # The README's demo, published as is rather than copied into static/,
-  # where a second copy would go stale the next time demo/render.sh runs.
-  [[module.mounts]]
-    source = "../demo"
-    target = "static/demo"
-    files = ["demo.gif"]
 
 [markup]
   [markup.goldmark.renderer]
-    # The landing page is hand-written HTML in a markdown file: hero, install
-    # cards, feature grid. Goldmark drops raw HTML unless told otherwise.
+    # Shortcodes inside Hextra's {{% steps %}} are rendered as markdown, so
+    # the figures the shot shortcode writes are raw HTML to Goldmark, which
+    # drops them unless told otherwise.
     unsafe = true
+  [markup.highlight]
+    noClasses = false
 
 [params]
   description = "A terminal viewer for Claude Code sessions: follow one live, and see what each prompt cost, how full the context is, which files changed and what the subagents did."
 
-  # layouts/_partials/navbar-title.html draws the wordmark itself.
+  # layouts/_partials/navbar-title.html draws the logo and name itself.
   [params.navbar]
     displayTitle = false
     displayLogo = false
@@ -47,23 +42,33 @@ title = "Watch Claude Code work."
     displayCopyright = false
     displayPoweredBy = false
 
-  # Off until there are docs to search.
   [params.search]
-    enable = false
+    enable = true
+    type = "flexsearch"
+    [params.search.flexsearch]
+      index = "content"
+
+  [params.editURL]
+    enable = true
+    base = "https://github.com/jzills/snoop/edit/main/site/content"
+
+  [params.page]
+    width = "wide"
 
   [params.theme]
-    default = "dark"
+    default = "system"
     displayToggle = true
 
 [menu]
   [[menu.main]]
-    name = "Install"
-    pageRef = "/#install"
+    name = "Docs"
+    pageRef = "/docs"
     weight = 1
   [[menu.main]]
-    name = "Features"
-    pageRef = "/#features"
+    name = "Search"
     weight = 2
+    [menu.main.params]
+      type = "search"
   [[menu.main]]
     identifier = "github"
     name = "GitHub"

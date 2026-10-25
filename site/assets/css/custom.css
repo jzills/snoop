@@ -1,217 +1,207 @@
 /* snoop site styling.
  *
- * The colors are the TUI's own (internal/ui/theme.go), light and dark, so
- * the page looks like the tool it describes. Hextra marks dark mode with a
- * "dark" class on <html>; every rule below reads a --snoop-* property.
+ * Hextra styles the docs; this file sets the accent color it derives links
+ * and buttons from, and styles the landing page (layouts/home.html), the
+ * navbar's logo and the screenshots. The palette is neutral: the accent is
+ * kept for the logo, links and the primary button. Hextra marks dark mode
+ * with a "dark" class on <html>.
  */
 
 :root {
-  --snoop-background: #ffffff;
-  --snoop-surface: #f3f1ff;
-  --snoop-border: #d8d4f5;
-  --snoop-body: #1f2328;
-  --snoop-muted: #6e7781;
+  --snoop-text: #111827;
+  --snoop-muted: #4b5563;
+  --snoop-border: #e5e7eb;
+  --snoop-surface: #f9fafb;
   --snoop-accent: #5b4bdb;
+  --snoop-on-accent: #ffffff;
   --snoop-ok: #1a7f37;
-  /* Hextra derives its link and button colors from these. */
+  /* Hextra derives its link, sidebar and button colors from these. */
   --primary-hue: 246deg;
   --primary-saturation: 67%;
   --primary-lightness: 58%;
 }
 
 html.dark {
-  --snoop-background: #0f0e17;
-  --snoop-surface: #1d1b2b;
-  --snoop-border: #2b2840;
-  --snoop-body: #e6e6e6;
-  --snoop-muted: #9aa3ad;
+  --snoop-text: #f5f5f5;
+  --snoop-muted: #a3a3a3;
+  --snoop-border: #262626;
+  --snoop-surface: #171717;
   --snoop-accent: #a99cff;
+  --snoop-on-accent: #111111;
   --snoop-ok: #56d364;
   --primary-hue: 248deg;
   --primary-saturation: 100%;
   --primary-lightness: 81%;
 }
 
-html {
-  /* The navbar links are fragments on this page; the scroll says how far
-     they went. Hextra's reset turns it off under prefers-reduced-motion. */
-  scroll-behavior: smooth;
-}
-
-body {
-  background-color: var(--snoop-background);
-  color: var(--snoop-body);
-}
-
-/* Hextra's surfaces are fixed white and #111; these follow the palette. */
-.hextra-nav-container-blur {
-  background-color: var(--snoop-background);
-}
-
-.hextra-sidebar-container [data-toggle-animation] {
-  background-color: var(--snoop-background);
-  box-shadow: 0 -12px 16px var(--snoop-background);
-  border-color: var(--snoop-border);
-}
-
-/* Wordmark: "snoop" with the "oo" as two eyes
+/* Navbar
  * ------------------------------------------------------------------ */
 
-.snoop-wordmark {
+.snoop-brand {
   display: inline-flex;
-  align-items: baseline;
-  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-  color: var(--snoop-body);
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* Two monospace advances wide, x-height tall, resting on the baseline. */
-.snoop-wordmark svg {
-  width: 1.2em;
-  height: 0.553em;
-  flex: none;
+.snoop-brand svg {
+  height: 0.8rem;
+  width: auto;
+  display: block;
   color: var(--snoop-accent);
 }
 
-.snoop-navbar-mark {
-  display: inline-flex;
-  align-items: center;
-  font-size: 1.3rem;
+.snoop-brand__name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: var(--snoop-text);
 }
 
-/* Hero
+/* Landing page
  * ------------------------------------------------------------------ */
+
+.snoop-home {
+  padding: 0 1.5rem 3rem;
+  color: var(--snoop-text);
+}
+
+.snoop-home h1,
+.snoop-home h2 {
+  color: var(--snoop-text);
+  letter-spacing: -0.02em;
+}
+
+.snoop-home p {
+  color: var(--snoop-muted);
+  line-height: 1.65;
+}
+
+.snoop-home a:not(.snoop-button) {
+  color: var(--snoop-accent);
+  font-weight: 500;
+}
+
+.snoop-home a:not(.snoop-button):hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.snoop-home code {
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.875em;
+  color: var(--snoop-text);
+  background-color: var(--snoop-surface);
+  border: 1px solid var(--snoop-border);
+  border-radius: 0.3rem;
+  padding: 0.1em 0.35em;
+  white-space: nowrap;
+}
+
+/* Hero */
 
 .snoop-hero {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.1rem;
-  padding: 3.5rem 1rem 2rem;
   text-align: center;
+  padding: clamp(3rem, 9vw, 6rem) 0 2.5rem;
 }
 
-.snoop-hero__name {
-  font-size: clamp(3rem, 9vw, 4.75rem);
+.snoop-hero__title {
+  font-size: clamp(2.1rem, 5.5vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.1;
+  max-width: 18ch;
   margin: 0;
-  line-height: 1;
+  text-wrap: balance;
 }
 
-.snoop-hero__tagline {
-  font-size: clamp(1.3rem, 3.4vw, 2rem);
-  font-weight: 650;
-  letter-spacing: -0.01em;
-  color: var(--snoop-accent);
-  margin: 0;
+.snoop-hero__lede {
+  font-size: clamp(1.05rem, 2vw, 1.2rem);
+  max-width: 40rem;
+  margin: 1.25rem 0 0;
+  text-wrap: pretty;
 }
 
-.snoop-hero__blurb {
-  max-width: 44rem;
-  margin: 0;
-  font-size: clamp(1rem, 2vw, 1.12rem);
-  line-height: 1.6;
-  color: var(--snoop-muted);
-}
-
-.snoop-hero__blurb code,
-.snoop-section__lede code,
-.snoop-feature__body code {
-  /* A chip broken across lines splits its background in two. */
-  white-space: nowrap;
-}
-
-/* The demo recording: a fixed-width capture, so it only ever scales down. */
-.snoop-demo {
-  width: 100%;
-  max-width: 64rem;
-  height: auto;
-  margin: 0 auto;
-  display: block;
-  border: 1px solid var(--snoop-border);
-  border-radius: 0.5rem;
-  background-color: var(--snoop-surface);
-}
-
-/* Install
- * ------------------------------------------------------------------ */
-
-.snoop-install {
-  display: grid;
+.snoop-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.75rem;
-  /* Wide enough for the go install line without clipping it. */
-  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
-  max-width: 56rem;
-  margin: 0 auto;
+  margin-top: 2rem;
 }
 
-.snoop-install__card {
-  border: 1px solid var(--snoop-border);
+.snoop-hero__alt {
+  font-size: 0.9rem;
+  margin: 0.85rem 0 0;
+}
+
+.snoop-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
   border-radius: 0.5rem;
+  border: 1px solid var(--snoop-border);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--snoop-text);
+  background-color: transparent;
+  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.snoop-button:hover {
   background-color: var(--snoop-surface);
-  padding: 0.9rem 1rem;
 }
 
-/* The install script leads, on a row of its own. */
-.snoop-install__card--lead {
-  grid-column: 1 / -1;
+.snoop-button--primary {
+  border-color: var(--snoop-accent);
+  background-color: var(--snoop-accent);
+  color: var(--snoop-on-accent);
 }
 
-/* Long commands wrap at their spaces (and at the <wbr>s in URLs) rather than
-   scroll inside the card on a phone; neither adds text to the copy. */
-.snoop-install__card--lead .snoop-install__command,
-.snoop-install__card--wrap .snoop-install__command {
-  white-space: normal;
-  overflow-wrap: break-word;
+.snoop-button--primary:hover {
+  background-color: var(--snoop-accent);
+  opacity: 0.88;
 }
 
-.snoop-install__label {
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--snoop-muted);
-}
+/* The install command, with its copy button. */
 
-.snoop-install__command {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.92rem;
-  color: var(--snoop-body);
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.snoop-install__command + .snoop-install__command {
-  margin-top: 0.3rem;
-}
-
-/* The prompt is drawn here, so it is not in textContent and never lands in
-   the clipboard. */
-.snoop-install__command::before {
-  content: "$ ";
-  color: var(--snoop-accent);
-}
-
-.snoop-install__note {
-  margin: 0.55rem 0 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
-  color: var(--snoop-muted);
-}
-
-/* The copy button ships hidden and is revealed by assets/js/snoop-install.js,
-   so a reader without JavaScript never sees a control that does nothing. */
-.snoop-install__head {
+.snoop-command {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.35rem;
+  gap: 0.75rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 1.75rem;
+  padding: 0.6rem 0.6rem 0.6rem 1rem;
+  border: 1px solid var(--snoop-border);
+  border-radius: 0.5rem;
+  background-color: var(--snoop-surface);
 }
 
+.snoop-home .snoop-command code {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  border: 0;
+  padding: 0;
+  background: none;
+  font-size: 0.9rem;
+  overflow-x: auto;
+}
+
+/* The prompt is drawn here, so it never lands in the clipboard. */
+.snoop-install__command::before {
+  content: "$ ";
+  color: var(--snoop-muted);
+}
+
+/* Shipped hidden; assets/js/snoop-install.js reveals it. */
 .snoop-install__copy {
   display: inline-flex;
-  padding: 0.25rem;
+  flex: none;
+  padding: 0.35rem;
   border: 1px solid transparent;
   border-radius: 0.35rem;
   background: none;
@@ -221,7 +211,7 @@ body {
 
 .snoop-install__copy:hover,
 .snoop-install__copy:focus-visible {
-  color: var(--snoop-accent);
+  color: var(--snoop-text);
   border-color: var(--snoop-border);
 }
 
@@ -258,85 +248,129 @@ body {
   white-space: nowrap;
 }
 
-/* Feature cards
- * ------------------------------------------------------------------ */
+/* Screenshots, on the landing page and in the docs. */
+
+.snoop-shot {
+  margin: 2rem auto;
+}
+
+.snoop-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--snoop-border);
+  border-radius: 0.75rem;
+  background-color: #0d1117;
+}
+
+.snoop-shot figcaption {
+  margin-top: 0.6rem;
+  font-size: 0.875rem;
+  text-align: center;
+  color: var(--snoop-muted);
+}
+
+.snoop-shot--hero {
+  max-width: 66rem;
+  margin-top: 1rem;
+}
+
+.snoop-shot--hero img {
+  box-shadow: 0 24px 64px -24px rgb(0 0 0 / 0.35);
+}
+
+/* Three things snoop does. */
 
 .snoop-features {
   display: grid;
-  gap: 1rem;
-  /* Six cards: three and three at desktop width, never four and two. */
-  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-  max-width: 72rem;
-  margin: 0 auto;
-}
-
-.snoop-feature {
-  border: 1px solid var(--snoop-border);
-  border-radius: 0.6rem;
-  background-color: var(--snoop-surface);
-  padding: 1.1rem 1.2rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 2.5rem;
+  max-width: 66rem;
+  margin: 4.5rem auto 0;
 }
 
 .snoop-feature__title {
+  font-size: 1.1rem;
   font-weight: 600;
-  color: var(--snoop-accent);
-  margin: 0 0 0.4rem;
+  margin: 0;
 }
 
-.snoop-feature__body {
-  margin: 0;
-  color: var(--snoop-muted);
-  line-height: 1.55;
+.snoop-feature p {
+  margin: 0.5rem 0 0.75rem;
   font-size: 0.95rem;
 }
 
-/* Sections
- * ------------------------------------------------------------------ */
-
-.snoop-section {
-  padding: 2.5rem 1rem;
-  /* Clear of the sticky navbar when jumped to from the menu. */
-  scroll-margin-top: 5rem;
+.snoop-feature a::after,
+.snoop-split__text a::after {
+  content: " →";
 }
 
-.snoop-section__title {
-  /* .content h2 carries Hextra's full-width rule and top margin, meant for
-     prose headings, not a centered section title. */
-  border: 0;
-  padding: 0;
-  text-align: center;
-  font-size: 1.5rem;
-  font-weight: 650;
-  color: var(--snoop-body);
-  margin: 0 0 0.5rem !important;
+/* A screenshot beside its words; stacked on narrow screens. */
+
+.snoop-split {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: center;
+  gap: 3rem;
+  max-width: 66rem;
+  margin: 6rem auto 0;
 }
 
-.snoop-section__lede {
+.snoop-split h2,
+.snoop-closing h2 {
+  font-size: clamp(1.5rem, 3vw, 1.9rem);
+  font-weight: 700;
+  margin: 0;
+}
+
+.snoop-split__text p {
+  margin: 0.75rem 0 1rem;
+}
+
+.snoop-split .snoop-shot {
+  margin: 0;
+}
+
+@media (max-width: 48rem) {
+  .snoop-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    margin-top: 4rem;
+  }
+}
+
+.snoop-closing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  color: var(--snoop-muted);
-  max-width: 44rem;
-  margin: 0 auto 1.75rem;
-  line-height: 1.6;
+  margin: 6rem auto 0;
+  padding: 3rem 1.5rem;
+  max-width: 66rem;
+  border: 1px solid var(--snoop-border);
+  border-radius: 0.75rem;
+  background-color: var(--snoop-surface);
+}
+
+.snoop-closing p {
+  margin: 0.6rem 0 0;
+}
+
+.snoop-closing .snoop-hero__actions {
+  margin-top: 1.5rem;
 }
 
 .snoop-fineprint {
-  text-align: center;
-  color: var(--snoop-muted);
-  font-size: 0.85rem;
   max-width: 44rem;
-  margin: 1rem auto 0;
-  line-height: 1.6;
+  margin: 3rem auto 0;
+  font-size: 0.85rem;
+  text-align: center;
 }
 
-.content code:not(pre code) {
-  background-color: var(--snoop-surface);
-  border: 1px solid var(--snoop-border);
-  border-radius: 0.25rem;
-  color: var(--snoop-body);
-  padding: 0.1em 0.35em;
-  font-size: 0.9em;
-}
+/* Docs
+ * ------------------------------------------------------------------ */
 
-.content a {
-  color: var(--snoop-accent);
+/* Screenshots in the docs sit at the prose width. */
+.content .snoop-shot {
+  margin: 1.5rem 0 2rem;
 }

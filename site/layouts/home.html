@@ -1,25 +1,97 @@
 {{ define "main" }}
   {{- /*
-    Hextra's home layout, with the sidebar's desktop placeholder, the table of
-    contents and the <h1> removed: the theme reserves room for all three on
-    every page, which left a landing page with no headings worth listing in a
-    narrow column, and the <h1> would repeat the hero's own name and tagline.
-    The title stays in <head>, which is what tabs and search results use.
+    The landing page: what snoop is, how to install it, one screenshot and
+    three things it does, each linking into the docs. It is a layout rather
+    than markdown because it is all structure; the words that need saying at
+    length live in content/docs/.
+
+    Hextra's sidebar partial has to exist on every page even when hidden:
+    core/menu.js reads .hextra-sidebar-container on load, and on mobile it is
+    what the hamburger opens.
   */ -}}
   <div class="hx:mx-auto hx:flex hextra-max-page-width">
-    {{- /*
-      displayPlaceholder false keeps the sidebar from reserving desktop width,
-      but the element has to exist: Hextra's core/menu.js reads
-      .hextra-sidebar-container on every page load, and on mobile it is what
-      the hamburger opens.
-    */ -}}
     {{ partial "sidebar.html" (dict "context" . "disableSidebar" true "displayPlaceholder" false) }}
-    <article class="hx:w-full hx:break-words hx:flex hx:min-h-[calc(100vh-var(--navbar-height))] hx:min-w-0 hx:justify-center hx:pb-8">
-      <main id="content" class="hx:w-full hx:min-w-0 hextra-max-content-width hx:px-6 hx:pt-4 hx:md:px-12">
-        <div class="content">
-          {{ .Content }}
+    <main id="content" class="snoop-home hx:w-full hx:min-w-0">
+
+      <section class="snoop-hero">
+        <h1 class="snoop-hero__title">A terminal viewer for Claude Code sessions</h1>
+        <p class="snoop-hero__lede">
+          Follow a session live from a second terminal, or open any past one to
+          see what it cost, which files it changed and where the time went.
+          snoop reads the transcripts Claude Code already writes. Nothing leaves
+          your machine.
+        </p>
+        <div class="snoop-hero__actions">
+          <a class="snoop-button snoop-button--primary" href="{{ "docs/install/" | relURL }}">Get started</a>
+          <a class="snoop-button" href="{{ "docs/" | relURL }}">Documentation</a>
         </div>
-      </main>
-    </article>
+        <div class="snoop-command" data-snoop-copy>
+          <code class="snoop-install__command">curl -fsSL https://jzills.github.io/snoop/install.sh | sh</code>
+          <button type="button" class="snoop-install__copy" aria-label="Copy the install command" hidden>
+            <svg viewBox="0 0 16 16" aria-hidden="true" class="snoop-install__icon snoop-install__icon--copy"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg>
+            <svg viewBox="0 0 16 16" aria-hidden="true" class="snoop-install__icon snoop-install__icon--done"><path d="M3 8.5 6.5 12 13 4.5"/></svg>
+          </button>
+          <span class="snoop-install__status" role="status"></span>
+        </div>
+        <p class="snoop-hero__alt">
+          macOS, Linux and Windows. Also <code>brew install jzills/tap/snoop</code>.
+        </p>
+      </section>
+
+      <figure class="snoop-shot snoop-shot--hero">
+        <img src="{{ "shots/timeline.png" | relURL }}" width="1200" height="700"
+          alt="A session in snoop: the timeline of prompts and tool calls on the left, the selected reply on the right, and the context meter in the header">
+      </figure>
+
+      <section class="snoop-features" aria-label="What snoop does">
+        <div class="snoop-feature">
+          <h2 class="snoop-feature__title">Follow a session live</h2>
+          <p>Run <code>snoop --follow</code> beside <code>claude</code>. Every prompt, reply and tool call appears as it happens, with diffs, commands and results in full.</p>
+          <a href="{{ "docs/guides/following/" | relURL }}">Following a session</a>
+        </div>
+        <div class="snoop-feature">
+          <h2 class="snoop-feature__title">See cost, context and time</h2>
+          <p>Each prompt shows its tokens, estimated cost and duration. A waterfall shows where a turn&rsquo;s time went, and the header shows how full the context is.</p>
+          <a href="{{ "docs/guides/cost-and-context/" | relURL }}">Cost and context</a>
+        </div>
+        <div class="snoop-feature">
+          <h2 class="snoop-feature__title">Watch every session at once</h2>
+          <p>The live board lists every session at work across your projects and which ones are waiting on you. <code>--notify</code> tells you when one needs you.</p>
+          <a href="{{ "docs/guides/live-board/" | relURL }}">The live board</a>
+        </div>
+      </section>
+
+      <section class="snoop-split">
+        <div class="snoop-split__text">
+          <h2>Know which session needs you</h2>
+          <p>
+            Running several sessions at once? The live board shows each one&rsquo;s
+            state: waiting on a permission prompt, your turn, or still working.
+            Desktop notifications name the session and what happened, so you can
+            work elsewhere and come back when it matters.
+          </p>
+          <a href="{{ "docs/guides/live-board/" | relURL }}">Read about the live board</a>
+        </div>
+        <figure class="snoop-shot">
+          <img src="{{ "shots/live.png" | relURL }}" width="960" height="280" loading="lazy"
+            alt="The live board: one session waiting on a tool call, one whose turn has ended and one still working">
+        </figure>
+      </section>
+
+      <section class="snoop-closing">
+        <h2>Install snoop</h2>
+        <p>One binary, nothing to configure. Run <code>snoop</code> to pick a session.</p>
+        <div class="snoop-hero__actions">
+          <a class="snoop-button snoop-button--primary" href="{{ "docs/install/" | relURL }}">Installation</a>
+          <a class="snoop-button" href="https://github.com/jzills/snoop">GitHub</a>
+        </div>
+      </section>
+
+      <p class="snoop-fineprint">
+        snoop is an independent project, not affiliated with or endorsed by Anthropic.
+        Claude and Claude Code are trademarks of Anthropic.
+        <a href="https://github.com/jzills/snoop/blob/main/LICENSE">MIT licensed</a>.
+      </p>
+    </main>
   </div>
 {{ end }}

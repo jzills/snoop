@@ -1,0 +1,10 @@
+{{- /*
+  A screenshot from site/static/shots/ with a caption:
+  {{< shot src="timeline.png" alt="…" caption="…" >}}
+  width and height default to the 1200×700 of demo/shots.tape.
+  Rendered by demo/shots.sh, so the images match the current build.
+*/ -}}
+<figure class="snoop-shot">
+  <img src="{{ printf "shots/%s" (.Get "src") | relURL }}" width="{{ .Get "width" | default 1200 }}" height="{{ .Get "height" | default 700 }}" loading="lazy" alt="{{ .Get "alt" }}">
+  {{- with .Get "caption" }}<figcaption>{{ . | markdownify }}</figcaption>{{ end }}
+</figure>

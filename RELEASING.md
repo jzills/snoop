@@ -69,6 +69,12 @@ The site is Hugo with the Hextra theme, in `site/` as its own Go module. With
 cd site && hugo server    # http://localhost:1313/snoop/
 ```
 
+## Re-rendering the site's screenshots
+
+`demo/shots.sh` renders `site/static/shots/*.png` the same way, from
+`demo/shots.tape` and `demo/live.tape`. Run it after a change to how snoop
+looks, so the docs show the current build.
+
 ## Re-rendering the demo
 
 `demo/render.sh` builds snoop, generates fictional sessions with

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Write fictional Claude Code transcripts for the demo recording.
 
-    demo/seed.py <config-dir>
+    demo/seed.py <config-dir> [--live | --live-only]
 
 Creates <config-dir>/projects/... in the layout Claude Code uses, so
 CLAUDE_CONFIG_DIR=<config-dir> snoop shows them instead of your own sessions.
 Timestamps are relative to now, so the picker's ages and the summary's
-30-day chart look the same whenever the GIF is rendered.
+30-day chart look the same whenever the GIF is rendered. --live adds three
+sessions active in the last few minutes, for the live board's screenshot;
+--live-only writes just those, right before that screenshot is taken.
 """
 
 import json
@@ -87,6 +89,11 @@ class Transcript:
                 r["toolUseResult"] = {"status": "completed", "agentId": c[5]}
             self.records.append(r)
         self.wait(1)
+
+    def call(self, name, inp):
+        """Start a call that has no result yet: running, or waiting on you."""
+        self._assistant([{"type": "tool_use", "id": "toolu_" + uuid.uuid4().hex[:20],
+                          "name": name, "input": inp}], 120)
 
     def compact(self):
         r = self._base("system")
@@ -230,10 +237,43 @@ def history(root, now):
         s.write(project_dir(root, cwd) / f"{s.id}.jsonl")
 
 
+def live(root, now):
+    """Sessions at work right now: one waiting on you, one done, one busy."""
+    waiting = Transcript("/home/demo/src/dashboard", "main", now - timedelta(minutes=2))
+    waiting.title("Paginate the device list")
+    waiting.prompt("Paginate the device list, 50 per page, and add e2e tests")
+    waiting.tools(("Read", {"file_path": "/home/demo/src/dashboard/src/DeviceList.tsx"}, "ok", 0.3))
+    waiting.say("I'll run the e2e suite against the new pagination.")
+    waiting.call("Bash", {"command": "npm run e2e -- devices"})
+    waiting.write(project_dir(root, waiting.cwd) / f"{waiting.id}.jsonl")
+
+    done = Transcript("/home/demo/src/infra", "main", now - timedelta(minutes=9))
+    done.title("Rotate the CI deploy key")
+    t0 = done.t
+    done.prompt("Rotate the CI deploy key and update the GitHub secret")
+    done.tools(("Bash", {"command": "terraform plan -target=module.ci"}, "1 to change", 6.2))
+    done.tools(("Bash", {"command": "terraform apply -target=module.ci"}, "Apply complete", 11.8))
+    done.say("Rotated. The new key is in the CI_DEPLOY_KEY secret.")
+    done.end_turn(t0)
+    done.write(project_dir(root, "/home/demo/src/infra") / f"{done.id}.jsonl")
+
+    busy = Transcript("/home/demo/src/weather-api", "feat/alerts", now - timedelta(seconds=8))
+    busy.title("Severe weather alerts")
+    busy.prompt("Add a /alerts endpoint backed by the NWS feed")
+    busy.tools(("Grep", {"pattern": "HandleFunc"}, "internal/server/server.go:2", 0.3))
+    busy.call("Edit", {"file_path": "/home/demo/src/weather-api/internal/server/alerts.go",
+                       "old_string": "", "new_string": "package server"})
+    busy.write(project_dir(root, "/home/demo/src/weather-api") / f"{busy.id}.jsonl")
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        sys.exit("usage: demo/seed.py <config-dir>")
+    mode = sys.argv[2:]
+    if len(sys.argv) not in (2, 3) or mode not in ([], ["--live"], ["--live-only"]):
+        sys.exit("usage: demo/seed.py <config-dir> [--live | --live-only]")
     root = Path(sys.argv[1])
     now = datetime.now(timezone.utc)
-    history(root, now)
-    main_session(root, now)
+    if mode != ["--live-only"]:
+        history(root, now)
+        main_session(root, now)
+    if mode:
+        live(root, now)
