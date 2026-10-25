@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/stats"
@@ -130,7 +131,7 @@ func TestOpenErrorKeepsScreen(t *testing.T) {
 	a := New(Options{Root: t.TempDir()})
 	a.Update(tea.WindowSizeMsg{Width: 80, Height: 10})
 	a.Update(sessionsMsg{})
-	a.Update(openMsg{path: filepath.Join(t.TempDir(), "missing.jsonl")})
+	openNow(a, openMsg{path: filepath.Join(t.TempDir(), "missing.jsonl")})
 	out := a.View()
 	if !strings.Contains(out, "snoop") || !strings.Contains(out, glyphErr) {
 		t.Fatalf("error should show in the footer over the picker:\n%s", out)
@@ -254,5 +255,61 @@ func TestPickerShowsFullOldDates(t *testing.T) {
 	p.refilter()
 	if out := p.view(120, 10); !strings.Contains(out, old.Format("Jan 02")) {
 		t.Fatalf("old date cut off:\n%s", out)
+	}
+}
+
+func TestOpenRunsInTheBackground(t *testing.T) {
+	a := newTestApp(t, 120, 30)
+	for a.top() != nil {
+		a.pop()
+	}
+	p := filepath.Join(t.TempDir(), "s.jsonl")
+	os.WriteFile(p, []byte(fixture), 0o644)
+	_, cmd := a.Update(openMsg{path: p})
+	if a.top() != nil || cmd == nil {
+		t.Fatal("open parsed the session inside Update")
+	}
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "opening s.jsonl") {
+		t.Errorf("no opening progress in the footer:\n%s", out)
+	}
+	a.Update(cmd())
+	if a.top() == nil || a.loading != "" {
+		t.Fatalf("the parsed session was not shown (loading %q)", a.loading)
+	}
+}
+
+func TestEscCancelsAnOpen(t *testing.T) {
+	a := newTestApp(t, 120, 30)
+	for a.top() != nil {
+		a.pop()
+	}
+	p := filepath.Join(t.TempDir(), "s.jsonl")
+	os.WriteFile(p, []byte(fixture), 0o644)
+	_, cmd := a.Update(openMsg{path: p})
+	_, quit := a.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if quit != nil {
+		t.Fatal("esc while opening did more than cancel")
+	}
+	a.Update(cmd())
+	if a.top() != nil {
+		t.Error("a cancelled open was shown")
+	}
+}
+
+func TestOnlyTheLatestOpenIsShown(t *testing.T) {
+	a := newTestApp(t, 120, 30)
+	for a.top() != nil {
+		a.pop()
+	}
+	dir := t.TempDir()
+	p1, p2 := filepath.Join(dir, "one.jsonl"), filepath.Join(dir, "two.jsonl")
+	os.WriteFile(p1, []byte(fixture), 0o644)
+	os.WriteFile(p2, []byte(fixture), 0o644)
+	_, c1 := a.Update(openMsg{path: p1})
+	_, c2 := a.Update(openMsg{path: p2})
+	a.Update(c2())
+	a.Update(c1())
+	if len(a.stack) != 1 || a.top().path != p2 {
+		t.Errorf("stack = %d views, top %v", len(a.stack), a.top())
 	}
 }

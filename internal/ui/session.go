@@ -305,7 +305,7 @@ func (v *view) move(d int) {
 	v.follow = v.cursor == len(v.shown)-1
 }
 
-func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
+func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 	if k, ok := msg.(tea.KeyMsg); ok {
 		if v.typing {
 			switch k.String() {
@@ -322,63 +322,63 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 				v.search, cmd = v.search.Update(msg)
 				v.follow = false
 				v.refresh()
-				return cmd, nil
+				return cmd
 			}
-			return nil, nil
+			return nil
 		}
 		bodyH := h - 4
 		switch k.String() {
 		case "y":
-			return v.copySelection(), nil
+			return v.copySelection()
 		case "e":
 			v.exportView(time.Now())
-			return nil, nil
+			return nil
 		case "!":
 			if a := v.alert; a != nil && a.ev != nil {
 				v.unseenErrs = 0
 				v.zoom, v.focusR = false, false
 				v.jumpTo(a.ev)
 			}
-			return nil, nil
+			return nil
 		case "1", "2", "3", "4":
 			v.tab = int(k.String()[0] - '1')
 			v.page.GotoTop()
-			return nil, nil
+			return nil
 		case "]":
 			v.tab = (v.tab + 1) % len(tabNames)
-			return nil, nil
+			return nil
 		case "[":
 			v.tab = (v.tab + len(tabNames) - 1) % len(tabNames)
-			return nil, nil
+			return nil
 		}
 		if v.tab == tabStats {
 			var cmd tea.Cmd
 			v.page, cmd = v.page.Update(msg)
-			return cmd, nil
+			return cmd
 		}
 		if v.focusR || v.zoom {
 			switch k.String() {
 			case "tab", "h", "left":
 				v.focusR = false
 				v.zoom = false
-				return nil, nil
+				return nil
 			case "enter":
 				if v.zoom {
 					v.zoom = false
-					return nil, nil
+					return nil
 				}
 			case "g":
 				v.detail.GotoTop()
-				return nil, nil
+				return nil
 			case "G":
 				v.detail.GotoBottom()
-				return nil, nil
+				return nil
 			case "a", "o", "/", "f", "t", "n", "N", "E", "x", "X":
 				// handled below
 			default:
 				var cmd tea.Cmd
 				v.detail, cmd = v.detail.Update(msg)
-				return cmd, nil
+				return cmd
 			}
 		}
 		switch v.tab {
@@ -418,7 +418,7 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 			}
 		case "/":
 			v.typing = true
-			return v.search.Focus(), nil
+			return v.search.Focus()
 		case "f":
 			v.kind = (v.kind + 1) % len(kindFilters)
 			v.follow = false
@@ -441,16 +441,15 @@ func (v *view) update(msg tea.Msg, w, h int) (tea.Cmd, *view) {
 			v.toggleAll()
 		case "a", "o":
 			if e := v.selected(); e != nil {
-				return nil, v.openSubagent(e)
+				return v.openSubagent(e)
 			}
 		}
 	}
-	return nil, nil
+	return nil
 }
 
-// openSubagent opens the transcript of an Agent (or forked Skill) call; the
-// caller pushes the view, which starts tailing it.
-func (v *view) openSubagent(e *parse.Event) *view {
+// openSubagent opens the transcript of an Agent (or forked Skill) call.
+func (v *view) openSubagent(e *parse.Event) tea.Cmd {
 	if e.Tool == nil || e.Tool.AgentID == "" {
 		return nil
 	}
@@ -462,11 +461,8 @@ func (v *view) openSubagent(e *parse.Event) *view {
 	if label == "" {
 		label = e.Tool.Summary
 	}
-	sub, err := openView(meta.Path, v.rootPath, label, false)
-	if err != nil {
-		return nil
-	}
-	return sub
+	msg := openMsg{path: meta.Path, root: v.rootPath, label: label}
+	return func() tea.Msg { return msg }
 }
 
 // wheel scrolls whatever is under the mouse.

@@ -9,6 +9,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// openNow opens a session and waits for it to load, as the program would.
+func openNow(a *App, msg openMsg) {
+	_, cmd := a.Update(msg)
+	a.Update(cmd())
+}
+
 func newTestApp(t *testing.T, w, h int) *App {
 	t.Helper()
 	p := filepath.Join(t.TempDir(), "s.jsonl")
@@ -16,7 +22,7 @@ func newTestApp(t *testing.T, w, h int) *App {
 	a := New(Options{Root: t.TempDir()})
 	a.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	a.Update(sessionsMsg{})
-	a.Update(openMsg{path: p})
+	openNow(a, openMsg{path: p})
 	t.Cleanup(func() {
 		for a.top() != nil {
 			a.pop()

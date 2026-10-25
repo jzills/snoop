@@ -22,10 +22,21 @@ type sessionsMsg struct {
 	err   error
 }
 
-// openMsg opens a session, with search set in its timeline when given.
+// openMsg opens a session, with search set in its timeline when given, or
+// a subagent's transcript of the session root, labelled label.
 type openMsg struct {
 	path   string
 	search string
+	root   string // the session a subagent belongs to; "" for a session
+	label  string
+}
+
+// openedMsg is a view parsed in the background for the open numbered seq.
+type openedMsg struct {
+	v   *view
+	err error
+	seq int
+	openMsg
 }
 
 // showBoardMsg switches from the picker to the live board.

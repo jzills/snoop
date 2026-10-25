@@ -61,7 +61,7 @@ func TestFindAcrossSessions(t *testing.T) {
 	if !ok || !strings.HasSuffix(msg.path, "tests.jsonl") || msg.search != "go test" {
 		t.Fatalf("enter = %+v, want tests.jsonl opened with the search", msg)
 	}
-	a.Update(msg)
+	openNow(a, msg)
 	v := a.top()
 	if v == nil {
 		t.Fatal("the session did not open")

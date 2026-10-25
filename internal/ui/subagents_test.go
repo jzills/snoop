@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -125,5 +126,27 @@ func TestToggleAll(t *testing.T) {
 	v.update(key("X"), 140, 30)
 	if v.expanded["sub1"] {
 		t.Error("second X did not collapse")
+	}
+}
+
+func TestOpenSubagentKeepsTheParent(t *testing.T) {
+	v, sp := newInlineView(t)
+	a := New(Options{Root: t.TempDir(), Follow: true})
+	a.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
+	a.push(v)
+	selectAgent(t, v)
+	_, cmd := a.Update(key("a"))
+	msg, ok := cmd().(openMsg)
+	if !ok || msg.path != sp || msg.root != v.rootPath || msg.label == "" {
+		t.Fatalf("a = %+v", msg)
+	}
+	openNow(a, msg)
+	t.Cleanup(func() {
+		for len(a.stack) > 1 { // newInlineView closes the parent
+			a.pop()
+		}
+	})
+	if len(a.stack) != 2 || a.top().path != sp || a.top().label != msg.label {
+		t.Errorf("stack = %d views, top %s", len(a.stack), a.top().path)
 	}
 }

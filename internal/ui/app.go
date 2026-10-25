@@ -38,6 +38,11 @@ type App struct {
 	stack  []*view
 	err    string
 
+	// A session being parsed in the background; opening counts opens, so
+	// only the latest is shown.
+	loading string
+	opening int
+
 	showHelp bool
 	helpVP   viewport.Model
 
@@ -180,14 +185,38 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case scanStartedMsg, scanResultMsg, scanDoneMsg:
 		return a, a.picker.onScan(msg)
 	case openMsg:
+		// Parsing a large transcript takes a while, so it happens off the
+		// UI; esc cancels it.
 		a.err = ""
-		// A followed session that is replaced closes everything above it.
-		v, err := openView(msg.path, msg.path, "", a.opts.Follow)
-		if err != nil {
-			a.err = err.Error()
+		a.opening++
+		a.loading = msg.label
+		if a.loading == "" {
+			a.loading = filepath.Base(msg.path)
+		}
+		seq, follow := a.opening, a.opts.Follow && msg.root == ""
+		return a, func() tea.Msg {
+			root := msg.root
+			if root == "" {
+				root = msg.path
+			}
+			v, err := openView(msg.path, root, msg.label, follow)
+			return openedMsg{v: v, err: err, seq: seq, openMsg: msg}
+		}
+	case openedMsg:
+		if msg.seq != a.opening || a.loading == "" {
+			if msg.v != nil {
+				msg.v.close()
+			}
 			return a, nil
 		}
-		if a.opts.Follow {
+		a.loading = ""
+		if msg.err != nil {
+			a.err = msg.err.Error()
+			return a, nil
+		}
+		v := msg.v
+		// A followed session that is replaced closes everything above it.
+		if a.opts.Follow && msg.root == "" {
 			for len(a.stack) > 0 {
 				a.pop()
 			}
@@ -214,6 +243,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return a, tea.Quit
+		case "esc":
+			if a.loading != "" {
+				a.loading = ""
+				return a, nil
+			}
 		}
 		v := a.top()
 		if v != nil && msg.String() != "!" {
@@ -291,11 +325,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 		}
-		cmd, sub := v.update(msg, a.w, a.h)
-		if sub != nil {
-			return a, a.push(sub)
-		}
-		return a, cmd
+		return a, v.update(msg, a.w, a.h)
 	}
 	if v := a.top(); v == nil {
 		return a, a.picker.update(msg, a.h)
@@ -359,10 +389,17 @@ func (a *App) View() string {
 	default:
 		out = a.picker.view(a.w, a.h)
 	}
-	// Errors replace the footer until the next key press.
-	if a.err != "" {
+	// Errors and opening progress replace the footer.
+	footer := ""
+	switch {
+	case a.err != "":
+		footer = sErr.Render(" " + glyphErr + " " + a.err)
+	case a.loading != "":
+		footer = sAccent.Render(" opening "+a.loading+" …") + sDim.Render("  esc cancels")
+	}
+	if footer != "" {
 		if i := strings.LastIndexByte(out, '\n'); i >= 0 {
-			out = out[:i+1] + fit(sErr.Render(" "+glyphErr+" "+a.err), a.w)
+			out = out[:i+1] + fit(footer, a.w)
 		}
 	}
 	return out

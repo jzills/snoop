@@ -204,7 +204,7 @@ func TestEscFromASessionReturnsToTheBoard(t *testing.T) {
 	a.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	a.View()
 	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	a.Update(cmd()) // the open; what it returns waits on the tail
+	openNow(a, cmd().(openMsg)) // what the open returns waits on the tail
 	if a.top() == nil {
 		t.Fatal("enter did not open a session")
 	}

@@ -218,7 +218,7 @@ func (v *view) moveFile(d int) {
 	v.fCursor = max(0, min(v.fCursor+d, len(v.files)-1))
 }
 
-func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) (tea.Cmd, *view) {
+func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) tea.Cmd {
 	switch k.String() {
 	case "up", "k":
 		v.moveFile(-1)
@@ -248,9 +248,9 @@ func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) (tea.Cmd, *view) {
 		v.focusDetail(w)
 	case "/":
 		v.typing = true
-		return v.search.Focus(), nil
+		return v.search.Focus()
 	}
-	return nil, nil
+	return nil
 }
 
 // lastChange is the file's latest edit or write, else its latest read.

@@ -193,7 +193,7 @@ func (v *view) selectShown(e *parse.Event) bool {
 	return false
 }
 
-func (v *view) updateTools(k tea.KeyMsg, w, bodyH int) (tea.Cmd, *view) {
+func (v *view) updateTools(k tea.KeyMsg, w, bodyH int) tea.Cmd {
 	g := v.selectedGroup()
 	switch k.String() {
 	case "up", "k":
@@ -271,13 +271,13 @@ func (v *view) updateTools(k tea.KeyMsg, w, bodyH int) (tea.Cmd, *view) {
 		v.flattenGroups(sel)
 	case "/":
 		v.typing = true
-		return v.search.Focus(), nil
+		return v.search.Focus()
 	case "a", "o":
 		if g != nil && g.ev != nil {
-			return nil, v.openSubagent(g.ev)
+			return v.openSubagent(g.ev)
 		}
 	}
-	return nil, nil
+	return nil
 }
 
 // toParent moves the cursor to the group containing g.
