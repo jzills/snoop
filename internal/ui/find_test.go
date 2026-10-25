@@ -113,4 +113,3 @@ func TestEscAfterAnEmptyFindDoesNotQuit(t *testing.T) {
 		t.Error("esc did not leave find")
 	}
 }
-
