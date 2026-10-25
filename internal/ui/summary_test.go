@@ -56,3 +56,28 @@ func TestPickerSummary(t *testing.T) {
 		t.Errorf("esc: summary = %v, cmd = %v", a.picker.summary, cmd)
 	}
 }
+
+func TestQuittingMidScanKeepsTheCache(t *testing.T) {
+	root := t.TempDir()
+	proj := filepath.Join(root, "-repo")
+	os.MkdirAll(proj, 0o755)
+	os.WriteFile(filepath.Join(proj, "s1.jsonl"), []byte(fixture), 0o644)
+	os.WriteFile(filepath.Join(proj, "s2.jsonl"), []byte(groupFixture), 0o644)
+	infos, _ := store.List(root)
+	cache := filepath.Join(t.TempDir(), "cache")
+
+	a := New(Options{Root: root, CacheDir: cache})
+	a.Update(sessionsMsg{infos: infos})
+	_, cmd := a.Update(key("s"))
+	// Take one result, then quit before the scan finishes.
+	_, cmd = a.Update(cmd())
+	a.Update(cmd())
+	if a.picker.scanned != 1 || !a.picker.scanning {
+		t.Fatalf("scanned %d, scanning %v", a.picker.scanned, a.picker.scanning)
+	}
+	a.Close()
+	b, err := os.ReadFile(filepath.Join(cache, "summaries.json"))
+	if err != nil || !strings.Contains(string(b), "s1.jsonl") && !strings.Contains(string(b), "s2.jsonl") {
+		t.Errorf("cache after quitting mid-scan: %v %.200s", err, b)
+	}
+}

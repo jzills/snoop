@@ -78,6 +78,10 @@ func tick() tea.Cmd {
 	return tea.Tick(time.Second, func(time.Time) tea.Msg { return tickMsg{} })
 }
 
+// Close saves what snoop learnt while it ran; call it after the program
+// exits, which may be part way through a scan.
+func (a *App) Close() { a.picker.save() }
+
 func (a *App) top() *view {
 	if len(a.stack) == 0 {
 		return nil

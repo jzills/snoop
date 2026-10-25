@@ -134,7 +134,10 @@ func main() {
 		opts.Path = p
 	}
 
-	if _, err := tea.NewProgram(ui.New(opts), tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithReportFocus()).Run(); err != nil {
+	app := ui.New(opts)
+	_, err := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithReportFocus()).Run()
+	app.Close()
+	if err != nil {
 		fail(err)
 	}
 }

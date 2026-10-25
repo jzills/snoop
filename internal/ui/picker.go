@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -52,6 +53,7 @@ type picker struct {
 	page     viewport.Model
 	cache    *summary.Cache
 	scanning bool
+	saved    time.Time // when a running scan last saved the cache
 	scanned  int
 	sums     map[string]summary.Session // by transcript path
 	bad      map[string]bool            // unreadable transcripts

@@ -55,6 +55,13 @@ func (p *picker) onScan(msg tea.Msg) tea.Cmd {
 		if p.find && p.scanned%findBatch == 0 {
 			p.refilter()
 		}
+		// The cache is saved as the scan goes, so quitting part way through
+		// keeps what was parsed.
+		if now := time.Now(); now.Sub(p.saved) >= cacheSaveEvery {
+			p.saved = now
+			c, all := p.cache, p.all
+			return tea.Batch(waitScan(msg.ch), func() tea.Msg { c.Save(all); return nil })
+		}
 		return waitScan(msg.ch)
 	case scanDoneMsg:
 		p.scanning = false
@@ -77,6 +84,16 @@ func (p *picker) toggleSummary() tea.Cmd {
 	return p.startScan()
 }
 
+// cacheSaveEvery is how often a running scan saves the cache.
+const cacheSaveEvery = 5 * time.Second
+
+// save writes the summaries scanned so far.
+func (p *picker) save() {
+	if p.cache != nil && p.loaded {
+		p.cache.Save(p.all)
+	}
+}
+
 // findBatch is how many scanned sessions update find's results at once.
 const findBatch = 25
 
@@ -86,7 +103,7 @@ func (p *picker) startScan() tea.Cmd {
 	if p.scanning || !p.loaded {
 		return nil
 	}
-	p.scanning, p.scanned = true, 0
+	p.scanning, p.scanned, p.saved = true, 0, time.Now()
 	return startScan(p.all, p.cache)
 }
 
