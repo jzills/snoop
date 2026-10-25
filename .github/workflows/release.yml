@@ -48,6 +48,11 @@ jobs:
       - name: Render the Homebrew formula
         run: scripts/homebrew_formula.sh "${{ steps.version.outputs.value }}" > dist/snoop.rb
 
+      # Attached to the release, so the latest/download URL in the README
+      # always serves the installer that shipped with the newest binaries.
+      - name: Add the install script
+        run: cp install.sh dist/install.sh
+
       - name: Upload release files
         uses: actions/upload-artifact@v7
         with:
@@ -57,6 +62,7 @@ jobs:
             dist/snoop_*.zip
             dist/SHA256SUMS
             dist/snoop.rb
+            dist/install.sh
           if-no-files-found: error
 
   # The approval gate. Give the `release` environment a required reviewer
@@ -92,7 +98,7 @@ jobs:
           fi
           cd "$RUNNER_TEMP/release"
           gh release create "$GITHUB_REF_NAME" \
-            snoop_*.tar.gz snoop_*.zip SHA256SUMS \
+            snoop_*.tar.gz snoop_*.zip SHA256SUMS install.sh \
             --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             --generate-notes "${notes[@]}"

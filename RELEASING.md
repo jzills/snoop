@@ -11,8 +11,9 @@ publishes.
    → Required reviewers: you). The publish jobs wait for your approval there;
    without a reviewer GitHub creates the environment unprotected and they run
    straight away.
-3. **Create the tap repository** `jzills/homebrew-tap` (public, empty apart
-   from a README). Homebrew finds it as `jzills/tap`.
+3. **Add snoop to the tap** `jzills/homebrew-tap` (it already holds kx;
+   Homebrew finds it as `jzills/tap`): a README entry, and `snoop` alongside
+   `kx` in its `formula.yml` audit, install and test steps.
 4. **Add the `HOMEBREW_TAP_TOKEN` secret** to this repository: a fine-grained
    personal access token with *Contents: read and write* on
    `jzills/homebrew-tap` only. Without it the release still publishes and the
@@ -33,12 +34,13 @@ publishes.
 4. Approve the run when it reaches the `release` environment. It then:
    - creates the GitHub Release with six archives (Linux, macOS and Windows,
      amd64 and arm64), version-free copies for `releases/latest/download/`,
-     and `SHA256SUMS`;
+     `SHA256SUMS` and `install.sh`;
    - commits `Formula/snoop.rb` to the tap.
 5. Check the install paths:
 
    ```
    brew install jzills/tap/snoop && snoop --version
+   curl -fsSL https://github.com/jzills/snoop/releases/latest/download/install.sh | sh
    go install github.com/jzills/snoop/cmd/snoop@v0.1.0
    ```
 

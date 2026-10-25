@@ -13,8 +13,14 @@ waterfall, an expanded subagent, the Files tab and Stats](demo/demo.gif)
 
 ```
 brew install jzills/tap/snoop                      # macOS and Linux
+curl -fsSL https://github.com/jzills/snoop/releases/latest/download/install.sh | sh
 go install github.com/jzills/snoop/cmd/snoop@latest
 ```
+
+The install script picks the build for your machine, checks it against the
+release's `SHA256SUMS`, and installs it to `~/.local/bin` without sudo.
+`SNOOP_INSTALL_DIR` changes where it goes, and `SNOOP_VERSION=v0.1.0`
+installs that release instead of the newest.
 
 Or download a binary for Linux, macOS or Windows from the
 [latest release](https://github.com/jzills/snoop/releases/latest); each

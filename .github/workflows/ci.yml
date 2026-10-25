@@ -80,7 +80,9 @@ jobs:
           cache: true
 
       - name: Lint the release scripts
-        run: shellcheck scripts/*.sh demo/*.sh
+        run: |
+          shellcheck scripts/*.sh demo/*.sh
+          shellcheck -s sh install.sh
 
       - name: Build every target
         run: scripts/build_binaries.sh 0.0.0-dev
@@ -90,3 +92,22 @@ jobs:
 
       - name: Render the Homebrew formula
         run: scripts/homebrew_formula.sh 0.0.0-dev
+
+  # Linux runs the install script's tests in the test job; macOS is here
+  # because its shasum, uname, BSD tar and mktemp are what the script meets
+  # on a Mac.
+  install-script-macos:
+    name: Install script on macOS
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test
+        run: go test ./internal/installscript/ -v
