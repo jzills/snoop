@@ -54,27 +54,31 @@ body {
   border-color: var(--snoop-border);
 }
 
-/* Navbar mark
+/* Wordmark: "snoop" with the "oo" as two eyes
  * ------------------------------------------------------------------ */
+
+.snoop-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--snoop-body);
+}
+
+/* Two monospace advances wide, x-height tall, resting on the baseline. */
+.snoop-wordmark svg {
+  width: 1.2em;
+  height: 0.553em;
+  flex: none;
+  color: var(--snoop-accent);
+}
 
 .snoop-navbar-mark {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  color: var(--snoop-accent);
-}
-
-.snoop-navbar-mark svg {
-  height: 1.05rem;
-  width: auto;
-  display: block;
-}
-
-.snoop-navbar-mark__name {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: var(--snoop-body);
+  font-size: 1.3rem;
 }
 
 /* Hero
@@ -89,24 +93,8 @@ body {
   text-align: center;
 }
 
-.snoop-hero__logo {
-  display: block;
-  color: var(--snoop-accent);
-}
-
-.snoop-hero__logo svg {
-  height: clamp(2.4rem, 7vw, 3.6rem);
-  width: auto;
-  display: block;
-  margin: 0 auto;
-}
-
 .snoop-hero__name {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  font-size: clamp(2.2rem, 6vw, 3.4rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--snoop-body);
+  font-size: clamp(3rem, 9vw, 4.75rem);
   margin: 0;
   line-height: 1;
 }

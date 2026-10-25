@@ -4,8 +4,7 @@ toc: false
 ---
 
 <div class="snoop-hero">
-  <span class="snoop-hero__logo">{{< snoop-mark >}}</span>
-  <p class="snoop-hero__name">snoop</p>
+  <h1 class="snoop-hero__name">{{< snoop-wordmark >}}</h1>
   <p class="snoop-hero__tagline">Watch Claude Code work.</p>
   <p class="snoop-hero__blurb">
     A fast terminal viewer for Claude Code sessions. Follow one live in a
