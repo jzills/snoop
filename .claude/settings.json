@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; case \"$f\" in *.go) gofmt -w \"$f\";; esac; } 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "gofmt"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/prose_lint.py\" --hook",
+            "timeout": 30,
+            "statusMessage": "Checking the writing rules"
+          }
+        ]
+      }
+    ]
+  }
+}
