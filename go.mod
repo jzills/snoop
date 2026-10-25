@@ -9,7 +9,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/fsnotify/fsnotify v1.8.0
-	github.com/goccy/go-json v0.10.5
+	github.com/goccy/go-json v0.11.2
 	github.com/sahilm/fuzzy v0.1.3
 )
 
