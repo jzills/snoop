@@ -54,11 +54,24 @@ func TestRowState(t *testing.T) {
 		{"quiet without a waiting tool", []string{bPrompt}, 0, 11 * time.Minute, rowIdle, "no activity"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			st, detail := rowState(sessOf(tc.lines...), bStart.Add(tc.last), bStart.Add(tc.now), stall)
+			st, detail := rowState(sessOf(tc.lines...), "", bStart.Add(tc.last), bStart.Add(tc.now), stall)
 			if st != tc.want || !strings.Contains(detail, tc.detail) {
 				t.Errorf("state %v %q, want %v containing %q", st, detail, tc.want, tc.detail)
 			}
 		})
+	}
+}
+
+func TestForkedSkillRowIsWorking(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "s.jsonl")
+	skill := `{"type":"assistant","uuid":"a3","timestamp":"2026-10-25T10:00:05Z","message":{"id":"m3","content":[{"type":"tool_use","id":"t3","name":"Skill","input":{"skill":"review"}}]}}`
+	s := sessOf(bPrompt, skill)
+	if st, _ := rowState(s, p, bStart, bStart.Add(time.Minute), 30*time.Second); st != rowWaiting {
+		t.Fatalf("a Skill with no subagent = %v, want waiting", st)
+	}
+	writeSubagent(t, p, "f1")
+	if st, d := rowState(s, p, bStart, bStart.Add(time.Minute), 30*time.Second); st != rowWorking {
+		t.Errorf("a forked Skill = %v %q, want working", st, d)
 	}
 }
 

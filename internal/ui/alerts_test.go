@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -112,5 +114,32 @@ func TestKeyHidesAlert(t *testing.T) {
 	a.Update(key("j"))
 	if v.alertShown {
 		t.Error("alert still shown after a key")
+	}
+}
+
+func TestForkedSkillIsNotAStall(t *testing.T) {
+	v := newTestView(t)
+	v.onTail(lines(
+		`{"type":"assistant","uuid":"a9","timestamp":"2026-10-24T10:01:00Z","message":{"id":"m9","content":[{"type":"tool_use","id":"t9","name":"Skill","input":{"skill":"review"}}]}}`,
+	))
+	start := time.Date(2026, 10, 24, 10, 1, 0, 0, time.UTC)
+	// A plain Skill call with nothing running under it can wait on you.
+	if as := v.stalls(start.Add(31*time.Second), 30*time.Second); len(as) != 1 {
+		t.Fatalf("plain Skill stall alerts = %+v", as)
+	}
+	v.pending[v.sess.Events[len(v.sess.Events)-1]] = false
+	// Once its forked subagent writes, it is running, not waiting.
+	writeSubagent(t, v.rootPath, "f1")
+	if as := v.stalls(start.Add(2*time.Minute), 30*time.Second); len(as) != 0 {
+		t.Errorf("forked Skill raised a stall: %+v", as)
+	}
+}
+
+func writeSubagent(t *testing.T, sessionPath, id string) {
+	t.Helper()
+	dir := filepath.Join(strings.TrimSuffix(sessionPath, ".jsonl"), "subagents")
+	os.MkdirAll(dir, 0o755)
+	if err := os.WriteFile(filepath.Join(dir, "agent-"+id+".jsonl"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

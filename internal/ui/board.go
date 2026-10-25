@@ -56,8 +56,9 @@ const interrupted = "[Request interrupted by user"
 // rowState says what a session is doing at now, given when it, or one of
 // its subagents, last wrote. A tool call with no result after stall is
 // waiting on you however long ago it started: a permission prompt waits
-// forever. Subagents run for minutes and never count as waiting.
-func rowState(s *parse.Session, last, now time.Time, stall time.Duration) (rowStatus, string) {
+// forever. Calls running a subagent of root take minutes and never count
+// as waiting.
+func rowState(s *parse.Session, root string, last, now time.Time, stall time.Duration) (rowStatus, string) {
 	if len(s.Turns) == 0 {
 		return rowIdle, "no prompts yet"
 	}
@@ -73,7 +74,7 @@ func rowState(s *parse.Session, last, now time.Time, stall time.Duration) (rowSt
 		if e.Tool == nil || e.Tool.HasResult {
 			continue
 		}
-		if e.Tool.Kind != parse.ToolAgent && now.Sub(e.Time) >= stall {
+		if now.Sub(e.Time) >= stall && !runsSubagent(e, root) {
 			return rowWaiting, fmt.Sprintf("waiting %s on %s · may be a permission prompt",
 				waited(now.Sub(e.Time)), e.Tool.Name)
 		}
@@ -189,7 +190,7 @@ func (b *board) onLoaded(msg boardLoadedMsg) {
 	if msg.err != nil {
 		return
 	}
-	b.rows[msg.act.Path] = &boardRow{info: msg.info, f: msg.f, watch: newWatch(), last: msg.act.Last}
+	b.rows[msg.act.Path] = &boardRow{info: msg.info, f: msg.f, watch: newWatch(msg.act.Path), last: msg.act.Last}
 }
 
 // poll reads what each session added since the last poll and returns the
@@ -202,7 +203,7 @@ func (b *board) poll(now time.Time, stall time.Duration, open func(path string) 
 		before := r.watch.snap(r.f.Sess)
 		changed, reset := r.f.Poll()
 		if reset {
-			r.watch = newWatch()
+			r.watch = newWatch(p)
 			continue
 		}
 		var as []*alert
@@ -248,7 +249,7 @@ func (b *board) arrange(now time.Time, stall time.Duration) {
 	}
 	b.order = b.order[:0]
 	for _, r := range b.rows {
-		r.status, r.detail = rowState(r.f.Sess, r.last, now, stall)
+		r.status, r.detail = rowState(r.f.Sess, r.info.Path, r.last, now, stall)
 		b.order = append(b.order, r)
 	}
 	sort.Slice(b.order, func(i, j int) bool {

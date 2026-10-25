@@ -140,7 +140,7 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	ti.Placeholder = "search text, commands, paths, results"
 	v := &view{
 		path: path, rootPath: rootPath, label: label, sess: s,
-		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(),
+		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(rootPath),
 		detail: viewport.New(0, 0), page: viewport.New(0, 0),
 	}
 	v.tl, _ = tail.Open(path, off, followNew)
@@ -509,7 +509,7 @@ func (v *view) onTail(u tail.Update) []*alert {
 		v.sess = parse.NewSession()
 		v.hay = map[*parse.Event]hayEntry{}
 		v.detailEv = nil
-		v.watch = newWatch()
+		v.watch = newWatch(v.rootPath)
 	}
 	if len(u.Lines) == 0 && !u.Reset {
 		return nil

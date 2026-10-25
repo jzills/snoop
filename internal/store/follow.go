@@ -81,11 +81,8 @@ func Recent(root string, since time.Time) []Activity {
 		}
 		last := st.ModTime()
 		if last.Before(since) && last.After(since.Add(-subagentHorizon)) {
-			subs, _ := filepath.Glob(filepath.Join(strings.TrimSuffix(p, ".jsonl"), "subagents", "agent-*.jsonl"))
-			for _, sp := range subs {
-				if sst, err := os.Stat(sp); err == nil && sst.ModTime().After(last) {
-					last = sst.ModTime()
-				}
+			if sub := subagentWrite(p); sub.After(last) {
+				last = sub
 			}
 		}
 		if !last.Before(since) {
@@ -93,4 +90,23 @@ func Recent(root string, since time.Time) []Activity {
 		}
 	}
 	return out
+}
+
+// subagentWrite is the newest write to any of a session's subagent
+// transcripts, or the zero time.
+func subagentWrite(sessionPath string) time.Time {
+	var last time.Time
+	subs, _ := filepath.Glob(filepath.Join(strings.TrimSuffix(sessionPath, ".jsonl"), "subagents", "agent-*.jsonl"))
+	for _, sp := range subs {
+		if st, err := os.Stat(sp); err == nil && st.ModTime().After(last) {
+			last = st.ModTime()
+		}
+	}
+	return last
+}
+
+// SubagentWrittenSince reports whether any of a session's subagents wrote
+// at or after t.
+func SubagentWrittenSince(sessionPath string, t time.Time) bool {
+	return !subagentWrite(sessionPath).Before(t)
 }

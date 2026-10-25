@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jzills/snoop/internal/parse"
+	"github.com/jzills/snoop/internal/store"
 )
 
 // Alerts flag what happens while a session is watched live: tool errors,
@@ -69,11 +70,25 @@ func ctxPct(s *parse.Session) int {
 // watch is the alert state of one live session: the session view and the
 // live board each keep one per session they follow.
 type watch struct {
+	root       string // the session's transcript, whose subagents it checks
 	unseenErrs int
 	pending    map[*parse.Event]bool // live tool calls without a result; true once alerted
 }
 
-func newWatch() watch { return watch{pending: map[*parse.Event]bool{}} }
+func newWatch(root string) watch { return watch{root: root, pending: map[*parse.Event]bool{}} }
+
+// runsSubagent reports calls that run a subagent, which take minutes and
+// never wait on you: Agent calls, and forked Skill calls, known by a
+// subagent of the session writing since the call began.
+func runsSubagent(e *parse.Event, root string) bool {
+	switch e.Tool.Kind {
+	case parse.ToolAgent:
+		return true
+	case parse.ToolSkill:
+		return root != "" && store.SubagentWrittenSince(root, e.Time)
+	}
+	return false
+}
 
 // liveState is what a watch compares before and after new lines.
 type liveState struct {
@@ -149,14 +164,14 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 }
 
 // stalls raises one alert per live tool call still without a result after
-// stall.
+// stall, other than those running a subagent.
 func (w *watch) stalls(now time.Time, stall time.Duration) []*alert {
 	var out []*alert
 	for e, alerted := range w.pending {
 		switch {
 		case e.Tool.HasResult:
 			delete(w.pending, e)
-		case !alerted && now.Sub(e.Time) >= stall:
+		case !alerted && now.Sub(e.Time) >= stall && !runsSubagent(e, w.root):
 			w.pending[e] = true
 			what := fmt.Sprintf("waiting %s on %s · may be a permission prompt", waited(now.Sub(e.Time)), e.Tool.Name)
 			out = append(out, &alert{kind: alertStall, text: glyphPending + " " + what, note: "W" + what[1:], ev: e})
