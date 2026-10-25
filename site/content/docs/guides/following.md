@@ -7,7 +7,7 @@ The timeline is where snoop starts when you open a session. It lists every
 prompt, reply, thinking block and tool call, one per line, and keeps up as
 the session writes.
 
-{{< shot src="timeline.png" alt="The timeline with prompts, tool calls and replies, and the selected reply in the detail pane" caption="A session's timeline. The right pane shows the selected event in full." >}}
+{{< shot src="timeline.png" alt="The timeline with prompts, tool calls and replies, and the selected reply in the detail pane" caption="The timeline lists the session's events, and the right pane shows the selected one in full." >}}
 
 ## Follow live
 
@@ -30,7 +30,7 @@ snoop ~/.claude/projects/-home-me-src-api/64f3ec44-….jsonl
 ## Read the timeline
 
 Each tool row shows the call's duration and status: `✓` done, `✗` error,
-`◌` running. Each kind of tool has its own glyph and colour:
+`◌` running. Each kind of tool has its own glyph and color:
 
 | Glyph | Kind |
 | --- | --- |

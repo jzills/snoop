@@ -35,7 +35,7 @@ In a second terminal beside `claude`, run:
 snoop --follow
 ```
 
-snoop opens the newest session for the current directory and selects new
+This opens the newest session for the current directory and selects new
 events as they arrive. When Claude Code starts a new session there, snoop
 switches to it.
 

@@ -3,7 +3,8 @@ title: What snoop reads and writes
 weight: 4
 ---
 
-snoop runs entirely on your machine and makes no network requests.
+Everything snoop does happens on your machine, and it makes no network
+requests.
 
 ## Reads
 
@@ -20,7 +21,7 @@ instead. It never writes to these files.
 | Path | What |
 | --- | --- |
 | `<cache>/snoop/summaries.json` | the summary and find index, one entry per transcript, rebuilt when a transcript changes |
-| `<cache>/snoop/notified/` | one small file per notification sent, so several snoops send it once. Removed after an hour |
+| `<cache>/snoop/notified/` | one small file per notification sent, so several snoops send it only once; each is removed after an hour |
 | `./<id>-<date>-<time>.md` | timelines you export with `e` |
 
 Here `<cache>` is your user cache directory:

@@ -6,7 +6,7 @@ weight: 4
 The Files tab (`4`) lists every file the session and its subagents read,
 edited or wrote.
 
-{{< shot src="files.png" alt="The Files tab listing files with read, edit and write counts, and a file's history of diffs on the right" caption="Each file's history, with every change as a diff." >}}
+{{< shot src="files.png" alt="The Files tab listing files with read, edit and write counts, and a file's history of diffs on the right" caption="The right pane shows each file's history, with every change as a diff." >}}
 
 ## The list
 
@@ -25,6 +25,5 @@ Pressing `y` copies all of the file's changes to the clipboard.
 
 {{< callout type="info" >}}
 Changes made through Bash, such as `sed -i` or a code generator, aren't
-tracked. snoop sees only the Read, Edit, MultiEdit, Write and NotebookEdit
-tools.
+tracked. Only the Read, Edit, MultiEdit, Write and NotebookEdit tools are.
 {{< /callout >}}

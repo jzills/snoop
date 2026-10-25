@@ -11,9 +11,9 @@ and want to know which one needs you.
 snoop --live
 ```
 
-Or press `w` in the session picker.
+You can also press `w` in the session picker.
 
-{{< shot src="live.png" width="960" height="280" alt="The live board with one session waiting on a tool call, one whose turn ended and one working" caption="One session waiting on you, one whose turn has ended, one still working." >}}
+{{< shot src="live.png" width="960" height="280" alt="The live board with one session waiting on a tool call, one whose turn ended and one working" caption="One session is waiting on you, one has finished its turn, and one is still working." >}}
 
 ## States
 

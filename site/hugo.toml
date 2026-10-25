@@ -30,7 +30,7 @@ title = "snoop"
     noClasses = false
 
 [params]
-  description = "A terminal viewer for Claude Code sessions: follow one live, and see what each prompt cost, how full the context is, which files changed and what the subagents did."
+  description = "Follow a Claude Code session live, and see what each prompt cost, how full the context is, which files changed and what the subagents did."
 
   # layouts/_partials/navbar-title.html draws the logo and name itself.
   [params.navbar]

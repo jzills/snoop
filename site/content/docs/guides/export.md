@@ -16,7 +16,7 @@ Press `y` to copy the selected event to the clipboard:
 | any other call | its result |
 | a file, in the Files tab | all of its changes |
 
-snoop copies over OSC 52, which works over SSH. In tmux, enable it by adding
+Copying uses OSC 52, so it works over SSH too. In tmux, enable it by adding
 `set -g set-clipboard on` to your configuration.
 
 ## Export to Markdown

@@ -44,7 +44,7 @@ Waiting 45s on Bash · may be a permission prompt
 
 ## How notifications are delivered
 
-snoop picks one way to deliver notifications for where it runs:
+For each environment, snoop picks one way to deliver notifications:
 
 | Where snoop runs | Delivered by |
 | --- | --- |

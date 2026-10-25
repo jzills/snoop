@@ -3,12 +3,12 @@ title: Install
 weight: 2
 ---
 
-snoop is a single binary for macOS, Linux and Windows. Install it one of
-these ways.
+You can install snoop, a single binary for macOS, Linux and Windows, in any
+of these ways.
 
 {{< tabs >}}
   {{< tab name="Install script" >}}
-On macOS and Linux:
+Run this on macOS or Linux:
 
 ```sh
 curl -fsSL https://jzills.github.io/snoop/install.sh | sh
@@ -26,7 +26,7 @@ Release builds cover Linux and macOS on amd64 and arm64. Elsewhere, the
 script stops and suggests installing with Go.
   {{< /tab >}}
   {{< tab name="Homebrew" >}}
-On macOS and Linux:
+Run this on macOS or Linux:
 
 ```sh
 brew install jzills/tap/snoop
@@ -35,7 +35,7 @@ brew install jzills/tap/snoop
 Update it with `brew upgrade snoop`.
   {{< /tab >}}
   {{< tab name="Go" >}}
-With Go 1.26 or later:
+With Go 1.26 or later installed, run:
 
 ```sh
 go install github.com/jzills/snoop/cmd/snoop@latest

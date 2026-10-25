@@ -37,5 +37,5 @@ The export command takes `-o FILE` to write to a file instead of stdout.
 
 | Variable | Effect |
 | --- | --- |
-| `CLAUDE_CONFIG_DIR` | where Claude Code keeps its data. snoop reads `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects` when unset |
+| `CLAUDE_CONFIG_DIR` | where Claude Code keeps its data; snoop reads `$CLAUDE_CONFIG_DIR/projects`, or `~/.claude/projects` when it's unset |
 | `XDG_CACHE_HOME` | on Linux, moves snoop's cache. See [What snoop reads and writes](../data/) |

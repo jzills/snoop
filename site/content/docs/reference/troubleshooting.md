@@ -5,14 +5,14 @@ weight: 5
 
 ## No sessions are listed
 
-snoop reads `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects` when that
-variable is set. If you run Claude Code with a custom `CLAUDE_CONFIG_DIR`,
+By default, snoop reads `~/.claude/projects`, or `$CLAUDE_CONFIG_DIR/projects`
+when that variable is set. If you run Claude Code with a custom `CLAUDE_CONFIG_DIR`,
 set the same value for snoop.
 
 ## A session shows less than expected
 
 The transcript format is undocumented and changes between Claude Code
-versions. snoop skips records it doesn't recognise rather than failing, so a
+versions. Rather than failing, snoop skips records it doesn't recognize, so a
 newer Claude Code may show less. Please
 [open an issue](https://github.com/jzills/snoop/issues) with your Claude Code
 version (`claude --version`).
@@ -34,8 +34,8 @@ If sending fails, snoop shows the error in its footer.
 
 ## Copy doesn't reach the clipboard
 
-snoop copies over OSC 52. Most terminals support it; some need it enabled.
-In tmux, add `set -g set-clipboard on`.
+Copying uses OSC 52, which most terminals support, though some need it
+enabled. In tmux, add `set -g set-clipboard on` to `~/.tmux.conf`.
 
 ## A session is "waiting" but nothing is asked
 
