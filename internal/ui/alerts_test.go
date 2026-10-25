@@ -143,3 +143,17 @@ func writeSubagent(t *testing.T, sessionPath, id string) {
 		t.Fatal(err)
 	}
 }
+
+func TestContextAlertWithoutEvents(t *testing.T) {
+	s := sessOf()
+	w := newWatch("")
+	before := w.snap(s)
+	s.Feed([]byte(`{"type":"assistant","uuid":"c1","message":{"id":"c1","content":[{"type":"text","text":" "}],"usage":{"input_tokens":190000}}}`))
+	if len(s.Events) != 0 {
+		t.Fatalf("fixture has %d events, want none", len(s.Events))
+	}
+	as := w.alerts(s, before)
+	if len(as) != 1 || as[0].kind != alertContext || as[0].ev != nil {
+		t.Errorf("alerts = %+v", as)
+	}
+}

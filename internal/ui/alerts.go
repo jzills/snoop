@@ -136,8 +136,11 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 		}
 	}
 	if pct := ctxPct(s); before.ctx < ctxAlertPct && pct >= ctxAlertPct {
-		out = append(out, &alert{kind: alertContext, text: fmt.Sprintf("ctx %d%%", pct),
-			note: fmt.Sprintf("Context %d%% full", pct), ev: s.Events[len(s.Events)-1]})
+		a := &alert{kind: alertContext, text: fmt.Sprintf("ctx %d%%", pct), note: fmt.Sprintf("Context %d%% full", pct)}
+		if n := len(s.Events); n > 0 {
+			a.ev = s.Events[n-1]
+		}
+		out = append(out, a)
 	}
 	if n := len(s.Turns); n > 0 {
 		t := s.Turns[n-1]
