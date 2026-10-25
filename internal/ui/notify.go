@@ -3,69 +3,30 @@ package ui
 import (
 	"os"
 	"strings"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/jzills/snoop/internal/notify"
 )
 
-// Desktop notifications (--notify) are terminal escape sequences, so they
-// work over SSH and need no helper program. Terminals disagree on which
-// sequence they understand; the one to send is picked from the
-// environment. Inside tmux it is wrapped for passthrough, which tmux only
-// forwards with `set -g allow-passthrough on`.
+// Desktop notifications (--notify) go out for the alert kinds chosen with
+// --alerts, at most one per session and kind a minute, and none while
+// snoop's own window has focus. Several snoops watching one session send
+// one notification between them.
 
-const notifyMax = 200 // runes of body text
+const noteEvery = time.Minute
 
-// notifySeq is the escape sequence that shows body as a notification
-// titled "snoop" in the terminal getenv describes.
-func notifySeq(getenv func(string) string, body string) string {
-	body = cleanNotify(body)
-	var seq string
-	switch {
-	case getenv("KITTY_WINDOW_ID") != "":
-		seq = "\x1b]99;i=snoop:d=0;snoop\a\x1b]99;i=snoop:p=body;" + body + "\a"
-	case osc9(getenv):
-		seq = "\x1b]9;snoop: " + body + "\a"
-	default:
-		seq = "\x1b]777;notify;snoop;" + body + "\a"
+// noteTitle names a session in a notification: "api · Fix the flaky test".
+func noteTitle(project, name string) string {
+	name = strings.Join(strings.Fields(name), " ")
+	if r := []rune(name); len(r) > 60 {
+		name = string(r[:59]) + "…"
 	}
-	switch {
-	case getenv("TMUX") != "":
-		seq = "\x1bPtmux;" + strings.ReplaceAll(seq, "\x1b", "\x1b\x1b") + "\x1b\\"
-	case getenv("STY") != "":
-		seq = "\x1bP" + seq + "\x1b\\"
+	if project == "" {
+		return name
 	}
-	return seq
-}
-
-// osc9 reports terminals known to show OSC 9 as a notification.
-func osc9(getenv func(string) string) bool {
-	switch getenv("TERM_PROGRAM") {
-	case "iTerm.app", "WezTerm", "ghostty":
-		return true
-	}
-	// iTerm2 sets this, and it survives into tmux and SSH.
-	return getenv("LC_TERMINAL") == "iTerm2"
-}
-
-// cleanNotify keeps body from ending or extending the sequence: control
-// characters and the ";" OSC 777 separates fields with are replaced.
-func cleanNotify(s string) string {
-	var b strings.Builder
-	n := 0
-	for _, r := range s {
-		if n == notifyMax {
-			break
-		}
-		switch {
-		case r == ';':
-			r = ','
-		case r == '\n' || r == '\t':
-			r = ' '
-		case r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0):
-			continue
-		}
-		b.WriteRune(r)
-		n++
-	}
-	return b.String()
+	return project + " · " + name
 }
 
 // chosen is the newest alert of a kind the user picked, or nil.
@@ -76,6 +37,35 @@ func chosen(as []*alert, on map[string]bool) *alert {
 		}
 	}
 	return nil
+}
+
+type notifyErrMsg struct{ err error }
+
+// notifyCmd sends a notification for the newest chosen alert, unless it
+// shouldn't go out.
+func (a *App) notifyCmd(as []*alert, now time.Time) tea.Cmd {
+	c := chosen(as, a.opts.BellOn)
+	if c == nil || a.opts.Notifier == nil || a.focused {
+		return nil
+	}
+	every := c.path + "|" + c.kind
+	if last, ok := a.noted[every]; ok && now.Sub(last) < noteEvery {
+		return nil
+	}
+	if !notify.Claim(a.claimDir, c.key(), now) {
+		return nil
+	}
+	a.noted[every] = now
+	n, sender := notify.Note{Title: c.title, Body: c.note}, a.opts.Notifier
+	if n.Title == "" {
+		n.Title = "snoop"
+	}
+	return func() tea.Msg {
+		if err := sender.Send(n); err != nil {
+			return notifyErrMsg{err}
+		}
+		return nil
+	}
 }
 
 func writeTerm(s string) { os.Stderr.WriteString(s) }

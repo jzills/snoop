@@ -3,13 +3,14 @@
 package ui
 
 import (
-	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jzills/snoop/internal/notify"
 	"github.com/jzills/snoop/internal/tail"
 )
 
@@ -23,10 +24,10 @@ type Options struct {
 
 	Live bool // start on the live board
 
-	Stall  time.Duration   // alert when a live tool call has no result after this long
-	Bell   bool            // ring the terminal bell on alerts
-	Notify bool            // send a desktop notification on alerts
-	BellOn map[string]bool // alert kinds that ring the bell or notify
+	Stall    time.Duration   // alert when a live tool call has no result after this long
+	Bell     bool            // ring the terminal bell on alerts
+	Notifier notify.Sender   // send desktop notifications on alerts; nil for none
+	BellOn   map[string]bool // alert kinds that ring the bell or notify
 }
 
 type App struct {
@@ -39,13 +40,21 @@ type App struct {
 
 	showHelp bool
 	helpVP   viewport.Model
+
+	// Notifications.
+	focused  bool                 // snoop's window has focus, as the terminal reports it
+	noted    map[string]time.Time // last notification per session and alert kind
+	claimDir string               // shared by every snoop, so one event notifies once
 }
 
 type tickMsg struct{}
 
 func New(opts Options) *App {
 	p := newPicker(opts.ProjectDir, opts.CacheDir)
-	a := &App{opts: opts, picker: p}
+	a := &App{opts: opts, picker: p, noted: map[string]time.Time{}}
+	if opts.CacheDir != "" {
+		a.claimDir = filepath.Join(opts.CacheDir, "notified")
+	}
 	if opts.Live {
 		a.board = newBoard(opts.Root)
 	}
@@ -93,6 +102,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.w, a.h = msg.Width, msg.Height
 		return a, nil
+	case tea.FocusMsg:
+		a.focused = true
+		return a, nil
+	case tea.BlurMsg:
+		a.focused = false
+		return a, nil
+	case notifyErrMsg:
+		a.err = "notification failed: " + msg.err.Error()
+		return a, nil
 	case tickMsg:
 		cmds := []tea.Cmd{tick()}
 		for _, v := range a.stack {
@@ -104,7 +122,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for _, v := range a.stack {
 				as := v.stalls(time.Now(), a.opts.Stall)
 				v.raise(as)
-				cmds = append(cmds, a.signal(as, v.project()))
+				cmds = append(cmds, a.signal(v.own(as)))
 			}
 		}
 		if b := a.board; b != nil {
@@ -112,7 +130,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if now.Sub(b.lastScan) >= boardScan {
 				cmds = append(cmds, b.scanCmd(now))
 			}
-			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.isOpen), ""))
+			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.isOpen)))
 		}
 		return a, tea.Batch(cmds...)
 	case showBoardMsg:
@@ -186,7 +204,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Batch(msg.v.waitTail(), func() tea.Msg { return openMsg{path: path} })
 		}
 		as := msg.v.onTail(msg.u)
-		return a, tea.Batch(msg.v.waitTail(), a.signal(as, msg.v.project()))
+		return a, tea.Batch(msg.v.waitTail(), a.signal(msg.v.own(as)))
 	case tea.KeyMsg:
 		a.err = ""
 		switch msg.String() {
@@ -282,35 +300,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // signal rings the bell and sends a notification for the newest alert of
-// a kind the user chose. label names the session in the notification.
-func (a *App) signal(as []*alert, label string) tea.Cmd {
-	out := a.signalText(as, label)
-	if out == "" {
-		return nil
+// a kind the user chose.
+func (a *App) signal(as []*alert) tea.Cmd {
+	var bell tea.Cmd
+	if out := a.signalText(as); out != "" {
+		bell = func() tea.Msg {
+			writeTerm(out)
+			return nil
+		}
 	}
-	return func() tea.Msg {
-		writeTerm(out)
-		return nil
-	}
+	return tea.Batch(bell, a.notifyCmd(as, time.Now()))
 }
 
-func (a *App) signalText(as []*alert, label string) string {
-	c := chosen(as, a.opts.BellOn)
-	if c == nil {
-		return ""
+// signalText is what to write to the terminal for alerts: the bell.
+func (a *App) signalText(as []*alert) string {
+	if a.opts.Bell && chosen(as, a.opts.BellOn) != nil {
+		return "\a"
 	}
-	var out string
-	if a.opts.Bell {
-		out = "\a"
-	}
-	if a.opts.Notify {
-		body := c.text
-		if label != "" {
-			body = label + ": " + body
-		}
-		out += notifySeq(os.Getenv, body)
-	}
-	return out
+	return ""
 }
 
 // isOpen reports whether a session is shown in a view on the stack.

@@ -154,11 +154,26 @@ snoop --stall 2m                         # 0 disables the waiting alert
 The live board raises the same alerts for every session on it, prefixed with
 the project (`api: ✓ your turn`).
 
-`--notify` sends desktop notifications through the terminal, so they work
-over SSH: OSC 9 in iTerm2, WezTerm and Ghostty, OSC 99 in kitty, OSC 777
-elsewhere (foot, rxvt, VTE terminals with notification support). In tmux,
-allow them through with `set -g allow-passthrough on`. Terminals that don't
-understand them ignore them.
+`--notify` sends a desktop notification naming the session and what
+happened (`api · Fix the flaky test` / `Your turn · finished after 2m10s`),
+so you can work elsewhere and come back when a session needs you. It picks
+one way to deliver them:
+
+| Where snoop runs | Notification |
+| --- | --- |
+| iTerm2, WezTerm, Ghostty, kitty | the terminal's own (clicking it focuses the tab) |
+| over SSH | the terminal's own, so it shows on your machine, not the server |
+| WSL | a Windows toast, through `powershell.exe` |
+| macOS, other terminals | `osascript` |
+| Linux desktop | `notify-send` |
+| anywhere else | the terminal's own escape sequence (OSC 777) |
+
+`--notify=terminal` or `--notify=system` overrides the choice. In tmux, let
+the terminal's own notifications through with `set -g allow-passthrough on`.
+
+Nothing is sent while snoop's window has focus (in terminals that report
+focus), at most one notification goes out per session and alert a minute,
+and several snoops watching the same session send one between them.
 
 ## Keys
 

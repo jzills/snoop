@@ -1,51 +1,129 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/jzills/snoop/internal/notify"
+	"github.com/jzills/snoop/internal/parse"
 )
 
-func envOf(kv map[string]string) func(string) string {
-	return func(k string) string { return kv[k] }
+type sent struct{ notes []notify.Note }
+
+func (s *sent) Send(n notify.Note) error { s.notes = append(s.notes, n); return nil }
+func (s *sent) Name() string             { return "test" }
+
+func noteApp(t *testing.T) (*App, *sent) {
+	t.Helper()
+	s := &sent{}
+	a := New(Options{Notifier: s, CacheDir: t.TempDir(), BellOn: map[string]bool{alertTurn: true, alertStall: true}})
+	return a, s
 }
 
-func TestNotifySequence(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		env  map[string]string
-		want string
-	}{
-		{"default", nil, "\x1b]777;notify;snoop;api: your turn\a"},
-		{"iTerm2", map[string]string{"TERM_PROGRAM": "iTerm.app"}, "\x1b]9;snoop: api: your turn\a"},
-		{"iTerm2 inside tmux", map[string]string{"LC_TERMINAL": "iTerm2", "TMUX": "/tmp/t"},
-			"\x1bPtmux;\x1b\x1b]9;snoop: api: your turn\a\x1b\\"},
-		{"WezTerm", map[string]string{"TERM_PROGRAM": "WezTerm"}, "\x1b]9;snoop: api: your turn\a"},
-		{"Ghostty", map[string]string{"TERM_PROGRAM": "ghostty"}, "\x1b]9;snoop: api: your turn\a"},
-		{"kitty", map[string]string{"KITTY_WINDOW_ID": "1"},
-			"\x1b]99;i=snoop:d=0;snoop\a\x1b]99;i=snoop:p=body;api: your turn\a"},
-		{"screen", map[string]string{"STY": "1.pts"}, "\x1bP\x1b]777;notify;snoop;api: your turn\a\x1b\\"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := notifySeq(envOf(tc.env), "api: your turn"); got != tc.want {
-				t.Errorf("got  %q\nwant %q", got, tc.want)
-			}
-		})
+func turnAlert(path, id string) *alert {
+	return &alert{kind: alertTurn, text: "✓ your turn", note: "Your turn", path: path, title: "api · Fix tests",
+		ev: &parse.Event{UUID: id}}
+}
+
+func runNote(cmd tea.Cmd) {
+	if cmd != nil {
+		cmd()
 	}
 }
 
-func TestNotifyTextIsSanitised(t *testing.T) {
-	got := notifySeq(envOf(nil), "a;b\x1b]0;evil\a\nc")
-	if want := "\x1b]777;notify;snoop;a,b]0,evil c\a"; got != want {
-		t.Errorf("got  %q\nwant %q", got, want)
+func TestNotificationNamesTheSession(t *testing.T) {
+	a, s := noteApp(t)
+	now := time.Now()
+	runNote(a.notifyCmd([]*alert{{kind: alertCompact}, turnAlert("/a.jsonl", "e1")}, now))
+	if len(s.notes) != 1 || s.notes[0] != (notify.Note{Title: "api · Fix tests", Body: "Your turn"}) {
+		t.Fatalf("notes = %+v", s.notes)
+	}
+	// Kinds not chosen never notify.
+	runNote(a.notifyCmd([]*alert{{kind: alertCompact, path: "/b.jsonl"}}, now))
+	if len(s.notes) != 1 {
+		t.Errorf("a compaction notified: %+v", s.notes)
 	}
 }
 
-func TestSignalNotifiesTheLastChosenAlert(t *testing.T) {
+func TestNotificationsAreThrottledPerSessionAndKind(t *testing.T) {
+	a, s := noteApp(t)
+	now := time.Now()
+	runNote(a.notifyCmd([]*alert{turnAlert("/a.jsonl", "e1")}, now))
+	runNote(a.notifyCmd([]*alert{turnAlert("/a.jsonl", "e2")}, now.Add(20*time.Second)))
+	runNote(a.notifyCmd([]*alert{turnAlert("/b.jsonl", "e3")}, now.Add(20*time.Second)))
+	runNote(a.notifyCmd([]*alert{turnAlert("/a.jsonl", "e4")}, now.Add(2*time.Minute)))
+	if len(s.notes) != 3 {
+		t.Errorf("sent %d notes, want 3 (the second turn of /a.jsonl within a minute is dropped)", len(s.notes))
+	}
+}
+
+func TestNoNotificationWhileFocused(t *testing.T) {
+	a, s := noteApp(t)
+	a.Update(tea.FocusMsg{})
+	runNote(a.notifyCmd([]*alert{turnAlert("/a.jsonl", "e1")}, time.Now()))
+	if len(s.notes) != 0 {
+		t.Errorf("notified while snoop had focus: %+v", s.notes)
+	}
+	a.Update(tea.BlurMsg{})
+	runNote(a.notifyCmd([]*alert{turnAlert("/a.jsonl", "e2")}, time.Now()))
+	if len(s.notes) != 1 {
+		t.Errorf("no notification after focus moved away: %+v", s.notes)
+	}
+}
+
+func TestTwoSnoopsSendOneNotification(t *testing.T) {
+	cache := t.TempDir()
+	s1, s2 := &sent{}, &sent{}
 	on := map[string]bool{alertTurn: true}
-	as := []*alert{{kind: alertTurn, text: "api: ✓ your turn"}, {kind: alertCompact, text: "api: compacted"}}
-	if got := chosen(as, on); got == nil || got.kind != alertTurn {
-		t.Errorf("chosen = %+v, want the turn alert", got)
+	a1 := New(Options{Notifier: s1, CacheDir: cache, BellOn: on})
+	a2 := New(Options{Notifier: s2, CacheDir: cache, BellOn: on})
+	now := time.Now()
+	runNote(a1.notifyCmd([]*alert{turnAlert("/a.jsonl", "e1")}, now))
+	runNote(a2.notifyCmd([]*alert{turnAlert("/a.jsonl", "e1")}, now))
+	if len(s1.notes)+len(s2.notes) != 1 {
+		t.Errorf("two snoops sent %d notes for one event", len(s1.notes)+len(s2.notes))
 	}
-	if chosen([]*alert{{kind: alertCompact}}, on) != nil {
-		t.Error("an alert kind not chosen was chosen")
+	// A different session's event still goes out from the second.
+	runNote(a2.notifyCmd([]*alert{turnAlert("/b.jsonl", "e9")}, now))
+	if len(s2.notes) != 1 {
+		t.Errorf("second snoop's own session did not notify")
+	}
+}
+
+func TestBoardAlertsCarryTheSession(t *testing.T) {
+	b, proj := newTestBoard(t)
+	appendLines(t, filepath.Join(proj, "busy.jsonl"), bBashDone, bTurnEnd)
+	as := b.poll(time.Now(), 0, func(string) bool { return false })
+	if len(as) != 1 {
+		t.Fatalf("alerts = %+v", as)
+	}
+	a := as[0]
+	if a.title != "api · fix the flaky test" || !strings.HasSuffix(a.path, "busy.jsonl") || !strings.HasPrefix(a.note, "Your turn") {
+		t.Errorf("alert title %q path %q note %q", a.title, a.path, a.note)
+	}
+}
+
+func appendLines(t *testing.T, path string, ls ...string) {
+	t.Helper()
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	f.WriteString(strings.Join(ls, "\n") + "\n")
+}
+
+func TestNoteTitle(t *testing.T) {
+	if got := noteTitle("api", "fix\n the   tests"); got != "api · fix the tests" {
+		t.Errorf("noteTitle = %q", got)
+	}
+	long := strings.Repeat("x", 80)
+	if got := noteTitle("", long); len([]rune(got)) != 60 || !strings.HasSuffix(got, "…") {
+		t.Errorf("long title = %q", got)
 	}
 }

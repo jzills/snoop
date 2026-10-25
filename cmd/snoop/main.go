@@ -11,6 +11,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -21,6 +22,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jzills/snoop/internal/export"
+	"github.com/jzills/snoop/internal/notify"
 	"github.com/jzills/snoop/internal/store"
 	"github.com/jzills/snoop/internal/summary"
 	"github.com/jzills/snoop/internal/ui"
@@ -71,7 +73,8 @@ func main() {
 	project := flag.String("project", "", "project directory (default: current directory)")
 	stall := flag.Duration("stall", 30*time.Second, "alert when a tool call has no result after this long (0 disables)")
 	ring := flag.Bool("bell", false, "ring the terminal bell on alerts")
-	notify := flag.Bool("notify", false, "send a desktop notification on alerts (through the terminal)")
+	var notifyMode notifyFlag
+	flag.Var(&notifyMode, "notify", "send desktop notifications on alerts: auto (bare --notify), terminal or system")
 	alerts := flag.String("alerts", "error,turn", "alerts that ring the bell or notify: "+strings.Join(ui.AlertKinds, ","))
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: snoop [--follow | --live] [--project dir] [--bell] [--notify] [--version] [session-id|path]\n\n")
@@ -97,7 +100,14 @@ func main() {
 		fail(fmt.Errorf("--live shows every session; it can't be combined with --follow or a session"))
 	}
 	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow, Live: *live,
-		Stall: *stall, Bell: *ring, Notify: *notify, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir()}
+		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir()}
+	if notifyMode != "" {
+		s, err := notify.Choose(string(notifyMode), notify.Env{Getenv: os.Getenv, LookPath: exec.LookPath, GOOS: runtime.GOOS, Out: os.Stderr})
+		if err != nil {
+			fail(err)
+		}
+		opts.Notifier = s
+	}
 	for _, k := range strings.Split(*alerts, ",") {
 		k = strings.TrimSpace(k)
 		if k == "" {
@@ -124,7 +134,7 @@ func main() {
 		opts.Path = p
 	}
 
-	if _, err := tea.NewProgram(ui.New(opts), tea.WithAltScreen(), tea.WithMouseCellMotion()).Run(); err != nil {
+	if _, err := tea.NewProgram(ui.New(opts), tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithReportFocus()).Run(); err != nil {
 		fail(err)
 	}
 }
@@ -186,4 +196,24 @@ func resolve(root, arg string) (string, error) {
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, "snoop:", err)
 	os.Exit(1)
+}
+
+// notifyFlag is --notify: bare it means auto, or it names a way to notify.
+type notifyFlag string
+
+func (f *notifyFlag) String() string   { return string(*f) }
+func (f *notifyFlag) IsBoolFlag() bool { return true }
+
+func (f *notifyFlag) Set(v string) error {
+	switch v {
+	case "true":
+		v = notify.Auto
+	case "false":
+		v = ""
+	case notify.Auto, notify.Terminal, notify.System:
+	default:
+		return fmt.Errorf("want auto, terminal or system")
+	}
+	*f = notifyFlag(v)
+	return nil
 }

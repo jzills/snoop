@@ -217,7 +217,9 @@ func (b *board) poll(now time.Time, stall time.Duration, open func(path string) 
 			continue
 		}
 		for _, a := range as {
-			out = append(out, &alert{a.kind, r.project() + ": " + a.text, a.ev})
+			a.text = r.project() + ": " + a.text
+			a.path, a.title = p, noteTitle(r.project(), r.info.Name())
+			out = append(out, a)
 		}
 	}
 	if len(out) > 0 {

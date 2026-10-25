@@ -26,8 +26,25 @@ const ctxAlertPct = 90
 
 type alert struct {
 	kind string
-	text string
+	text string       // shown in the header
+	note string       // a notification's text: what happened, without glyphs
 	ev   *parse.Event // what ! jumps to
+
+	// The session it came from, set by whoever raises it.
+	path, title string
+}
+
+// key identifies the event an alert is about, the same in every snoop
+// watching the session, so only one of them notifies.
+func (a *alert) key() string {
+	id := a.text
+	if a.ev != nil {
+		id = a.ev.UUID
+		if a.ev.Tool != nil {
+			id = a.ev.Tool.ID
+		}
+	}
+	return a.path + "|" + a.kind + "|" + id
 }
 
 func (a *alert) render() string {
@@ -92,7 +109,11 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 	for _, e := range s.Events[before.events:] {
 		switch {
 		case e.Kind == parse.KindCompact:
-			out = append(out, &alert{alertCompact, glyphCompact + " compacted", e})
+			note := "Context compacted"
+			if e.Compact != nil && e.Compact.Trigger != "" {
+				note += " (" + e.Compact.Trigger + ")"
+			}
+			out = append(out, &alert{kind: alertCompact, text: glyphCompact + " compacted", note: note, ev: e})
 		case e.Tool != nil && e.Tool.Kind != parse.ToolAgent && !e.Tool.HasResult:
 			// Subagents legitimately run for minutes; other tools are
 			// watched for stalls.
@@ -100,12 +121,17 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 		}
 	}
 	if pct := ctxPct(s); before.ctx < ctxAlertPct && pct >= ctxAlertPct {
-		out = append(out, &alert{alertContext, fmt.Sprintf("ctx %d%%", pct), s.Events[len(s.Events)-1]})
+		out = append(out, &alert{kind: alertContext, text: fmt.Sprintf("ctx %d%%", pct),
+			note: fmt.Sprintf("Context %d%% full", pct), ev: s.Events[len(s.Events)-1]})
 	}
 	if n := len(s.Turns); n > 0 {
 		t := s.Turns[n-1]
 		if t.Done && (t != before.turn || !before.done) {
-			out = append(out, &alert{alertTurn, glyphOK + " your turn", t.Events[len(t.Events)-1]})
+			note := "Your turn"
+			if d := t.Duration(); d > 0 {
+				note += " · finished after " + dur(d.Truncate(time.Second))
+			}
+			out = append(out, &alert{kind: alertTurn, text: glyphOK + " your turn", note: note, ev: t.Events[len(t.Events)-1]})
 		}
 	}
 	if n := errorCount(s) - before.errors; n > 0 {
@@ -116,7 +142,8 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 				last = e
 			}
 		}
-		out = append(out, &alert{alertError, glyphErr + " error: " + last.Tool.Name, last})
+		out = append(out, &alert{kind: alertError, text: glyphErr + " error: " + last.Tool.Name,
+			note: "Error in " + last.Tool.Name, ev: last})
 	}
 	return out
 }
@@ -131,8 +158,8 @@ func (w *watch) stalls(now time.Time, stall time.Duration) []*alert {
 			delete(w.pending, e)
 		case !alerted && now.Sub(e.Time) >= stall:
 			w.pending[e] = true
-			out = append(out, &alert{alertStall, fmt.Sprintf("%s waiting %s on %s · may be a permission prompt",
-				glyphPending, waited(now.Sub(e.Time)), e.Tool.Name), e})
+			what := fmt.Sprintf("waiting %s on %s · may be a permission prompt", waited(now.Sub(e.Time)), e.Tool.Name)
+			out = append(out, &alert{kind: alertStall, text: glyphPending + " " + what, note: "W" + what[1:], ev: e})
 		}
 	}
 	return out

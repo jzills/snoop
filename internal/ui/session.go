@@ -150,6 +150,24 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	return v, nil
 }
 
+// own marks alerts as this session's, for notifications.
+func (v *view) own(as []*alert) []*alert {
+	name := v.label
+	if name == "" {
+		name = v.sess.Title
+	}
+	if name == "" && len(v.sess.Turns) > 0 {
+		name = v.sess.Turns[0].Prompt.Text
+	}
+	if name == "" {
+		name = v.sess.ID
+	}
+	for _, a := range as {
+		a.path, a.title = v.path, noteTitle(v.project(), name)
+	}
+	return as
+}
+
 // project names the session's project in notifications.
 func (v *view) project() string {
 	if v.sess.CWD != "" {

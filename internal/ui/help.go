@@ -79,7 +79,8 @@ var helpBoard = []helpSection{
 	}},
 	{"Alerts", [][2]string{
 		{"--bell", "ring the terminal bell on the alerts chosen with --alerts"},
-		{"--notify", "send a desktop notification for them, through the terminal (in tmux: set -g allow-passthrough on)"},
+		{"--notify", "send a desktop notification for them, naming the session: a Windows toast on WSL, the terminal's own in iTerm2, WezTerm, Ghostty and kitty or over SSH, osascript or notify-send elsewhere"},
+		{"", "none while snoop has focus; one per session and alert a minute; one between several snoops"},
 	}},
 	{"General", [][2]string{
 		{"?", "show or hide this help"},
