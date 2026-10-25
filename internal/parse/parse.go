@@ -78,6 +78,9 @@ func (t *ToolCall) groupName() string {
 	return t.Name
 }
 
+// InputString is a string field of the call's input, or "".
+func (t *ToolCall) InputString(key string) string { return t.inputString(key, "") }
+
 func (t *ToolCall) inputString(key, def string) string {
 	var in map[string]any
 	json.Unmarshal(t.Input, &in)
@@ -85,6 +88,38 @@ func (t *ToolCall) inputString(key, def string) string {
 		return s
 	}
 	return def
+}
+
+// Edit is one replacement an Edit or MultiEdit call makes.
+type Edit struct {
+	Old string `json:"old_string"`
+	New string `json:"new_string"`
+}
+
+// Edits is the replacements an Edit or MultiEdit call makes, or nil for
+// any other call.
+func (t *ToolCall) Edits() []Edit {
+	switch t.Name {
+	case "Edit":
+		var e Edit
+		json.Unmarshal(t.Input, &e)
+		return []Edit{e}
+	case "MultiEdit":
+		var in struct {
+			Edits []Edit `json:"edits"`
+		}
+		json.Unmarshal(t.Input, &in)
+		return in.Edits
+	}
+	return nil
+}
+
+// Lines splits text into lines, ignoring a final newline: "" has none.
+func Lines(s string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
 }
 
 // FilePath is the file a built-in file tool read, edited or wrote, or "".

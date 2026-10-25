@@ -107,19 +107,8 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 		b.WriteString(sAccent.Render("$ ") + wrap(capLines(get("command"), maxDetailLines), w-2) + "\n")
 	case "Edit", "MultiEdit":
 		b.WriteString(sBold.Render(get("file_path")) + "\n")
-		edits := []map[string]any{in}
-		if es, ok := in["edits"].([]any); ok {
-			edits = nil
-			for _, x := range es {
-				if m, ok := x.(map[string]any); ok {
-					edits = append(edits, m)
-				}
-			}
-		}
-		for _, ed := range edits {
-			old, _ := ed["old_string"].(string)
-			nw, _ := ed["new_string"].(string)
-			b.WriteString(diff(old, nw, w) + "\n")
+		for _, ed := range t.Edits() {
+			b.WriteString(diff(ed.Old, ed.New, w) + "\n")
 		}
 	case "Write":
 		b.WriteString(sBold.Render(get("file_path")) + "\n")
@@ -160,12 +149,13 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 
 var sAgentRunning = lipgloss.NewStyle().Foreground(cAgent)
 
+// diff shows an edit as "-"/"+" lines; an empty side shows no lines.
 func diff(old, nw string, w int) string {
 	var b strings.Builder
-	for _, l := range strings.Split(capLines(old, maxDetailLines/2), "\n") {
+	for _, l := range parse.Lines(capLines(old, maxDetailLines/2)) {
 		b.WriteString(sDel.Render(wrap("- "+l, w)) + "\n")
 	}
-	for _, l := range strings.Split(capLines(nw, maxDetailLines/2), "\n") {
+	for _, l := range parse.Lines(capLines(nw, maxDetailLines/2)) {
 		b.WriteString(sAdd.Render(wrap("+ "+l, w)) + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")

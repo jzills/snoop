@@ -191,3 +191,23 @@ func TestFilePath(t *testing.T) {
 		}
 	}
 }
+
+func TestEdits(t *testing.T) {
+	edit := &ToolCall{Name: "Edit", Input: []byte(`{"file_path":"a.go","old_string":"","new_string":"x\n"}`)}
+	if got := edit.Edits(); len(got) != 1 || got[0] != (Edit{"", "x\n"}) {
+		t.Errorf("Edit = %+v", got)
+	}
+	multi := &ToolCall{Name: "MultiEdit", Input: []byte(`{"edits":[{"old_string":"a","new_string":"b"},{"old_string":"c","new_string":"d"}]}`)}
+	if got := multi.Edits(); len(got) != 2 || got[1] != (Edit{"c", "d"}) {
+		t.Errorf("MultiEdit = %+v", got)
+	}
+	if got := (&ToolCall{Name: "Bash", Input: []byte(`{"command":"ls"}`)}).Edits(); got != nil {
+		t.Errorf("Bash = %+v", got)
+	}
+	if got := Lines(""); got != nil {
+		t.Errorf(`Lines("") = %q`, got)
+	}
+	if got := Lines("a\nb\n"); len(got) != 2 {
+		t.Errorf(`Lines("a\nb\n") = %q`, got)
+	}
+}

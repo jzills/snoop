@@ -8,7 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	json "github.com/goccy/go-json"
 
 	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/store"
@@ -55,32 +54,19 @@ type fileSource struct {
 // fileCall reports which file a tool call touches and how, with the lines
 // it added and removed. Calls that touch no file report opNone.
 func fileCall(t *parse.ToolCall) (path string, op fileOp, added, removed int) {
-	var in map[string]any
-	if json.Unmarshal(t.Input, &in) != nil {
-		return "", opNone, 0, 0
-	}
-	get := func(k string) string { s, _ := in[k].(string); return s }
 	switch t.Name {
 	case "Read":
 		return t.FilePath(), opRead, 0, 0
 	case "Write":
-		return t.FilePath(), opWrite, lineCount(get("content")), 0
-	case "Edit":
-		a, r := lineDelta(get("old_string"), get("new_string"))
-		return t.FilePath(), opEdit, a, r
-	case "MultiEdit":
-		es, _ := in["edits"].([]any)
-		for _, x := range es {
-			if m, ok := x.(map[string]any); ok {
-				old, _ := m["old_string"].(string)
-				nw, _ := m["new_string"].(string)
-				a, r := lineDelta(old, nw)
-				added, removed = added+a, removed+r
-			}
+		return t.FilePath(), opWrite, lineCount(t.InputString("content")), 0
+	case "Edit", "MultiEdit":
+		for _, ed := range t.Edits() {
+			a, r := lineDelta(ed.Old, ed.New)
+			added, removed = added+a, removed+r
 		}
 		return t.FilePath(), opEdit, added, removed
 	case "NotebookEdit":
-		return t.FilePath(), opEdit, lineCount(get("new_source")), 0
+		return t.FilePath(), opEdit, lineCount(t.InputString("new_source")), 0
 	}
 	return "", opNone, 0, 0
 }
@@ -95,7 +81,7 @@ func lineCount(s string) int {
 // lineDelta counts the lines an edit adds and removes, ignoring lines it
 // leaves unchanged at the start and end.
 func lineDelta(old, nw string) (added, removed int) {
-	a, b := splitLines(old), splitLines(nw)
+	a, b := parse.Lines(old), parse.Lines(nw)
 	for len(a) > 0 && len(b) > 0 && a[0] == b[0] {
 		a, b = a[1:], b[1:]
 	}
@@ -103,13 +89,6 @@ func lineDelta(old, nw string) (added, removed int) {
 		a, b = a[:len(a)-1], b[:len(b)-1]
 	}
 	return len(b), len(a)
-}
-
-func splitLines(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
 }
 
 // buildFiles groups file tool calls by path (relative to cwd when inside
@@ -451,25 +430,15 @@ func renderFileDetail(f *fileEntry, w int) (string, []int) {
 		if t.op == opRead {
 			continue
 		}
-		var in map[string]any
-		json.Unmarshal(e.Tool.Input, &in)
-		get := func(k string) string { s, _ := in[k].(string); return s }
 		switch e.Tool.Name {
-		case "Edit":
-			b.WriteString(diff(get("old_string"), get("new_string"), w) + "\n")
-		case "MultiEdit":
-			es, _ := in["edits"].([]any)
-			for _, x := range es {
-				if m, ok := x.(map[string]any); ok {
-					old, _ := m["old_string"].(string)
-					nw, _ := m["new_string"].(string)
-					b.WriteString(diff(old, nw, w) + "\n")
-				}
+		case "Edit", "MultiEdit":
+			for _, ed := range e.Tool.Edits() {
+				b.WriteString(diff(ed.Old, ed.New, w) + "\n")
 			}
 		case "Write":
-			b.WriteString(sAdd.Render(wrap(capLines(get("content"), maxDetailLines), w)) + "\n")
+			b.WriteString(sAdd.Render(wrap(capLines(e.Tool.InputString("content"), maxDetailLines), w)) + "\n")
 		case "NotebookEdit":
-			b.WriteString(sAdd.Render(wrap(capLines(get("new_source"), maxDetailLines), w)) + "\n")
+			b.WriteString(sAdd.Render(wrap(capLines(e.Tool.InputString("new_source"), maxDetailLines), w)) + "\n")
 		}
 		if e.Tool.IsError {
 			b.WriteString(sErr.Render(wrap(capLines(e.Tool.Result, 20), w)) + "\n")

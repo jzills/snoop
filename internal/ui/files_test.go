@@ -136,3 +136,10 @@ func TestFileDetailKeepsHistoryLinesApart(t *testing.T) {
 		}
 	}
 }
+
+func TestDiffOfNewContentHasNoDeletion(t *testing.T) {
+	got := ansi.Strip(diff("", "package x\n", 80))
+	if got != "+ package x" {
+		t.Errorf("diff = %q, want only the added line", got)
+	}
+}

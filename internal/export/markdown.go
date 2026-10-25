@@ -138,17 +138,10 @@ func Input(t *parse.ToolCall) (lang, body string) {
 	switch t.Name {
 	case "Bash":
 		return "sh", get("command")
-	case "Edit":
-		return "diff", Diff(get("old_string"), get("new_string"))
-	case "MultiEdit":
+	case "Edit", "MultiEdit":
 		var parts []string
-		es, _ := in["edits"].([]any)
-		for _, x := range es {
-			if m, ok := x.(map[string]any); ok {
-				old, _ := m["old_string"].(string)
-				nw, _ := m["new_string"].(string)
-				parts = append(parts, Diff(old, nw))
-			}
+		for _, ed := range t.Edits() {
+			parts = append(parts, Diff(ed.Old, ed.New))
 		}
 		return "diff", strings.Join(parts, "\n")
 	case "Write":
@@ -164,20 +157,13 @@ func Input(t *parse.ToolCall) (lang, body string) {
 // Diff is an edit as "-"/"+" lines.
 func Diff(old, nw string) string {
 	var b strings.Builder
-	for _, l := range splitLines(old) {
+	for _, l := range parse.Lines(old) {
 		b.WriteString("- " + l + "\n")
 	}
-	for _, l := range splitLines(nw) {
+	for _, l := range parse.Lines(nw) {
 		b.WriteString("+ " + l + "\n")
 	}
 	return strings.TrimSuffix(b.String(), "\n")
-}
-
-func splitLines(s string) []string {
-	if s == "" {
-		return nil
-	}
-	return strings.Split(strings.TrimSuffix(s, "\n"), "\n")
 }
 
 // fence wraps body in a code fence longer than any backtick run inside it.
