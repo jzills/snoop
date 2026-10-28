@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write fictional Claude Code transcripts for the demo recording.
 
-    demo/seed.py <config-dir> [--live | --live-only]
+    demo/seed.py <config-dir> [--live | --live-only | --diff <repo-dir>]
 
 Creates <config-dir>/projects/... in the layout Claude Code uses, so
 CLAUDE_CONFIG_DIR=<config-dir> snoop shows them instead of your own sessions.
@@ -9,11 +9,14 @@ Timestamps are relative to now, so the picker's ages and the summary's
 30-day chart look the same whenever the GIF is rendered. --live adds three
 sessions active in the last few minutes, for the live board's screenshot;
 --live-only writes just those, right before that screenshot is taken.
+--diff makes a small git repository with uncommitted changes in
+<repo-dir>/weather-api, and the session that made them, for the Diff tab.
 """
 
 import json
 import os
 import random
+import subprocess
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -266,10 +269,194 @@ def live(root, now):
     busy.write(project_dir(root, "/home/demo/src/weather-api") / f"{busy.id}.jsonl")
 
 
+MIDDLEWARE_GO = """package ratelimit
+
+import "net/http"
+
+// Middleware rejects requests over the limit with 429 Too Many Requests.
+func (l *Limiter) Middleware(key func(*http.Request) string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !l.Allow(key(r)) {
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+"""
+
+MIDDLEWARE_GO_NEW = """package ratelimit
+
+import (
+	"net/http"
+	"strconv"
+)
+
+// Middleware rejects requests over the limit with 429 Too Many Requests,
+// and tells the client how long to wait.
+func (l *Limiter) Middleware(key func(*http.Request) string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if ok, wait := l.Reserve(key(r)); !ok {
+			w.Header().Set("Retry-After", strconv.Itoa(int(wait.Seconds())))
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+"""
+
+LIMITER_GO = """package ratelimit
+
+import (
+	"sync"
+	"time"
+)
+
+// Limiter is a token bucket per API key.
+type Limiter struct {
+	mu      sync.Mutex
+	buckets map[string]*bucket
+	rate    float64
+	burst   int
+	now     func() time.Time
+}
+
+// Allow takes a token from key's bucket, if it has one.
+func (l *Limiter) Allow(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b := l.bucket(key)
+	b.refill(l.now(), l.rate, l.burst)
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+"""
+
+LIMITER_GO_NEW = LIMITER_GO.replace("""// Allow takes a token from key's bucket, if it has one.
+func (l *Limiter) Allow(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b := l.bucket(key)
+	b.refill(l.now(), l.rate, l.burst)
+	if b.tokens < 1 {
+		return false
+	}
+	b.tokens--
+	return true
+}
+""", """// Allow takes a token from key's bucket, if it has one.
+func (l *Limiter) Allow(key string) bool {
+	ok, _ := l.Reserve(key)
+	return ok
+}
+
+// Reserve is Allow, and when there's no token it also says how long
+// until the next one.
+func (l *Limiter) Reserve(key string) (bool, time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b := l.bucket(key)
+	b.refill(l.now(), l.rate, l.burst)
+	if b.tokens < 1 {
+		missing := 1 - b.tokens
+		return false, time.Duration(missing / l.rate * float64(time.Second))
+	}
+	b.tokens--
+	return true, 0
+}
+""")
+
+MIDDLEWARE_TEST_GO = """package ratelimit
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestRetryAfter(t *testing.T) {
+	l := New(1, 1)
+	h := l.Middleware(func(*http.Request) string { return "k" }, http.NotFoundHandler())
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("GET", "/", nil))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
+	if w.Code != 429 || w.Header().Get("Retry-After") != "1" {
+		t.Errorf("got %d, Retry-After %q", w.Code, w.Header().Get("Retry-After"))
+	}
+}
+"""
+
+README_MD = """# weather-api
+
+Forecasts by city, from the NWS feed.
+
+## Configuration
+
+| Variable | Default |
+| --- | --- |
+| `ADDR` | `:8080` |
+"""
+
+README_MD_NEW = README_MD + """| `RATE_LIMIT` | `5` |
+| `RATE_BURST` | `20` |
+"""
+
+
+def diff_session(root, repo_dir, now):
+    """A repository with uncommitted changes, most of them the session's."""
+    cwd = str(repo_dir / "weather-api")
+    repo = Path(cwd)
+    files = {"internal/ratelimit/middleware.go": MIDDLEWARE_GO,
+             "internal/ratelimit/limiter.go": LIMITER_GO, "README.md": README_MD}
+    for name, text in files.items():
+        (repo / name).parent.mkdir(parents=True, exist_ok=True)
+        (repo / name).write_text(text)
+
+    def git(*args):
+        subprocess.run(["git", "-C", cwd, "-c", "user.name=demo", "-c", "user.email=demo@example.com",
+                        "-c", "commit.gpgsign=false", *args], check=True, capture_output=True)
+
+    git("init", "-q")
+    git("add", ".")
+    git("commit", "-qm", "Rate limit the forecast endpoint")
+
+    s = Transcript(cwd, "feat/rate-limit", now - timedelta(minutes=3))
+    s.title("Send Retry-After with 429 responses")
+    t0 = s.t
+    s.prompt("When a client is rate limited, tell it when to retry.")
+    s.tools(("Read", {"file_path": f"{cwd}/internal/ratelimit/middleware.go"}, MIDDLEWARE_GO, 0.2),
+            ("Read", {"file_path": f"{cwd}/internal/ratelimit/limiter.go"}, LIMITER_GO, 0.2))
+    s.tools(("Edit", {"file_path": f"{cwd}/internal/ratelimit/limiter.go",
+                      "old_string": LIMITER_GO, "new_string": LIMITER_GO_NEW}, "The file has been updated", 0.1))
+    s.tools(("Edit", {"file_path": f"{cwd}/internal/ratelimit/middleware.go",
+                      "old_string": MIDDLEWARE_GO, "new_string": MIDDLEWARE_GO_NEW}, "The file has been updated", 0.1))
+    s.tools(("Write", {"file_path": f"{cwd}/internal/ratelimit/middleware_test.go",
+                       "content": MIDDLEWARE_TEST_GO}, "File created", 0.1))
+    s.tools(("Bash", {"command": "go test ./internal/ratelimit", "description": "Run the tests"},
+             "ok  \tweather-api/internal/ratelimit\t0.009s", 4.1))
+    s.say("Rate-limited responses now carry Retry-After, in whole seconds until the next token.")
+    s.end_turn(t0)
+    s.cost(0.61)
+
+    # The session's edits, and one of yours in the README.
+    (repo / "internal/ratelimit/limiter.go").write_text(LIMITER_GO_NEW)
+    (repo / "internal/ratelimit/middleware.go").write_text(MIDDLEWARE_GO_NEW)
+    (repo / "internal/ratelimit/middleware_test.go").write_text(MIDDLEWARE_TEST_GO)
+    (repo / "README.md").write_text(README_MD_NEW)
+    s.write(project_dir(root, cwd) / f"{s.id}.jsonl")
+
+
 if __name__ == "__main__":
     mode = sys.argv[2:]
+    if mode[:1] == ["--diff"] and len(mode) == 2:
+        diff_session(Path(sys.argv[1]), Path(mode[1]), datetime.now(timezone.utc))
+        sys.exit()
     if len(sys.argv) not in (2, 3) or mode not in ([], ["--live"], ["--live-only"]):
-        sys.exit("usage: demo/seed.py <config-dir> [--live | --live-only]")
+        sys.exit("usage: demo/seed.py <config-dir> [--live | --live-only | --diff <repo-dir>]")
     root = Path(sys.argv[1])
     now = datetime.now(timezone.utc)
     if mode != ["--live-only"]:

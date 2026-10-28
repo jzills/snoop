@@ -7,6 +7,8 @@ The Diff tab (`5`) shows what the session changed in its working tree, and
 lets you comment on it. The agent receives the comments on its own, without
 you typing into its terminal.
 
+{{< shot src="diff.png" alt="The Diff tab with the session's changed files on the left, and a file's diff on the right with a comment under one line" caption="Under the line it's on, a comment waits until you press S to send it." >}}
+
 ## Set up the hooks once
 
 Comments reach the agent through Claude Code hooks. Run this once:
@@ -37,7 +39,8 @@ runs in the background, so following the session doesn't slow down.
 
 Press `c` on a line to comment on it. To comment on several lines, press `v`,
 move to the last line, and press `c`. Press `C` to comment on the whole file.
-A `●` marks commented lines, and the file list counts each file's comments.
+A `●` marks commented lines, the comment's text shows under its last line,
+and the file list counts each file's comments.
 Press `e` on a commented line to edit its comment, or `x` to delete it.
 
 ## Send

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Render the site's screenshots (site/static/shots/*.png) from
-# demo/shots.tape and demo/live.tape, the way demo/render.sh renders the GIF: a temporary build,
+# demo/shots.tape, demo/live.tape and demo/diff.tape, the way demo/render.sh renders the GIF: a temporary build,
 # fictional sessions and a temporary cache, never your own sessions.
 #
 #   demo/shots.sh
@@ -25,4 +25,7 @@ vhs demo/shots.tape -o "$tmp/shots.gif"
 # The live sessions are seeded last, so they are seconds old when shot.
 python3 demo/seed.py "$tmp/claude" --live-only
 vhs demo/live.tape -o "$tmp/live.gif"
+# The Diff tab needs a real repository, with the session that changed it.
+python3 demo/seed.py "$tmp/claude" --diff "$tmp/src"
+vhs demo/diff.tape -o "$tmp/diff.gif"
 echo "wrote site/static/shots/"
