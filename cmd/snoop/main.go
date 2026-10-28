@@ -5,6 +5,9 @@
 //	snoop <id|path>       open a session by id (prefix) or file path
 //	snoop export <id|path> [-o file]
 //	                        write a session as Markdown (stdout by default)
+//	snoop hooks install|uninstall|status [--project]
+//	                        manage the Claude Code hooks that deliver review comments
+//	snoop hook            run by those hooks: deliver waiting comments
 package main
 
 import (
@@ -87,8 +90,15 @@ func main() {
 	}
 
 	root := store.Root()
-	if flag.Arg(0) == "export" {
+	switch flag.Arg(0) {
+	case "export":
 		exportCmd(root, flag.Args()[1:])
+		return
+	case "hook":
+		hookCmd()
+		return
+	case "hooks":
+		hooksCmd(root, flag.Args()[1:])
 		return
 	}
 	cwd := *project
