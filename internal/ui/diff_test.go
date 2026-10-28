@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -194,6 +195,15 @@ func TestCommentRange(t *testing.T) {
 	}
 	if v.rev.anchor != -1 {
 		t.Error("range kept after commenting")
+	}
+	// The text shows once, under the range's last line.
+	out := a.View()
+	if strings.Count(out, "● these") != 1 {
+		t.Fatalf("note shown %d times:\n%s", strings.Count(out, "● these"), out)
+	}
+	last := v.rev.comments[0].Lines[2].Text
+	if i, j := strings.LastIndex(out, last), strings.Index(out, "● these"); i < 0 || i > j {
+		t.Errorf("note isn't under %q:\n%s", last, out)
 	}
 }
 
@@ -414,5 +424,30 @@ func TestSubagentEdits(t *testing.T) {
 	runCmd(a, v.pollReview(time.Now()))
 	if v.rev.seq == seq {
 		t.Error("a growing subagent transcript didn't refresh the diff")
+	}
+}
+
+// Comment notes take lines of their own; scrolling down past many of them
+// still keeps the cursor's line on screen.
+func TestNotesKeepCursorVisible(t *testing.T) {
+	a, v, _ := diffApp(t, true)
+	press(a, "5", "tab")
+	var h review.Hunk
+	for i := 1; i <= 12; i++ {
+		h.Lines = append(h.Lines, review.Line{Kind: '+', New: i, Text: fmt.Sprintf("line%02d", i)})
+	}
+	f := &review.File{Path: "a.go", Hunks: []review.Hunk{h}}
+	v.rev.diff = &review.Diff{Root: "/r", Files: []*review.File{f}}
+	for i, l := range h.Lines {
+		c := review.Comment{Path: "a.go", Lines: []review.Line{l}, Text: strings.Repeat("note ", 40)}
+		v.rev.comments = append(v.rev.comments, pending{Comment: c, id: i + 1})
+	}
+	v.rev.cursor, v.rev.line = 0, 1
+	for range h.Lines {
+		a.View()
+		press(a, "j")
+	}
+	if !strings.Contains(a.View(), "line12") {
+		t.Errorf("the cursor's line scrolled off:\n%s", a.View())
 	}
 }

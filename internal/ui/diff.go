@@ -893,12 +893,35 @@ func (v *view) diffPane(w, h int, full bool) string {
 	case len(rows) == 0:
 		out = append(out, sDim.Render("no lines to show"))
 	}
-	r.lOffset = scrollOffset(r.lOffset, r.line, len(rows), bodyH)
 	numW := 1
 	for _, h := range f.Hunks {
 		for _, l := range h.Lines {
 			numW = max(numW, len(fmt.Sprint(max(l.Old, l.New))))
 		}
+	}
+	// Each line comment's text shows under the last line it covers,
+	// wrapped and indented to the code.
+	indent := 2*numW + 4
+	notes := make([][]string, len(rows))
+	for i, row := range rows {
+		if row.line != nil {
+			if c := v.commentAt(*row.line); c != nil && c.Lines[len(c.Lines)-1] == *row.line {
+				notes[i] = strings.Split(wrap("● "+c.Text, max(innerW-indent, 10)), "\n")
+			}
+		}
+	}
+	r.lOffset = scrollOffset(r.lOffset, r.line, len(rows), bodyH)
+	// Notes take lines too: scroll on until the cursor's row and its note
+	// fit.
+	for r.lOffset < r.line && r.line < len(rows) {
+		n := 0
+		for i := r.lOffset; i <= r.line; i++ {
+			n += 1 + len(notes[i])
+		}
+		if n <= bodyH {
+			break
+		}
+		r.lOffset++
 	}
 	lo, hi := -1, -1
 	if r.anchor >= 0 && v.focusR {
@@ -906,6 +929,11 @@ func (v *view) diffPane(w, h int, full bool) string {
 	}
 	for i := r.lOffset; i < len(rows) && len(out) < h; i++ {
 		out = append(out, v.diffRow(rows[i], innerW, numW, v.focusR && i == r.line, i >= lo && i <= hi))
+		for _, n := range notes[i] {
+			if len(out) < h {
+				out = append(out, sKey.Render(fit(strings.Repeat(" ", indent)+n, innerW)))
+			}
+		}
 	}
 	for len(out) < h {
 		out = append(out, "")
