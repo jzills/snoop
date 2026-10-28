@@ -301,18 +301,22 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 			waiting++
 		}
 	}
-	head := sTitle.Render(" snoop") + sDim.Render("  Live · ") +
+	// snoop on the left, the count on the right.
+	right := sDim.Render("Live · ") +
 		sText.Render(fmt.Sprint(len(b.order))) + sDim.Render(" "+plural(len(b.order), "session"))
 	if waiting > 0 {
-		head += sDim.Render(" · ") + sAccent.Bold(true).Render(fmt.Sprintf("%d waiting on you", waiting))
+		right += sDim.Render(" · ") + sAccent.Bold(true).Render(fmt.Sprintf("%d waiting on you", waiting))
 	}
 	if b.alert != nil && b.alertShown {
-		head += "   " + b.alert.render()
+		right = b.alert.render() + "   " + right
 	}
-	sb.WriteString(fit(head, w) + "\n")
-	sb.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
+	sb.WriteString(topBar(right, w) + "\n")
 
-	bodyH := h - 4
+	bodyH := h - 5
+	stateW, projW, ctxW, costW, ageW := 12, min(20, w/6), 8, 8, 6
+	nameW := max(w-(1+stateW+2+projW+2+ctxW+2+costW+2+ageW+2), 10)
+	sb.WriteString(fit(sColHead.Render(" "+fit("STATE", stateW)+"  "+fit("PROJECT", projW)+"  "+fit("SESSION", nameW)+"  "+
+		fit("CONTEXT", ctxW)+"  "+fmt.Sprintf("%*s", costW, "COST")+"  "+fmt.Sprintf("%*s", ageW, "AGE")), w) + "\n")
 	switch {
 	case !b.scanned:
 		sb.WriteString(sDim.Render(" looking for live sessions…") + "\n")
@@ -321,7 +325,6 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	}
 	per := 2 // lines per row
 	b.offset = scrollOffset(b.offset, b.cursor, len(b.order), max(bodyH/per, 1))
-	stateW, projW, ctxW, costW, ageW := 12, min(20, w/6), 8, 8, 6
 	for i := b.offset; i < len(b.order) && (i-b.offset+1)*per <= bodyH; i++ {
 		r := b.order[i]
 		sel := i == b.cursor
@@ -346,7 +349,7 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 			case pct >= 70:
 				cs = sAccent
 			}
-			ctx = st(cs).Render(fit(fmt.Sprintf("ctx %d%%", pct), ctxW))
+			ctx = st(cs).Render(fit(fmt.Sprintf("%d%%", pct), ctxW))
 		} else {
 			ctx = st(sDim).Render(fit("", ctxW))
 		}
@@ -357,19 +360,18 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 		if sel {
 			nameStyle = sBold
 		}
-		fixed := 1 + stateW + 1 + projW + 1 + 1 + ctxW + 1 + costW + 1 + ageW
-		line := mark + fit(r.status.render(st), stateW) + st(sDim).Render(" ") +
-			st(sAccent).Render(fit(r.project(), projW)) + st(sDim).Render(" ") +
-			st(nameStyle).Render(fit(r.info.Name(), max(w-fixed, 10))) + st(sDim).Render(" ") +
-			ctx + st(sDim).Render(" ") +
-			st(sDim).Render(fit(fmt.Sprintf("%*s", costW, cost), costW)) + st(sDim).Render(" ") +
+		line := mark + fit(r.status.render(st), stateW) + st(sDim).Render("  ") +
+			st(sAccent).Render(fit(r.project(), projW)) + st(sDim).Render("  ") +
+			st(nameStyle).Render(fit(r.info.Name(), nameW)) + st(sDim).Render("  ") +
+			ctx + st(sDim).Render("  ") +
+			st(sDim).Render(fit(fmt.Sprintf("%*s", costW, cost), costW)) + st(sDim).Render("  ") +
 			st(sDim).Render(fit(fmt.Sprintf("%*s", ageW, ago(r.last)), ageW))
 		sb.WriteString(fit(line, w) + "\n")
 		detailStyle := sDim
 		if r.status == rowWaiting {
 			detailStyle = sAccent
 		}
-		sb.WriteString(fit(st(sText).Render(" ")+strings.Repeat(" ", stateW+1)+detailStyle.Render(oneLine(r.detail)), w) + "\n")
+		sb.WriteString(fit(st(sText).Render(" ")+strings.Repeat(" ", stateW+2)+detailStyle.Render(oneLine(r.detail)), w) + "\n")
 	}
 	if pad := h - 2 - strings.Count(sb.String(), "\n"); pad > 0 {
 		sb.WriteString(strings.Repeat("\n", pad))

@@ -237,21 +237,19 @@ func (p *picker) view(w, h int) string {
 	if p.projectOnly {
 		scope = "this project"
 	}
-	what := "  Claude Code sessions · "
-	if p.summary {
-		what = "  Summary of "
-	}
-	head := sTitle.Render(" snoop") + sDim.Render(what) +
-		sText.Render(fmt.Sprintf("%d", len(p.shown))) + sDim.Render(" sessions in "+scope)
-	if p.find && !p.summary {
-		head = sTitle.Render(" snoop") + sDim.Render("  Find · ") +
-			sText.Render(fmt.Sprintf("%d", len(p.shown))) + sDim.Render(" matching in "+scope)
+	// snoop on the left, the count on the right.
+	n := sText.Render(fmt.Sprintf("%d", len(p.shown)))
+	right := n + sDim.Render(" sessions in "+scope)
+	switch {
+	case p.summary:
+		right = sDim.Render("Summary of ") + right
+	case p.find:
+		right = sDim.Render("Find · ") + n + sDim.Render(" matching in "+scope)
 	}
 	if prog := p.scanProgress(); prog != "" {
-		head += "  " + prog
+		right = prog + "  " + right
 	}
-	b.WriteString(fit(head, w) + "\n")
-	b.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
+	b.WriteString(topBar(right, w) + "\n")
 
 	bodyH := h - 4
 	if p.summary {
@@ -260,7 +258,7 @@ func (p *picker) view(w, h int) string {
 		if p.filtering || p.input.Value() != "" {
 			b.WriteString(fit(p.input.View(), w))
 		} else {
-			b.WriteString(fit(" "+keyHelp("↑↓", "scroll", "s", "sessions", "c", "this project", "/", "search", "?", "help"), w))
+			b.WriteString(fit(" "+keyHelp("s", "sessions", "c", "this project", "?", "help"), w))
 		}
 		return b.String()
 	}
@@ -278,9 +276,15 @@ func (p *picker) view(w, h int) string {
 	case len(p.shown) == 0:
 		b.WriteString(sDim.Render(" no sessions"))
 	}
-	p.offset = scrollOffset(p.offset, p.cursor, len(p.shown), bodyH)
 	projW := min(22, w/5)
 	branchW := min(20, w/6)
+	fixed := 1 + 7 + projW + branchW + 7 + 7
+	if p.loaded && len(p.shown) > 0 {
+		b.WriteString(fit(sColHead.Render(" "+fit(" AGE", 7)+"  "+fit("PROJECT", projW)+"  "+fit("BRANCH", branchW)+"  "+
+			fit("SESSION", max(w-fixed, 10))+fmt.Sprintf("%7s", "SIZE")), w) + "\n")
+		bodyH--
+	}
+	p.offset = scrollOffset(p.offset, p.cursor, len(p.shown), bodyH)
 	for i := p.offset; i < len(p.shown) && i < p.offset+bodyH; i++ {
 		s := p.all[p.shown[i]]
 		sel := i == p.cursor
@@ -298,11 +302,10 @@ func (p *picker) view(w, h int) string {
 		if sel {
 			nameStyle = sBold
 		}
-		fixed := 1 + 7 + projW + branchW + 7 + 4
 		line := mark +
-			st(sDim).Render(fit(" "+ago(s.ModTime), 7)) + st(sDim).Render(" ") +
-			st(sAccent).Render(fit(filepath.Base(s.Project()), projW)) + st(sDim).Render(" ") +
-			st(sDim).Render(fit(s.Branch, branchW)) + st(sDim).Render(" ") +
+			st(sDim).Render(fit(" "+ago(s.ModTime), 7)) + st(sDim).Render("  ") +
+			st(sAccent).Render(fit(filepath.Base(s.Project()), projW)) + st(sDim).Render("  ") +
+			st(sDim).Render(fit(s.Branch, branchW)) + st(sDim).Render("  ") +
 			p.nameCell(s, st, nameStyle, max(w-fixed, 10)) +
 			st(sDim).Render(fit(fmt.Sprintf("%7s", bytesize(s.Size)), 7))
 		b.WriteString(fit(line, w) + "\n")
@@ -316,7 +319,7 @@ func (p *picker) view(w, h int) string {
 	if p.filtering || p.input.Value() != "" {
 		b.WriteString(fit(p.input.View(), w))
 	} else {
-		b.WriteString(fit(" "+keyHelp("↑↓", "move", "enter", "open", "/", "search", "f", "find", "w", "live", "s", "summary", "?", "help"), w))
+		b.WriteString(fit(" "+keyHelp("enter", "open", "/", "search", "f", "find", "w", "live", "?", "help"), w))
 	}
 	return b.String()
 }

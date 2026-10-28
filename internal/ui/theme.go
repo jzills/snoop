@@ -44,6 +44,7 @@ var (
 	sSection   = lipgloss.NewStyle().Bold(true).Foreground(cAccent).MarginTop(1)
 	sLive      = lipgloss.NewStyle().Bold(true).Foreground(cOK)
 	sPaneTitle = lipgloss.NewStyle().Bold(true).Foreground(cText)
+	sColHead   = lipgloss.NewStyle().Foreground(cDim)
 )
 
 func kindColor(k parse.ToolKind) lipgloss.AdaptiveColor {

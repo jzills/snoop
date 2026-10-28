@@ -90,7 +90,7 @@ func TestFilesTabIncludesSubagents(t *testing.T) {
 	defer v.close()
 	v.update(key("4"), 140, 30)
 	out := ansi.Strip(v.render(140, 30))
-	for _, want := range []string{"4 Files", "3 files", "a.go", "⤷ helper", "Bash aren't tracked"} {
+	for _, want := range []string{"Files", "3 files", "a.go", "⤷ helper", "Bash aren't tracked"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("Files tab lacks %q:\n%s", want, out)
 		}

@@ -54,7 +54,9 @@ snoop --version
 ## What you see
 
 **Timeline:** The timeline shows every prompt, reply, thinking block and tool
-call, one per line. Tool rows show their duration and status (`✓` done, `✗`
+call, one per line, with a blank line before each prompt so every turn
+stands apart. A row in the same minute as the one above shows only its
+seconds (`:42`). Tool rows show their duration and status (`✓` done, `✗`
 error, `◌` running). Built-in tools (`▸`), skills (`✦`), MCP calls (`⇄`,
 shown as `server·tool`) and subagents (`⤷`) each have their own color. The
 right pane shows the selected item in full: Bash commands, Edit diffs, Write

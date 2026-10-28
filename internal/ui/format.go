@@ -90,6 +90,22 @@ func count(n int) string {
 	return fmt.Sprintf("%.1fB", float64(n)/1e9)
 }
 
+// topBar is the first two rows of every screen: snoop on the left, right
+// on the right, and a rule under them.
+func topBar(right string, w int) string {
+	return spread(sTitle.Render(" snoop"), right, w) + "\n" + sFaint.Render(strings.Repeat("─", w))
+}
+
+// spread puts left and right at either end of a w-wide row; when they
+// don't both fit, right follows left and the row is cut.
+func spread(left, right string, w int) string {
+	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 1
+	if gap < 1 {
+		return fit(left+"  "+right, w)
+	}
+	return left + strings.Repeat(" ", gap) + right + " "
+}
+
 // keyHelp renders "k desc · k desc" pairs.
 func keyHelp(pairs ...string) string {
 	var parts []string

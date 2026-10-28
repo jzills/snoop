@@ -5,7 +5,8 @@ weight: 1
 
 The timeline is where snoop starts when you open a session. It lists every
 prompt, reply, thinking block and tool call, one per line, and keeps up as
-the session writes.
+the session writes. Each turn starts after a blank line, and a row in the
+same minute as the one above shows only its seconds (`:42`).
 
 {{< shot src="timeline.png" alt="The timeline with prompts, tool calls and replies, and the selected reply in the detail pane" caption="The timeline lists the session's events, and the right pane shows the selected one in full." >}}
 

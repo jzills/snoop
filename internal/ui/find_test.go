@@ -80,7 +80,7 @@ func TestEscLeavesFind(t *testing.T) {
 	if a.picker.find || a.picker.input.Value() != "" || len(a.picker.shown) != 2 {
 		t.Errorf("after esc: find %v, query %q, shown %d", a.picker.find, a.picker.input.Value(), len(a.picker.shown))
 	}
-	if out := ansi.Strip(a.View()); !strings.Contains(out, "Claude Code sessions") {
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "sessions in all projects") || strings.Contains(out, "Find ·") {
 		t.Errorf("esc did not return to the list:\n%s", out)
 	}
 }

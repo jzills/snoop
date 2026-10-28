@@ -313,3 +313,72 @@ func TestOnlyTheLatestOpenIsShown(t *testing.T) {
 		t.Errorf("stack = %d views, top %v", len(a.stack), a.top())
 	}
 }
+
+const twoTurns = fixture + `{"type":"user","uuid":"u2","timestamp":"2026-10-24T10:05:00Z","message":{"content":"now the linter"}}
+{"type":"assistant","uuid":"a4","timestamp":"2026-10-24T10:05:30Z","message":{"id":"m4","content":[{"type":"text","text":"Lint is clean."}]}}
+`
+
+func newTwoTurnView(t *testing.T) *view {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "s.jsonl")
+	if err := os.WriteFile(p, []byte(twoTurns), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	v, err := openView(p, p, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(v.close)
+	return v
+}
+
+func TestTimelineSeparatesTurns(t *testing.T) {
+	v := newTwoTurnView(t)
+	lines := strings.Split(ansi.Strip(v.timeline(80, 20)), "\n")
+	second := -1
+	for i, l := range lines {
+		if strings.Contains(l, "now the linter") {
+			second = i
+		}
+	}
+	if second < 1 || strings.TrimSpace(lines[second-1]) != "" {
+		t.Fatalf("no blank line before the second prompt:\n%s", strings.Join(lines, "\n"))
+	}
+	if strings.TrimSpace(lines[0]) == "" {
+		t.Errorf("blank line before the first prompt:\n%s", strings.Join(lines, "\n"))
+	}
+	// The first row has the full time; the next, in the same minute, only its seconds.
+	full := time.Date(2026, 10, 24, 10, 0, 0, 0, time.UTC).Local().Format("15:04:05")
+	if !strings.Contains(lines[0], full) {
+		t.Errorf("first row lacks %q: %q", full, lines[0])
+	}
+	if strings.Contains(lines[1], full[:5]) || !strings.Contains(lines[1], ":01") {
+		t.Errorf("second row should show only :01: %q", lines[1])
+	}
+}
+
+func TestTimelineGapsKeepTheCursorVisible(t *testing.T) {
+	v := newTwoTurnView(t)
+	v.cursor = len(v.shown) - 1
+	// As many lines as there are rows, so the blank line pushes the list down.
+	out := ansi.Strip(v.timeline(80, len(v.shown)))
+	if !strings.Contains(out, "Lint is clean.") {
+		t.Fatalf("the selected last row is off screen:\n%s", out)
+	}
+}
+
+func TestSessionOpensWithTheTopBar(t *testing.T) {
+	v := newTestView(t)
+	lines := strings.Split(ansi.Strip(v.render(100, 30)), "\n")
+	if len(lines) != 30 {
+		t.Errorf("rendered %d lines, want 30", len(lines))
+	}
+	if strings.TrimSpace(lines[0]) != "snoop" || strings.Trim(lines[1], "─") != "" {
+		t.Errorf("top bar is %q / %q", lines[0], lines[1])
+	}
+	// The fixture has no title, so the details row shows the session's id.
+	if strings.TrimSpace(lines[2]) != "s" || strings.TrimSpace(lines[3]) != "" ||
+		!strings.HasPrefix(strings.TrimSpace(lines[4]), "Timeline") {
+		t.Errorf("details and tabs:\n%s", strings.Join(lines[:6], "\n"))
+	}
+}

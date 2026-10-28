@@ -336,7 +336,7 @@ func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 			}
 			return nil
 		}
-		bodyH := h - 4
+		bodyH := h - chromeH
 		if v.tab == tabDiff {
 			if cmd, ok := v.updateDiff(k, w, bodyH); ok {
 				return cmd
@@ -560,15 +560,20 @@ func (v *view) onTail(u tail.Update) []*alert {
 
 const wideLayout = 110
 
+// chromeH is the rows around a session's body: the top bar and its rule,
+// the session's details, a blank line, the tabs, a blank line under them,
+// the footer rule and the footer.
+const chromeH = 8
+
 func (v *view) render(w, h int) string {
 	// Before the header, which shows the file count.
 	if v.tab == tabFiles && (v.filesDirty || time.Since(v.filesBuilt) > filesTTL) {
 		v.rebuildFiles()
 	}
 	var b strings.Builder
-	b.WriteString(v.header(w) + "\n")
-	b.WriteString(v.tabs(w) + "\n")
-	bodyH := max(h-4, 1)
+	b.WriteString(v.header(w) + "\n\n")
+	b.WriteString(v.tabs(w) + "\n\n")
+	bodyH := max(h-chromeH, 1)
 
 	var body string
 	switch v.tab {
@@ -598,7 +603,7 @@ func (v *view) header(w int) string {
 	if title == "" {
 		title = s.ID
 	}
-	left := sTitle.Render(" snoop") + sFaint.Render("  ") + sBold.Render(title)
+	left := sBold.Render(" " + title)
 	var meta []string
 	if s.CWD != "" {
 		meta = append(meta, filepath.Base(s.CWD))
@@ -606,7 +611,7 @@ func (v *view) header(w int) string {
 	if s.Branch != "" {
 		meta = append(meta, s.Branch)
 	}
-	var alerts, status []string
+	var alerts, live, status []string
 	if v.unseenErrs > 0 {
 		alerts = append(alerts, sErr.Render(fmt.Sprintf("%d%s", v.unseenErrs, glyphErr)))
 	}
@@ -617,26 +622,24 @@ func (v *view) header(w int) string {
 		status = append(status, m)
 	}
 	if time.Since(v.lastLive) < 5*time.Second {
-		status = append(status, sLive.Render("● live"))
+		live = append(live, sLive.Render("● live"))
 	} else if time.Since(s.End) < 2*time.Minute {
-		status = append(status, sOK.Render("○ active"))
+		live = append(live, sOK.Render("○ active"))
 	}
-	// Alerts come first; the directory and branch give way when space is short.
-	right := strings.Join(append(append(alerts, sDim.Render(strings.Join(meta, " · "))), status...), "  ")
-	if w-lipgloss.Width(left)-lipgloss.Width(right)-1 < 1 {
-		right = strings.Join(append(alerts, status...), "  ")
+	// The top bar has the alerts and whether the session is live; the row
+	// under it has the session, with its directory and branch giving way
+	// to the context meter when space is short.
+	details := strings.Join(append([]string{sDim.Render(strings.Join(meta, " · "))}, status...), "  ")
+	if w-lipgloss.Width(left)-lipgloss.Width(details)-1 < 1 {
+		details = strings.Join(status, "  ")
 	}
-	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 1
-	if gap < 1 {
-		return fit(left+"  "+right, w)
-	}
-	return left + strings.Repeat(" ", gap) + right + " "
+	return topBar(strings.Join(append(alerts, live...), "  "), w) + "\n" + spread(left, details, w)
 }
 
 func (v *view) tabs(w int) string {
 	var parts []string
 	for i, n := range tabNames {
-		label := fmt.Sprintf("%d %s", i+1, n)
+		label := n
 		if i == v.tab {
 			parts = append(parts, sTabOn.Render(label))
 		} else {
@@ -701,9 +704,9 @@ func (v *view) footer(w int) string {
 		return fit(v.rev.input.View(), w)
 	}
 	if v.tab == tabDiff {
-		help := keyHelp("↑↓", "move", "tab", "lines", "c", "comment", "v", "range", "S", "send", "?", "help")
+		help := keyHelp("tab", "lines", "c", "comment", "S", "send", "?", "help")
 		if !v.focusR {
-			help = keyHelp("↑↓", "move", "enter", "lines", "C", "comment on file", "S", "send", "r", "refresh", "?", "help")
+			help = keyHelp("enter", "lines", "C", "comment on file", "S", "send", "?", "help")
 		}
 		return fit(" "+v.sendStatus()+help, w)
 	}
@@ -713,15 +716,15 @@ func (v *view) footer(w int) string {
 	var help string
 	switch {
 	case v.tab == tabStats:
-		help = keyHelp("↑↓", "scroll", "1-5", "tabs", "esc", "back", "?", "help")
+		help = keyHelp("1-5", "tabs", "esc", "back", "?", "help")
 	case v.focusR || v.zoom:
-		help = keyHelp("↑↓", "scroll", "tab", "back to list", "a", "subagent", "?", "help")
+		help = keyHelp("tab", "back to list", "a", "subagent", "?", "help")
 	case v.tab == tabTools:
-		help = keyHelp("↑↓", "move", "space", "expand", "enter", "show in timeline", "E", "expand all", "?", "help")
+		help = keyHelp("space", "expand", "enter", "show in timeline", "?", "help")
 	case v.tab == tabFiles:
-		help = keyHelp("↑↓", "move", "n N", "next change", "enter", "show in timeline", "/", "search", "?", "help")
+		help = keyHelp("n N", "next change", "enter", "show in timeline", "?", "help")
 	default:
-		help = keyHelp("↑↓", "move", "enter", "detail", "/", "search", "f", "filter", "a", "subagent", "?", "help")
+		help = keyHelp("enter", "detail", "/", "search", "f", "filter", "?", "help")
 	}
 	return fit(" "+help, w)
 }
@@ -745,11 +748,36 @@ func (v *view) timeline(w, h int) string {
 		listW = w * 11 / 20
 	}
 	v.offset = scrollOffset(v.offset, v.cursor, len(v.shown), h)
+	// Each turn starts after a blank line, so the rows from the offset to
+	// the cursor can take more than h lines; move down until they fit.
+	gap := func(i int) bool {
+		return i > v.offset && v.shown[i].Kind == parse.KindUser && v.depth[v.shown[i]] == 0
+	}
+	for v.offset < v.cursor {
+		n := 0
+		for i := v.offset; i <= v.cursor; i++ {
+			n += 1 + boolInt(gap(i))
+		}
+		if n <= h {
+			break
+		}
+		v.offset++
+	}
 	lines := make([]string, 0, h)
+	var prev time.Time
 	for i := v.offset; i < len(v.shown) && len(lines) < h; i++ {
 		e := v.shown[i]
+		if gap(i) {
+			lines = append(lines, strings.Repeat(" ", listW))
+			if len(lines) == h {
+				break
+			}
+		}
 		lines = append(lines, renderTimelineRow(v.sess, e, i == v.cursor, listW,
-			rowOpts{depth: v.depth[e], open: v.expanded[agentID(e)], marked: v.marked[e]}))
+			rowOpts{depth: v.depth[e], open: v.expanded[agentID(e)], marked: v.marked[e], prev: prev}))
+		if !e.Time.IsZero() {
+			prev = e.Time
+		}
 	}
 	if len(v.shown) == 0 {
 		lines = append(lines, sDim.Render(" nothing matches"))
@@ -855,11 +883,12 @@ func renderTimelineRow(s *parse.Session, e *parse.Event, sel bool, w int, o rowO
 }
 
 type rowOpts struct {
-	hideName bool   // drop the tool name column (rows under their tool in the Tools tab)
-	note     string // shown on the right of non-tool rows
-	depth    int    // subagent nesting, drawn as │ rules
-	open     bool   // an Agent call expanded inline
-	marked   bool   // a collapsed Agent call whose subagent matches the search
+	hideName bool      // drop the tool name column (rows under their tool in the Tools tab)
+	note     string    // shown on the right of non-tool rows
+	depth    int       // subagent nesting, drawn as │ rules
+	open     bool      // an Agent call expanded inline
+	marked   bool      // a collapsed Agent call whose subagent matches the search
+	prev     time.Time // the row above's time; a time in the same minute shows only its seconds
 }
 
 // renderRowName renders a timeline row.
@@ -879,10 +908,14 @@ func renderRowName(e *parse.Event, sel bool, w int, o rowOpts) string {
 	}
 	ts := ""
 	if !e.Time.IsZero() {
-		ts = e.Time.Local().Format("15:04:05")
+		t := e.Time.Local()
+		ts = t.Format("15:04:05")
+		if p := o.prev.Local(); !o.prev.IsZero() && t.Truncate(time.Minute).Equal(p.Truncate(time.Minute)) {
+			ts = "     " + t.Format(":05")
+		}
 	}
-	prefix := mark + st(sFaint).Render(fit(ts, 8)+" ")
-	rest := w - 10
+	prefix := mark + st(sFaint).Render(fit(ts, 8)+"  ")
+	rest := w - 11
 	if o.depth > 0 {
 		prefix += st(lipgloss.NewStyle().Foreground(cAgent)).Render(strings.Repeat("│ ", o.depth))
 		rest -= 2 * o.depth
@@ -938,7 +971,7 @@ func renderRowName(e *parse.Event, sel bool, w int, o rowOpts) string {
 		if showName {
 			nameW := min(16, max(rest/4, 8))
 			sumW := rest - 2 - nameW - 1 - lipgloss.Width(right)
-			body = st(ks).Render(fit(name, nameW)) + st(sText).Render(" ") + st(sumStyle).Render(fit(t.Summary, sumW))
+			body = st(ks).Render(fit(name, nameW)) + st(sText).Render("  ") + st(sumStyle).Render(fit(t.Summary, sumW-1))
 		} else {
 			body = st(sText).Render(fit(t.Summary, rest-2-lipgloss.Width(right)))
 		}
