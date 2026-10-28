@@ -47,6 +47,7 @@ snoop --follow         # follow the newest session for this directory, live;
 snoop --live           # every session at work right now, across projects
 snoop 64f3ec44         # open by session id prefix (or a .jsonl path)
 snoop --project DIR    # treat DIR as the current project
+snoop hooks install    # let the Diff tab send comments to the agent
 snoop --version
 ```
 
@@ -119,6 +120,40 @@ changed, a command they ran, or a prompt, subagents included. Every word must
 match the same file, command or prompt. Each result shows what matched, and
 opening it searches its timeline for the same words. Sessions are indexed by
 the same background scan as the summary and cached with it.
+
+## Review and comment
+
+The Diff tab (`5`) shows `git diff HEAD` for the session's working directory,
+with untracked files shown as added. Files the session changed come first, and
+files changed by you or another agent are dimmed. The tab refreshes as the
+session edits files, and `r` reads the diff again.
+
+Press `tab` to move into a file's lines, then `c` to comment on a line. Press
+`v` and move to select a range first, or press `C` to comment on the whole
+file. Press `e` or `x` to edit or delete the comment under the cursor.
+Comments wait until you press `S`, which sends them all at once. Each comment
+names the file and lines and quotes the code, so the agent doesn't have to
+reread the file.
+
+Sending needs Claude Code hooks, which you add once:
+
+```
+snoop hooks install              # in ~/.claude/settings.json
+snoop hooks install --project    # in ./.claude/settings.json instead
+snoop hooks status               # or uninstall
+```
+
+The hooks run `snoop hook` after each tool call, when the agent tries to
+finish, and when you submit a prompt. The agent sees your comments at the
+first of these, so a working agent gets them mid-turn and an agent that has
+finished keeps going. The footer shows when they are delivered. Without the
+hooks, `S` copies the comments to the clipboard instead.
+
+The hooks are the only change snoop makes to Claude Code's settings, and
+`snoop hooks uninstall` removes exactly those entries. Sent comments wait in a
+`snoop/inbox` folder in your state directory (`~/.local/state` on Linux) until
+a hook delivers them. A session that was already running may need a restart
+before it uses the hooks.
 
 ## Summary across sessions
 
@@ -214,7 +249,7 @@ Press `?` anywhere for the keys of the current screen. The full list follows.
 | `x` / `X` | expand a subagent inline / expand or collapse all |
 | `a` | open the subagent transcript for an Agent call (`esc` returns) |
 | `g G` | top / bottom (bottom re-enables following) |
-| `1 2 3 4`, `[ ]` | switch tabs |
+| `1 2 3 4 5`, `[ ]` | switch tabs |
 | `esc` | clear the search or filter, then go back |
 | `!` | jump to the latest alert |
 | `y` / `e` | copy the selection / export the view to Markdown |
@@ -225,6 +260,10 @@ In the Tools tab, `space` expands or collapses a group, `enter` on a call
 shows it in the timeline, and `←` and `→` collapse and expand (`←` on a call
 moves to its group). Pressing `E` expands everything (press it again to
 reset), and a `/` search keeps only matching calls with their groups opened.
+
+In the Diff tab, `tab` moves between the files and their lines, `J` and `K`
+jump between hunks, and `c`, `v`, `C`, `e`, `x` and `S` work as described in
+[Review and comment](#review-and-comment).
 
 In the picker, `/` starts a fuzzy search and `f` finds across sessions, and
 `esc` clears either. Pressing `c` toggles this project only, `s` switches to

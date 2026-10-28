@@ -50,6 +50,9 @@ type App struct {
 	focused  bool                 // snoop's window has focus, as the terminal reports it
 	noted    map[string]time.Time // last notification per session and alert kind
 	claimDir string               // shared by every snoop, so one event notifies once
+
+	// A followed session's successor, held back while comments are unsent.
+	followNext string
 }
 
 type tickMsg struct{}
@@ -126,6 +129,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if v.pollSubs() {
 				v.refresh()
 			}
+		}
+		for _, v := range a.stack {
+			cmds = append(cmds, v.pollReview(time.Now()))
+		}
+		if a.followNext != "" && a.unsent() == 0 {
+			path := a.followNext
+			a.followNext = ""
+			cmds = append(cmds, func() tea.Msg { return openMsg{path: path} })
 		}
 		if a.opts.Stall > 0 {
 			for _, v := range a.stack {
@@ -228,12 +239,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			v.cursor, v.follow = 0, false
 		}
 		return a, a.push(v)
+	case diffMsg:
+		msg.v.onDiff(msg)
+		return a, nil
+	case sentMsg:
+		return a, msg.v.onSent(msg)
+	case reviewPollMsg:
+		return a, msg.v.onPoll(msg)
 	case tailMsg:
 		if msg.u.Err == tail.ErrClosed {
 			return a, nil
 		}
 		if msg.u.NewSession != "" && a.opts.Follow && len(a.stack) > 0 && msg.v == a.stack[0] {
 			path := msg.u.NewSession
+			if a.unsent() > 0 {
+				// Following would close the views holding the comments.
+				a.followNext = path
+				a.top().flash = sKey.Render(" A new session started.") +
+					sDim.Render(" It opens once your comments are sent or discarded.")
+				return a, msg.v.waitTail()
+			}
 			return a, tea.Batch(msg.v.waitTail(), func() tea.Msg { return openMsg{path: path} })
 		}
 		as := msg.v.onTail(msg.u)
@@ -250,6 +275,31 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		v := a.top()
+		if v != nil && v.rev.leaveAsk {
+			quit := v.rev.leaveQuit
+			v.rev.leaveAsk, v.rev.leaveQuit, v.flash = false, false, ""
+			switch msg.String() {
+			case "S":
+				if !quit {
+					return a, v.sendComments()
+				}
+				var cmds []tea.Cmd
+				for _, w := range a.stack {
+					cmds = append(cmds, w.sendComments())
+				}
+				return a, tea.Batch(cmds...)
+			case "d":
+				if quit {
+					return a, tea.Quit
+				}
+				v.rev.comments = nil
+				a.pop()
+				if a.top() == nil && a.board == nil {
+					return a, loadSessions(a.opts.Root)
+				}
+			}
+			return a, nil
+		}
 		if v != nil && msg.String() != "!" {
 			v.alertShown = false
 		}
@@ -258,7 +308,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Keys typed faster than a read arrive as one multi-rune message;
 		// outside text inputs, treat them as separate presses.
-		typing := (v == nil && a.picker.filtering) || (v != nil && v.typing)
+		typing := (v == nil && a.picker.filtering) || (v != nil && v.inputActive())
 		if msg.Type == tea.KeyRunes && len(msg.Runes) > 1 && !typing && !msg.Paste {
 			var cmds []tea.Cmd
 			for _, r := range msg.Runes {
@@ -303,9 +353,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, a.picker.update(msg, a.h)
 		}
-		if !v.typing {
+		if !v.inputActive() {
 			switch msg.String() {
 			case "q":
+				if v.askUnsent(a.unsent(), true) {
+					return a, nil
+				}
 				return a, tea.Quit
 			case "esc", "backspace":
 				if v.zoom || v.focusR {
@@ -316,6 +369,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					v.search.SetValue("")
 					v.kind = 0
 					v.refresh()
+					return a, nil
+				}
+				if v.askUnsent(len(v.rev.comments), false) {
 					return a, nil
 				}
 				a.pop()
@@ -331,6 +387,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.picker.update(msg, a.h)
 	}
 	return a, nil
+}
+
+// unsent counts the comments not yet sent in every open view.
+func (a *App) unsent() int {
+	n := 0
+	for _, v := range a.stack {
+		n += len(v.rev.comments)
+	}
+	return n
 }
 
 // signal rings the bell and sends a notification for the newest alert of

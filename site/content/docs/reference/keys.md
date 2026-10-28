@@ -42,7 +42,7 @@ These work on every tab.
 
 | Key | Action |
 | --- | --- |
-| `1` `2` `3` `4` | Timeline, Tools, Stats, Files |
+| `1` `2` `3` `4` `5` | Timeline, Tools, Stats, Files, Diff |
 | `[` `]` | previous and next tab |
 | `!` | jump to the latest alert |
 | `y` | copy the selection |
@@ -84,3 +84,18 @@ These work on every tab.
 | `enter` | show the file's latest change in the timeline |
 | `n` `N` | next and previous change |
 | `/` | keep only files whose path matches |
+
+## Diff
+
+| Key | Action |
+| --- | --- |
+| `enter`, `tab`, `→` | move into the file's lines |
+| `tab`, `←`, `esc` | back to the files |
+| `J` `K`, `n` `N` | next and previous hunk |
+| `c` | comment on the line, or on the selected range |
+| `v` | start or clear a range selection |
+| `C` | comment on the whole file |
+| `e` `x` | edit and delete the comment on the line |
+| `S` | send every comment to the agent |
+| `r` | read the diff again |
+| `y` | copy the file's diff |

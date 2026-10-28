@@ -22,9 +22,10 @@ const (
 	tabTools
 	tabStats
 	tabFiles
+	tabDiff
 )
 
-var tabNames = []string{"Timeline", "Tools", "Stats", "Files"}
+var tabNames = []string{"Timeline", "Tools", "Stats", "Files", "Diff"}
 
 // Kind filters, cycled with f.
 var kindFilters = []struct {
@@ -108,6 +109,9 @@ type view struct {
 
 	// Subagent metadata is cached briefly so redraws don't read meta.json.
 	agents map[string]agentEntry
+
+	// Diff tab: the working tree's changes and review comments.
+	rev reviewState
 }
 
 type agentEntry struct {
@@ -140,7 +144,7 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	ti.Placeholder = "search text, commands, paths, results"
 	v := &view{
 		path: path, rootPath: rootPath, label: label, sess: s,
-		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(rootPath),
+		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(rootPath), rev: newReviewState(),
 		detail: viewport.New(0, 0), page: viewport.New(0, 0),
 	}
 	v.tl, _ = tail.Open(path, off, followNew)
@@ -305,8 +309,14 @@ func (v *view) move(d int) {
 	v.follow = v.cursor == len(v.shown)-1
 }
 
+// inputActive reports whether keys are going to a text input.
+func (v *view) inputActive() bool { return v.typing || v.rev.typing }
+
 func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 	if k, ok := msg.(tea.KeyMsg); ok {
+		if v.rev.typing {
+			return v.typeComment(k)
+		}
 		if v.typing {
 			switch k.String() {
 			case "esc":
@@ -327,6 +337,11 @@ func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 			return nil
 		}
 		bodyH := h - 4
+		if v.tab == tabDiff {
+			if cmd, ok := v.updateDiff(k, w, bodyH); ok {
+				return cmd
+			}
+		}
 		switch k.String() {
 		case "y":
 			return v.copySelection()
@@ -340,21 +355,20 @@ func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 				v.jumpTo(a.ev)
 			}
 			return nil
-		case "1", "2", "3", "4":
-			v.tab = int(k.String()[0] - '1')
-			v.page.GotoTop()
-			return nil
+		case "1", "2", "3", "4", "5":
+			return v.setTab(int(k.String()[0] - '1'))
 		case "]":
-			v.tab = (v.tab + 1) % len(tabNames)
-			return nil
+			return v.setTab((v.tab + 1) % len(tabNames))
 		case "[":
-			v.tab = (v.tab + len(tabNames) - 1) % len(tabNames)
-			return nil
+			return v.setTab((v.tab + len(tabNames) - 1) % len(tabNames))
 		}
 		if v.tab == tabStats {
 			var cmd tea.Cmd
 			v.page, cmd = v.page.Update(msg)
 			return cmd
+		}
+		if v.tab == tabDiff {
+			return nil
 		}
 		if v.focusR || v.zoom {
 			switch k.String() {
@@ -448,6 +462,20 @@ func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 	return nil
 }
 
+// setTab switches tabs; the Diff tab reads the diff each time it opens.
+func (v *view) setTab(t int) tea.Cmd {
+	prev := v.tab
+	v.tab = t
+	v.page.GotoTop()
+	if t != prev && (v.focusR || v.zoom) {
+		v.focusR, v.zoom = false, false
+	}
+	if t == tabDiff && t != prev {
+		return v.loadDiff()
+	}
+	return nil
+}
+
 // openSubagent opens the transcript of an Agent (or forked Skill) call.
 func (v *view) openSubagent(e *parse.Event) tea.Cmd {
 	if e.Tool == nil || e.Tool.AgentID == "" {
@@ -481,6 +509,10 @@ func (v *view) wheel(d int, overDetail bool) {
 		scroll(&v.detail)
 	case v.tab == tabTools:
 		v.moveGroup(d)
+	case v.tab == tabDiff && overDetail:
+		v.moveLine(d)
+	case v.tab == tabDiff:
+		v.moveDiffFile(d)
 	case v.tab == tabFiles:
 		v.moveFile(d)
 	default:
@@ -548,6 +580,8 @@ func (v *view) render(w, h int) string {
 		body = v.pageView(renderStats(v.sess, v.stats, w-2), w, bodyH)
 	case tabFiles:
 		body = v.filesView(w, bodyH)
+	case tabDiff:
+		body = v.diffView(w, bodyH)
 	}
 	b.WriteString(body + "\n")
 	b.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
@@ -649,6 +683,9 @@ func (v *view) tabs(w int) string {
 		flags = append(flags, sDim.Render(fmt.Sprintf("%d files", len(v.files))))
 		right = strings.Join(flags, "  ")
 	}
+	if v.tab == tabDiff {
+		right = v.diffTabsRight()
+	}
 	gap := w - lipgloss.Width(left) - lipgloss.Width(right) - 1
 	if gap < 1 {
 		return fit(left, w)
@@ -659,6 +696,16 @@ func (v *view) tabs(w int) string {
 func (v *view) footer(w int) string {
 	if v.flash != "" {
 		return fit(v.flash, w)
+	}
+	if v.rev.typing {
+		return fit(v.rev.input.View(), w)
+	}
+	if v.tab == tabDiff {
+		help := keyHelp("↑↓", "move", "tab", "lines", "c", "comment", "v", "range", "S", "send", "?", "help")
+		if !v.focusR {
+			help = keyHelp("↑↓", "move", "enter", "lines", "C", "comment on file", "S", "send", "r", "refresh", "?", "help")
+		}
+		return fit(" "+v.sendStatus()+help, w)
 	}
 	if v.typing || (v.search.Value() != "" && v.tab != tabStats) {
 		return fit(v.search.View(), w)

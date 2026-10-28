@@ -6,6 +6,7 @@ weight: 1
 ```text
 snoop [--follow | --live] [--project dir] [--bell] [--notify] [session-id|path]
 snoop export <session-id|path> [-o file]
+snoop hooks install|uninstall|status [--project]
 ```
 
 ## Commands
@@ -17,6 +18,10 @@ snoop export <session-id|path> [-o file]
 | `snoop --follow` | follow the newest session for this directory, and switch to new ones |
 | `snoop --live` | open the live board: every session written in the last 30 minutes |
 | `snoop export <session>` | write a session as Markdown to stdout, without thinking blocks |
+| `snoop hooks install` | add the hooks that deliver the Diff tab's comments to your Claude Code settings; `--project` uses `./.claude/settings.json` |
+| `snoop hooks uninstall` | remove exactly those hooks |
+| `snoop hooks status` | report whether they're installed, exiting with 1 if not |
+| `snoop hook` | run by the hooks: deliver the comments waiting for the session; you don't run it yourself |
 
 ## Flags
 

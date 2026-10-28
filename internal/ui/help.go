@@ -16,7 +16,7 @@ type helpSection struct {
 }
 
 var helpTabs = helpSection{"Tabs", [][2]string{
-	{"1 2 3 4", "Timeline, Tools, Stats, Files"},
+	{"1 2 3 4 5", "Timeline, Tools, Stats, Files, Diff"},
 	{"[ ]", "previous / next tab"},
 }}
 
@@ -178,6 +178,33 @@ var helpFiles = []helpSection{
 	helpGeneral,
 }
 
+var helpDiff = []helpSection{
+	{"Files", [][2]string{
+		{"↑↓  j k", "move"},
+		{"g  G", "first / last file"},
+		{"enter  tab  →", "move into the file's lines"},
+		{"", "files this session changed come first; the others are dimmed"},
+		{"r", "read the diff again (it also refreshes as the session edits files)"},
+	}},
+	{"Lines", [][2]string{
+		{"↑↓  j k", "move"},
+		{"J K  n N", "next / previous hunk"},
+		{"pgup pgdn", "half a page"},
+		{"tab  ←  esc", "back to the files"},
+	}},
+	{"Comments", [][2]string{
+		{"c", "comment on the line, or on the range"},
+		{"v", "start or clear a range; move to extend it"},
+		{"C", "comment on the whole file"},
+		{"e  x", "edit / delete the comment on the line"},
+		{"S", "send every comment to the agent, which sees them after its current tool call, when it finishes, or with your next prompt"},
+		{"", "sending needs the hooks from snoop hooks install; without them, S copies the comments instead"},
+		{"y", "copy the file's diff"},
+	}},
+	helpTabs,
+	helpGeneral,
+}
+
 // helpContent picks the sections and title for the current screen.
 func (a *App) helpContent() (string, []helpSection) {
 	v := a.top()
@@ -192,6 +219,8 @@ func (a *App) helpContent() (string, []helpSection) {
 		return "Stats", helpStats
 	case v.tab == tabFiles:
 		return "Files", helpFiles
+	case v.tab == tabDiff:
+		return "Diff", helpDiff
 	}
 	return "Timeline", helpTimeline
 }

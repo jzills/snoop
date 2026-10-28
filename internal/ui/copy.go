@@ -65,6 +65,8 @@ func (v *view) selectionText() string {
 		if f := v.selectedFile(); f != nil {
 			return fileDiff(f)
 		}
+	case tabDiff:
+		return v.diffText()
 	case tabTimeline:
 		if e := v.selected(); e != nil {
 			return copyText(e)
