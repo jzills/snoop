@@ -713,7 +713,7 @@ func (v *view) footer(w int) string {
 	var help string
 	switch {
 	case v.tab == tabStats:
-		help = keyHelp("↑↓", "scroll", "1-4", "tabs", "esc", "back", "?", "help")
+		help = keyHelp("↑↓", "scroll", "1-5", "tabs", "esc", "back", "?", "help")
 	case v.focusR || v.zoom:
 		help = keyHelp("↑↓", "scroll", "tab", "back to list", "a", "subagent", "?", "help")
 	case v.tab == tabTools:
