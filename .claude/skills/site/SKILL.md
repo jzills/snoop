@@ -16,7 +16,8 @@ word on it.
 | --- | --- |
 | `site/layouts/home.html` | the landing page, as a layout rather than markdown |
 | `site/content/docs/` | the docs: overview, install, quickstart, `guides/`, `reference/` |
-| `site/assets/css/custom.css` | all custom styling: tokens, navbar logo, landing page, screenshots |
+| `site/assets/css/custom.css` | all custom styling: tokens, navbar logo, landing page, footer, screenshots |
+| `site/layouts/_partials/footer.html`, `custom/footer.html` | the footer, on every page |
 | `site/assets/snoop-mark.svg` | the logo (two eyes), inlined so it takes the accent color |
 | `site/layouts/shortcodes/shot.html` | `{{< shot src="x.png" alt="…" caption="…" >}}` for screenshots |
 | `site/static/shots/` | terminal screenshots, rendered by `demo/shots.sh` |
@@ -24,12 +25,20 @@ word on it.
 
 ## Design conventions
 
-- **Clean and plain**, after Ghostty, Helm and the Claude Code docs. The
-  landing page says what snoop is, shows one screenshot and links into the
-  docs; detail belongs in the docs.
-- **Neutral palette.** The accent (`--snoop-accent`, purple) is only for the
-  logo, links and the primary button. No tinted backgrounds, colored
-  taglines or card grids on the landing page.
+- **Plain words, visual depth.** The landing page says what snoop is, shows
+  the timeline and links into the docs; detail belongs in the docs. Depth
+  comes from a faint hairline grid and accent glow behind the hero,
+  screenshots framed as terminal windows, icon cards for the guides, a
+  full-width band, a closing panel and sections that ease in on scroll
+  (`assets/js/snoop-reveal.js`). It shares the footer and its structure with
+  the kx site, but keeps its own look: the grid rather than kx's dots, and
+  the blinking eyes.
+- **One accent.** The accent (`--snoop-accent`, purple) is the only color:
+  the logo, links, buttons, icons, glows and edges. Every motion stops under
+  `prefers-reduced-motion`.
+- **The footer** (`layouts/_partials/custom/footer.html`) is on every page,
+  with the install command, link columns and the author's wordmark. It
+  carries no license or trademark notice.
 - **System fonts.** No web fonts.
 - **The logo is the two eyes** (F4), beside "snoop" in the body font. Don't
   draw the eyes into the word.
