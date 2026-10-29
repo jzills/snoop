@@ -61,7 +61,7 @@ title = "snoop"
 
 [menu]
   [[menu.main]]
-    name = "Docs"
+    name = "Documentation"
     pageRef = "/docs"
     weight = 1
   [[menu.main]]
@@ -76,3 +76,11 @@ title = "snoop"
     weight = 3
     [menu.main.params]
       icon = "github"
+  # Hextra's light, dark and system switch, in the bar on every page. The
+  # landing page has no sidebar, and the footer's copy is gone (see
+  # layouts/_partials/footer.html), so this is where it lives.
+  [[menu.main]]
+    name = "Theme"
+    weight = 4
+    [menu.main.params]
+      type = "theme-toggle"

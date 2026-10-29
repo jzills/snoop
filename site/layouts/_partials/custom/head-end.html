@@ -1,10 +1,15 @@
 {{- /*
-  The install command's copy button, on the landing page only. Deferred: the
-  button ships hidden and the page reads correctly without it.
+  The install command's copy button, on every page since the footer carries
+  the command too, and the landing page's scroll reveal. Both are deferred:
+  the button ships hidden and the page reads correctly without either.
 */ -}}
+{{- with resources.Get "js/snoop-install.js" }}
+  {{- $install := . | minify | fingerprint }}
+  <script defer src="{{ $install.RelPermalink }}" integrity="{{ $install.Data.Integrity }}"></script>
+{{- end }}
 {{- if .IsHome }}
-  {{- with resources.Get "js/snoop-install.js" }}
-    {{- $install := . | minify | fingerprint }}
-    <script defer src="{{ $install.RelPermalink }}" integrity="{{ $install.Data.Integrity }}"></script>
+  {{- with resources.Get "js/snoop-reveal.js" }}
+    {{- $reveal := . | minify | fingerprint }}
+    <script defer src="{{ $reveal.RelPermalink }}" integrity="{{ $reveal.Data.Integrity }}"></script>
   {{- end }}
 {{- end }}
