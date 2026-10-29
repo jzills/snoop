@@ -1,5 +1,6 @@
 ---
-title: Overview
+title: Welcome to snoop
+linkTitle: Documentation
 weight: 1
 ---
 

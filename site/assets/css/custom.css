@@ -15,6 +15,11 @@
   --snoop-accent: #5b4bdb;
   --snoop-on-accent: #ffffff;
   --snoop-ok: #1a7f37;
+  --snoop-page: #ffffff;
+  --snoop-band: #f6f6f9;
+  --snoop-grid: rgb(17 24 39 / 0.07);
+  --snoop-edge: color-mix(in srgb, var(--snoop-accent) 28%, var(--snoop-border));
+  --snoop-glow: 0 12px 32px -18px color-mix(in srgb, var(--snoop-accent) 40%, transparent);
   /* Hextra derives its link, sidebar and button colors from these. */
   --primary-hue: 246deg;
   --primary-saturation: 67%;
@@ -29,6 +34,9 @@ html.dark {
   --snoop-accent: #a99cff;
   --snoop-on-accent: #111111;
   --snoop-ok: #56d364;
+  --snoop-page: #111111;
+  --snoop-band: #151517;
+  --snoop-grid: rgb(255 255 255 / 0.06);
   --primary-hue: 248deg;
   --primary-saturation: 100%;
   --primary-lightness: 81%;
@@ -37,22 +45,35 @@ html.dark {
 /* Navbar
  * ------------------------------------------------------------------ */
 
-.snoop-brand {
+/* The eyes sit on the name's baseline and are sized in ex, so they span its
+   x-height in whichever system font draws it. Centering them on the line box
+   instead lined them up in one font and not another, since each font puts
+   its x-height at a different place in the box. The nudge down matches the
+   overshoot of round letters like "s" and "o" below the baseline. */
+.snoop-brand,
+.snoop-footer .snoop-footer__brand {
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 0.5rem;
 }
 
-.snoop-brand svg {
-  height: 0.8rem;
+.snoop-brand {
+  font-size: 1.05rem;
+}
+
+.snoop-brand svg,
+.snoop-footer__brand svg {
+  height: 1.12ex;
   width: auto;
   display: block;
+  flex: none;
+  position: relative;
+  top: 0.1ex;
   color: var(--snoop-accent);
 }
 
 .snoop-brand__name {
   font-weight: 600;
-  font-size: 1.05rem;
   letter-spacing: -0.01em;
   color: var(--snoop-text);
 }
@@ -61,7 +82,7 @@ html.dark {
  * ------------------------------------------------------------------ */
 
 .snoop-home {
-  padding: 0 1.5rem 3rem;
+  padding: 0 1.5rem 6rem;
   color: var(--snoop-text);
 }
 
@@ -76,17 +97,18 @@ html.dark {
   line-height: 1.65;
 }
 
-.snoop-home a:not(.snoop-button) {
+.snoop-home a:not(.snoop-button):not(.snoop-feature) {
   color: var(--snoop-accent);
   font-weight: 500;
 }
 
-.snoop-home a:not(.snoop-button):hover {
+.snoop-home a:not(.snoop-button):not(.snoop-feature):hover {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
 
-.snoop-home code {
+.snoop-home code,
+.snoop-footer code {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.875em;
   color: var(--snoop-text);
@@ -100,18 +122,63 @@ html.dark {
 /* Hero */
 
 .snoop-hero {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: clamp(3rem, 9vw, 6rem) 0 2.5rem;
+  padding: clamp(3rem, 8vw, 5.5rem) 0 2.5rem;
+}
+
+/* Behind the hero, a faint terminal grid of hairlines with a wash of the
+   accent from the top, faded out toward the edges so it has no border of its
+   own. It spans the viewport, past the page's max width. */
+.snoop-hero::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: -6rem;
+  bottom: -16rem;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(ellipse 50% 45% at 50% 0%, color-mix(in srgb, var(--snoop-accent) 14%, transparent), transparent),
+    linear-gradient(var(--snoop-grid) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, var(--snoop-grid) 1px, transparent 1px) 0 0 / 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 30%, #000 25%, transparent 75%);
+  mask-image: radial-gradient(ellipse 60% 70% at 50% 30%, #000 25%, transparent 75%);
+  pointer-events: none;
+}
+
+/* The two eyes, large, with a soft halo; every few seconds they blink. */
+.snoop-hero__logo {
+  display: block;
+  color: var(--snoop-accent);
+  margin-bottom: 1.75rem;
+  filter: drop-shadow(0 6px 24px color-mix(in srgb, var(--snoop-accent) 45%, transparent));
+}
+
+.snoop-hero__logo svg {
+  display: block;
+  height: clamp(2.25rem, 6vw, 3rem);
+  width: auto;
+  transform-origin: 50% 50%;
+  animation: snoop-blink 6s ease-in-out infinite;
+}
+
+@keyframes snoop-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  94% { transform: scaleY(0.1); }
+  96% { transform: scaleY(1); }
 }
 
 .snoop-hero__title {
-  font-size: clamp(2.1rem, 5.5vw, 3.4rem);
-  font-weight: 700;
-  line-height: 1.1;
-  max-width: 18ch;
+  font-size: clamp(2.2rem, 6vw, 3.75rem);
+  font-weight: 750;
+  line-height: 1.05;
+  max-width: 22ch;
   margin: 0;
   text-wrap: balance;
 }
@@ -121,6 +188,14 @@ html.dark {
   max-width: 40rem;
   margin: 1.25rem 0 0;
   text-wrap: pretty;
+}
+
+/* Which agents it reads, kept small: the title and lede speak of agents in
+   general. */
+.snoop-home .snoop-hero__note {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
 }
 
 .snoop-hero__actions {
@@ -146,23 +221,27 @@ html.dark {
   font-weight: 600;
   font-size: 0.95rem;
   color: var(--snoop-text);
-  background-color: transparent;
-  transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+  background-color: var(--snoop-page);
+  transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.15s;
 }
 
 .snoop-button:hover {
   background-color: var(--snoop-surface);
+  border-color: var(--snoop-edge);
 }
 
 .snoop-button--primary {
   border-color: var(--snoop-accent);
   background-color: var(--snoop-accent);
   color: var(--snoop-on-accent);
+  box-shadow: 0 8px 24px -10px color-mix(in srgb, var(--snoop-accent) 70%, transparent);
 }
 
 .snoop-button--primary:hover {
   background-color: var(--snoop-accent);
-  opacity: 0.88;
+  border-color: var(--snoop-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px -10px color-mix(in srgb, var(--snoop-accent) 80%, transparent);
 }
 
 /* The install command, with its copy button. */
@@ -175,11 +254,13 @@ html.dark {
   max-width: 100%;
   margin-top: 1.75rem;
   padding: 0.6rem 0.6rem 0.6rem 1rem;
-  border: 1px solid var(--snoop-border);
+  border: 1px solid var(--snoop-edge);
   border-radius: 0.5rem;
   background-color: var(--snoop-surface);
+  box-shadow: var(--snoop-glow);
 }
 
+.snoop-command code,
 .snoop-home .snoop-command code {
   flex: 1;
   min-width: 0;
@@ -189,12 +270,13 @@ html.dark {
   background: none;
   font-size: 0.9rem;
   overflow-x: auto;
+  scrollbar-width: none;
 }
 
 /* The prompt is drawn here, so it never lands in the clipboard. */
 .snoop-install__command::before {
   content: "$ ";
-  color: var(--snoop-muted);
+  color: var(--snoop-accent);
 }
 
 /* Shipped hidden; assets/js/snoop-install.js reveals it. */
@@ -207,6 +289,10 @@ html.dark {
   background: none;
   color: var(--snoop-muted);
   cursor: pointer;
+}
+
+.snoop-install__copy[hidden] {
+  display: none;
 }
 
 .snoop-install__copy:hover,
@@ -248,59 +334,112 @@ html.dark {
   white-space: nowrap;
 }
 
-/* Screenshots, on the landing page and in the docs. */
+/* A screenshot in a terminal window's frame: a title bar with three dots,
+   and the capture filling the rest. */
 
-.snoop-shot {
-  margin: 2rem auto;
-}
-
-.snoop-shot img {
-  display: block;
-  width: 100%;
-  height: auto;
+.snoop-window {
+  max-width: 66rem;
+  margin: 0 auto;
   border: 1px solid var(--snoop-border);
   border-radius: 0.75rem;
   background-color: #0d1117;
+  overflow: hidden;
+  box-shadow: 0 18px 48px -28px rgb(0 0 0 / 0.45);
 }
 
-.snoop-shot figcaption {
-  margin-top: 0.6rem;
-  font-size: 0.875rem;
-  text-align: center;
-  color: var(--snoop-muted);
+.snoop-window img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
-.snoop-shot--hero {
-  max-width: 66rem;
-  margin-top: 1rem;
+.snoop-window--hero {
+  margin-top: 1.5rem;
+  border-color: var(--snoop-edge);
+  box-shadow:
+    0 30px 80px -30px rgb(0 0 0 / 0.5),
+    0 40px 120px -50px color-mix(in srgb, var(--snoop-accent) 45%, transparent);
 }
 
-.snoop-shot--hero img {
-  box-shadow: 0 24px 64px -24px rgb(0 0 0 / 0.35);
+.snoop-window__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.9rem;
+  background-color: #161b22;
+  border-bottom: 1px solid #262c36;
 }
 
-/* Three things snoop does. */
+.snoop-window__bar span {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background-color: #3a414c;
+}
+
+/* What snoop does: six cards, three to a row at desktop width. Each card is
+   the link to its guide, so the whole card is the target. */
 
 .snoop-features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-  gap: 2.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 1rem;
   max-width: 66rem;
-  margin: 4.5rem auto 0;
+  margin: 5.5rem auto 0;
+}
+
+.snoop-home a.snoop-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 1.4rem 1.5rem 1.5rem;
+  border: 1px solid var(--snoop-border);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--snoop-accent) 4%, transparent), transparent 60%),
+    var(--snoop-surface);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.snoop-home a.snoop-feature:hover {
+  border-color: var(--snoop-edge);
+  transform: translateY(-2px);
+  box-shadow: var(--snoop-glow);
+}
+
+/* The title and its icon share the card's first row, the icon at the far
+   end, so the icon labels the card rather than sitting above it. */
+.snoop-feature__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+}
+
+.snoop-feature__icon {
+  display: inline-flex;
+  flex: none;
+  padding: 0.45rem;
+  border-radius: 0.5rem;
+  color: var(--snoop-accent);
+  background-color: color-mix(in srgb, var(--snoop-accent) 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--snoop-accent) 20%, transparent);
 }
 
 .snoop-feature__title {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
   margin: 0;
 }
 
 .snoop-feature p {
-  margin: 0.5rem 0 0.75rem;
-  font-size: 0.95rem;
+  margin: 0.6rem 0 0;
+  font-size: 0.93rem;
 }
 
-.snoop-feature a::after,
 .snoop-split__text a::after {
   content: " →";
 }
@@ -313,12 +452,20 @@ html.dark {
   align-items: center;
   gap: 3rem;
   max-width: 66rem;
-  margin: 6rem auto 0;
+  margin: 7rem auto 0;
+}
+
+.snoop-split--flip {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+}
+
+.snoop-split--flip .snoop-split__text {
+  order: 2;
 }
 
 .snoop-split h2,
 .snoop-closing h2 {
-  font-size: clamp(1.5rem, 3vw, 1.9rem);
+  font-size: clamp(1.6rem, 3.2vw, 2.1rem);
   font-weight: 700;
   margin: 0;
 }
@@ -327,29 +474,74 @@ html.dark {
   margin: 0.75rem 0 1rem;
 }
 
-.snoop-split .snoop-shot {
+.snoop-split .snoop-window {
   margin: 0;
 }
 
 @media (max-width: 48rem) {
-  .snoop-split {
+  .snoop-split,
+  .snoop-split--flip {
     grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;
-    margin-top: 4rem;
+    margin-top: 4.5rem;
+  }
+
+  .snoop-split--flip .snoop-split__text {
+    order: 0;
   }
 }
 
+/* A band is the section's own background, extended to both edges of the
+   viewport by a shadow of the same color and trimmed by clip-path to the
+   section's height. Its top edge is a hairline drawn the full width too,
+   where a border would stop at the section's own. */
+.snoop-band {
+  position: relative;
+  background-color: var(--snoop-band);
+  box-shadow: 0 0 0 100vmax var(--snoop-band);
+  clip-path: inset(0 -100vmax);
+  padding-top: 5rem;
+  padding-bottom: 5rem;
+}
+
+.snoop-band::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 100vw;
+  height: 1px;
+  transform: translateX(-50%);
+  background-color: var(--snoop-border);
+}
+
+.snoop-band + * {
+  margin-top: 5.5rem;
+}
+
+/* The closing call to install, on a glow of the accent. */
 .snoop-closing {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin: 6rem auto 0;
-  padding: 3rem 1.5rem;
+  margin: 7rem auto 0;
+  padding: 3.5rem 1.5rem;
   max-width: 66rem;
-  border: 1px solid var(--snoop-border);
-  border-radius: 0.75rem;
+  border: 1px solid var(--snoop-edge);
+  border-radius: 1rem;
   background-color: var(--snoop-surface);
+}
+
+.snoop-closing::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 90% at 50% 0%, color-mix(in srgb, var(--snoop-accent) 16%, transparent), transparent 70%);
 }
 
 .snoop-closing p {
@@ -360,15 +552,211 @@ html.dark {
   margin-top: 1.5rem;
 }
 
-.snoop-fineprint {
-  max-width: 44rem;
-  margin: 3rem auto 0;
-  font-size: 0.85rem;
-  text-align: center;
+/* Sections ease up into place as they scroll in. Only under html.snoop-motion,
+   which assets/js/snoop-reveal.js sets, so nothing is hidden without it. */
+html.snoop-motion [data-snoop-reveal] {
+  opacity: 0;
+  transform: translateY(1.25rem);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+html.snoop-motion [data-snoop-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* The band's clip-path would cut its translated content; it fades only. */
+html.snoop-motion .snoop-band[data-snoop-reveal] {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snoop-hero__logo svg {
+    animation: none;
+  }
+
+  .snoop-home a.snoop-feature,
+  .snoop-button {
+    transition: none;
+  }
+
+  .snoop-home a.snoop-feature:hover,
+  .snoop-button--primary:hover {
+    transform: none;
+  }
+}
+
+/* Footer
+ * ------------------------------------------------------------------ */
+
+/* The footer takes the page's background, and its top edge is a line of the
+   accent fading out at both ends. */
+.hextra-footer {
+  position: relative;
+  background-color: var(--snoop-page);
+}
+
+.hextra-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--snoop-accent), transparent);
+  opacity: 0.45;
+}
+
+.snoop-footer {
+  padding: 3.5rem 0 2.5rem;
+  color: var(--snoop-muted);
+  font-size: 0.9rem;
+}
+
+.snoop-footer a {
+  color: var(--snoop-muted);
+  transition: color 0.15s;
+}
+
+.snoop-footer a:hover {
+  color: var(--snoop-text);
+}
+
+.snoop-footer__top {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+}
+
+@media (min-width: 900px) {
+  .snoop-footer__top {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 4rem;
+  }
+}
+
+.snoop-footer__about {
+  max-width: 34rem;
+  min-width: 0;
+}
+
+.snoop-footer .snoop-footer__brand {
+  gap: 0.6rem;
+  color: var(--snoop-text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.snoop-footer__tagline {
+  margin-top: 1rem;
+  line-height: 1.6;
+}
+
+.snoop-footer__command {
+  margin-top: 1.25rem;
+}
+
+.snoop-footer__command .snoop-install__command {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.snoop-footer__cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .snoop-footer__cols {
+    grid-template-columns: repeat(3, minmax(0, auto));
+    gap: 2rem 4rem;
+  }
+}
+
+.snoop-footer__heading {
+  margin-bottom: 0.75rem;
+  color: var(--snoop-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.snoop-footer__col li + li {
+  margin-top: 0.5rem;
+}
+
+.snoop-footer__wordmark {
+  margin-top: 3.5rem;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  user-select: none;
+}
+
+.snoop-footer__bottom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-top: 0.85rem;
+}
+
+.snoop-footer__connect {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.snoop-footer__connect span {
+  font-weight: 600;
+}
+
+.snoop-footer__connect a {
+  display: inline-flex;
 }
 
 /* Docs
  * ------------------------------------------------------------------ */
+
+/* Hextra's cards lift and take the accent's edge on hover, as the landing
+   page's do. */
+.content .hextra-card {
+  background-color: var(--snoop-surface);
+  border-color: var(--snoop-border);
+}
+
+.content .hextra-card:hover {
+  border-color: var(--snoop-edge);
+  box-shadow: var(--snoop-glow);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content .hextra-card:hover {
+    transform: none;
+  }
+}
+
+/* Screenshots, from the shot shortcode. */
+
+.snoop-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--snoop-border);
+  border-radius: 0.75rem;
+  background-color: #0d1117;
+  box-shadow: 0 18px 48px -30px rgb(0 0 0 / 0.45);
+}
+
+.snoop-shot figcaption {
+  margin-top: 0.6rem;
+  font-size: 0.875rem;
+  text-align: center;
+  color: var(--snoop-muted);
+}
 
 /* Screenshots in the docs sit at the prose width. */
 .content .snoop-shot {

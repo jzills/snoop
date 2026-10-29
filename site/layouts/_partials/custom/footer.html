@@ -1,0 +1,75 @@
+{{- /*
+  The footer on every page: the mark, a tagline and the install command
+  beside three short link columns, then the author's wordmark over the
+  copyright line, with their profiles across from it. The wordmark is text
+  rather than an image so it takes the theme's muted color.
+
+  Site links go through relURL, which adds the /snoop/ the site is served
+  under; a bare "/docs/" would point at the root of jzills.github.io.
+*/ -}}
+{{- $repo := "https://github.com/jzills/snoop" -}}
+{{- /*
+  The bug link opens GitHub's new-issue form with the label set and the body
+  laid out. It asks for the Claude Code version too, because the transcript
+  format changes between versions.
+*/ -}}
+{{- $bugBody := "**What happened**\n\n\n**What you expected**\n\n\n**Steps to reproduce**\n\n\n**Versions**\n\nPaste the output of `snoop --version` and `claude --version`.\n" -}}
+{{- $bugURL := printf "%s/issues/new?%s" $repo (querify "labels" "bug" "body" $bugBody) -}}
+<div class="snoop-footer">
+  <div class="snoop-footer__top">
+    <div class="snoop-footer__about">
+      <a class="snoop-footer__brand" href="{{ site.Home.RelPermalink }}">
+        {{- with resources.Get "snoop-mark.svg" }}{{ .Content | safeHTML }}{{ end -}}
+        <span>snoop</span>
+      </a>
+      <p class="snoop-footer__tagline">Keep an eye on your agents, live or after the fact. It reads the transcripts on your machine and sends nothing anywhere.</p>
+      <div class="snoop-command snoop-footer__command" data-snoop-copy>
+        <code class="snoop-install__command">curl -fsSL https://jzills.github.io/snoop/install.sh | sh</code>
+        <button type="button" class="snoop-install__copy" aria-label="Copy the install command" hidden><svg viewBox="0 0 16 16" aria-hidden="true" class="snoop-install__icon snoop-install__icon--copy"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg><svg viewBox="0 0 16 16" aria-hidden="true" class="snoop-install__icon snoop-install__icon--done"><path d="M3 8.5 6.5 12 13 4.5"/></svg></button>
+        <span class="snoop-install__status" role="status"></span>
+      </div>
+    </div>
+    <nav class="snoop-footer__cols" aria-label="Footer">
+      <div class="snoop-footer__col">
+        <h2 class="snoop-footer__heading">Get started</h2>
+        <ul>
+          <li><a href="{{ "docs/install/" | relURL }}">Install</a></li>
+          <li><a href="{{ "docs/quickstart/" | relURL }}">Quickstart</a></li>
+          <li><a href="{{ "docs/reference/keys/" | relURL }}">Keyboard shortcuts</a></li>
+          <li><a href="{{ "docs/reference/cli/" | relURL }}">Command line</a></li>
+        </ul>
+      </div>
+      <div class="snoop-footer__col">
+        <h2 class="snoop-footer__heading">Learn</h2>
+        <ul>
+          <li><a href="{{ "docs/guides/" | relURL }}">Guides</a></li>
+          <li><a href="{{ "docs/guides/live-board/" | relURL }}">The live board</a></li>
+          <li><a href="{{ "docs/reference/data/" | relURL }}">What it reads and writes</a></li>
+          <li><a href="{{ "docs/reference/troubleshooting/" | relURL }}">Troubleshooting</a></li>
+        </ul>
+      </div>
+      <div class="snoop-footer__col">
+        <h2 class="snoop-footer__heading">Project</h2>
+        <ul>
+          <li><a href="{{ $repo }}">GitHub</a></li>
+          <li><a href="{{ $repo }}/releases">Releases</a></li>
+          <li><a href="{{ $bugURL }}">Report a bug</a></li>
+        </ul>
+      </div>
+    </nav>
+  </div>
+
+  <div class="snoop-footer__wordmark" aria-hidden="true">ZILLS</div>
+  <div class="snoop-footer__bottom">
+    <p class="snoop-footer__copyright">© {{ now.Year }} Joshua Zillwood</p>
+    <div class="snoop-footer__connect">
+      <span>Let's connect</span>
+      <a href="https://github.com/jzills" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+        {{- partial "utils/icon.html" (dict "name" "github" "attributes" `height=22 aria-hidden="true"`) -}}
+      </a>
+      <a href="https://www.linkedin.com/in/jzillss/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+        {{- partial "utils/icon.html" (dict "name" "linkedin" "attributes" `height=20 aria-hidden="true"`) -}}
+      </a>
+    </div>
+  </div>
+</div>

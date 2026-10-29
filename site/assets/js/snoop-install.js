@@ -1,4 +1,5 @@
-// The landing page's install cards: a copy button on each.
+// The install commands on the landing page and in the footer: a copy button
+// on each.
 //
 // An enhancement over markup that already works without it. The buttons ship
 // `hidden` and are revealed only once this runs, so a reader without
