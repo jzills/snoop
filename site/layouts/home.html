@@ -1,9 +1,13 @@
 {{ define "main" }}
   {{- /*
     The landing page: what snoop is, how to install it, one screenshot and
-    three things it does, each linking into the docs. It is a layout rather
-    than markdown because it is all structure; the words that need saying at
+    what it does, each linking into the docs. It is a layout rather than
+    markdown because it is all structure; the words that need saying at
     length live in content/docs/.
+
+    Sections marked data-snoop-reveal ease into place as they scroll into
+    view; assets/js/snoop-reveal.js does that, and without it they are simply
+    shown.
 
     Hextra's sidebar partial has to exist on every page even when hidden:
     core/menu.js reads .hextra-sidebar-container on load, and on mobile it is
@@ -14,15 +18,19 @@
     <main id="content" class="snoop-home hx:w-full hx:min-w-0">
 
       <section class="snoop-hero">
-        <h1 class="snoop-hero__title">A terminal viewer for Claude Code sessions</h1>
+        <span class="snoop-hero__logo">
+          {{- with resources.Get "snoop-mark.svg" }}{{ .Content | safeHTML }}{{ end -}}
+        </span>
+        <h1 class="snoop-hero__title">Keep an eye on your agents</h1>
         <p class="snoop-hero__lede">
           Follow a session live from a second terminal, or open any past one to
           see what it cost, which files it changed and where the time went.
-          It reads the transcripts Claude Code already writes, and nothing
+          It reads the transcripts your agent already writes, and nothing
           leaves your machine.
         </p>
+        <p class="snoop-hero__note">It supports Claude Code sessions only.</p>
         <div class="snoop-hero__actions">
-          <a class="snoop-button snoop-button--primary" href="{{ "docs/install/" | relURL }}">Get started</a>
+          <a class="snoop-button snoop-button--primary" href="{{ "docs/quickstart/" | relURL }}">Get started</a>
           <a class="snoop-button" href="{{ "docs/" | relURL }}">Documentation</a>
         </div>
         <div class="snoop-command" data-snoop-copy>
@@ -39,32 +47,42 @@
         </p>
       </section>
 
-      <figure class="snoop-shot snoop-shot--hero">
+      <figure class="snoop-window snoop-window--hero">
+        <div class="snoop-window__bar" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
         <img src="{{ "shots/timeline.png" | relURL }}" width="1200" height="700"
           alt="A session in snoop: the timeline of prompts and tool calls on the left, the selected reply on the right, and the context meter in the header">
       </figure>
 
-      <section class="snoop-features" aria-label="What snoop does">
-        <div class="snoop-feature">
-          <h2 class="snoop-feature__title">Follow a session live</h2>
-          <p>Run <code>snoop --follow</code> beside <code>claude</code>. Every prompt, reply and tool call appears as it happens, with diffs, commands and results in full.</p>
-          <a href="{{ "docs/guides/following/" | relURL }}">Following a session</a>
-        </div>
-        <div class="snoop-feature">
-          <h2 class="snoop-feature__title">See cost, context and time</h2>
-          <p>Each prompt shows its tokens, estimated cost and duration. A waterfall shows where a turn&rsquo;s time went, and the header shows how full the context is.</p>
-          <a href="{{ "docs/guides/cost-and-context/" | relURL }}">Cost and context</a>
-        </div>
-        <div class="snoop-feature">
-          <h2 class="snoop-feature__title">Watch every session at once</h2>
-          <p>The live board lists every session at work across your projects and which ones are waiting on you. With <code>--notify</code>, you also get a desktop notification when one needs you.</p>
-          <a href="{{ "docs/guides/live-board/" | relURL }}">The live board</a>
-        </div>
+      <section class="snoop-features" aria-label="What snoop does" data-snoop-reveal>
+        {{- range (slice
+          (dict "link" "docs/guides/following/" "icon" "eye" "title" "Follow a session live"
+            "text" "Run <code>snoop --follow</code> beside <code>claude</code>. Every prompt, reply and tool call appears as it happens, with diffs and results in full.")
+          (dict "link" "docs/guides/cost-and-context/" "icon" "currency-dollar" "title" "Cost and context"
+            "text" "Each prompt shows its tokens, estimated cost and duration, and a waterfall shows where a turn&rsquo;s time went.")
+          (dict "link" "docs/guides/live-board/" "icon" "bell" "title" "Know who needs you"
+            "text" "The live board shows which sessions wait on a permission prompt, and <code>--notify</code> sends a desktop notification.")
+          (dict "link" "docs/guides/subagents/" "icon" "users" "title" "See into subagents"
+            "text" "Press <code>x</code> on an Agent call to expand its subagent&rsquo;s work under it, live while it runs.")
+          (dict "link" "docs/guides/review/" "icon" "code" "title" "Review and comment"
+            "text" "The Diff tab shows what the session changed, and comments you leave on a line reach the agent on their own.")
+          (dict "link" "docs/guides/across-sessions/" "icon" "document-search" "title" "Find any session"
+            "text" "Find past sessions by a file they changed, a command they ran or a prompt, and total what they cost.")
+        ) }}
+        <a class="snoop-feature" href="{{ .link | relURL }}">
+          <div class="snoop-feature__head">
+            <h2 class="snoop-feature__title">{{ .title }}</h2>
+            <span class="snoop-feature__icon">{{ partial "utils/icon.html" (dict "name" .icon "attributes" `height=20 aria-hidden="true"`) }}</span>
+          </div>
+          <p>{{ .text | safeHTML }}</p>
+        </a>
+        {{- end }}
       </section>
 
-      <section class="snoop-split">
+      <section class="snoop-split snoop-band" data-snoop-reveal>
         <div class="snoop-split__text">
-          <h2>Know which session needs you</h2>
+          <h2>Who needs you now</h2>
           <p>
             When you run several sessions at once, the live board shows each
             one&rsquo;s state: waiting on a permission prompt, your turn, or still
@@ -74,13 +92,53 @@
           </p>
           <a href="{{ "docs/guides/live-board/" | relURL }}">Read about the live board</a>
         </div>
-        <figure class="snoop-shot">
+        <figure class="snoop-window">
+          <div class="snoop-window__bar" aria-hidden="true"><span></span><span></span><span></span></div>
           <img src="{{ "shots/live.png" | relURL }}" width="960" height="280" loading="lazy"
             alt="The live board: one session waiting on a tool call, one whose turn has ended and one still working">
         </figure>
       </section>
 
-      <section class="snoop-closing">
+      <section class="snoop-split snoop-split--flip" data-snoop-reveal>
+        <div class="snoop-split__text">
+          <h2>Every file an agent touched</h2>
+          <p>
+            The Files tab lists every file the session and its subagents read,
+            edited or wrote, with lines added and removed.
+            Step through a file&rsquo;s history one diff at a time, or jump to the
+            call that made a change.
+          </p>
+          <a href="{{ "docs/guides/files/" | relURL }}">Read about files and diffs</a>
+        </div>
+        <figure class="snoop-window">
+          <div class="snoop-window__bar" aria-hidden="true"><span></span><span></span><span></span></div>
+          <img src="{{ "shots/files.png" | relURL }}" width="1200" height="700" loading="lazy"
+            alt="The Files tab listing files with read, edit and write counts, and a file's history of diffs on the right">
+        </figure>
+      </section>
+
+      <section class="snoop-split snoop-band" data-snoop-reveal>
+        <div class="snoop-split__text">
+          <h2>Reviews in the loop</h2>
+          <p>
+            The Diff tab shows what the session changed in its working tree.
+            Comment on a line, a range or a whole file, and press <code>S</code>
+            to send them all.
+            While the agent is working, it sees your comments after its current
+            tool call, so you never type into its terminal.
+            Running <code>snoop hooks install</code> once sets up the hooks that
+            deliver them.
+          </p>
+          <a href="{{ "docs/guides/review/" | relURL }}">Read about review and comment</a>
+        </div>
+        <figure class="snoop-window">
+          <div class="snoop-window__bar" aria-hidden="true"><span></span><span></span><span></span></div>
+          <img src="{{ "shots/diff.png" | relURL }}" width="1200" height="700" loading="lazy"
+            alt="The Diff tab with the session's changed files on the left, and a file's diff on the right with a comment under one line">
+        </figure>
+      </section>
+
+      <section class="snoop-closing" data-snoop-reveal>
         <h2>Install snoop</h2>
         <p>It&rsquo;s a single binary with nothing to configure. Run <code>snoop</code> to pick a session.</p>
         <div class="snoop-hero__actions">
@@ -88,12 +146,6 @@
           <a class="snoop-button" href="https://github.com/jzills/snoop">GitHub</a>
         </div>
       </section>
-
-      <p class="snoop-fineprint">
-        This independent project isn&rsquo;t affiliated with or endorsed by Anthropic.
-        Claude and Claude Code are trademarks of Anthropic. It&rsquo;s released under the
-        <a href="https://github.com/jzills/snoop/blob/main/LICENSE">MIT license</a>.
-      </p>
     </main>
   </div>
 {{ end }}
