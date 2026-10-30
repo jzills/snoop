@@ -19,6 +19,7 @@ type Turn struct {
 	Compacted  bool
 
 	weight map[string]float64 // weighted tokens per model, for TurnCost
+	est    float64            // estimated cost, for requests to models with prices
 }
 
 // Duration is the recorded turn time when known, else first to last event.
@@ -92,6 +93,7 @@ func (u *Usage) add(o Usage) {
 	u.Output += o.Output
 	u.CacheRead += o.CacheRead
 	u.CacheCreate += o.CacheCreate
+	u.CacheCreate1h += o.CacheCreate1h
 	u.Thinking += o.Thinking
 }
 
@@ -100,6 +102,10 @@ func (s *Session) request(model string, u Usage) {
 	s.Usage.add(u)
 	w := u.weight()
 	s.weight[model] += w
+	p, priced := priceOf(model)
+	if priced {
+		s.est[model] += u.usd(p)
+	}
 	if model != "" && model != "<synthetic>" {
 		s.lastModel = model
 	}
@@ -119,6 +125,9 @@ func (s *Session) request(model string, u Usage) {
 	t.Requests++
 	t.Usage.add(u)
 	t.weight[model] += w
+	if priced {
+		t.est += u.usd(p)
+	}
 	if ctx > 0 {
 		t.ContextEnd = ctx
 	}
@@ -138,12 +147,43 @@ func (s *Session) ContextWindow() int {
 	return 200_000
 }
 
-// TurnCost estimates a turn's cost by sharing each model's recorded cost
-// across turns by weighted tokens. Models seen only in cost-state (used by
-// subagents) are shared by total weight. ok is false without a cost-state.
+// recorded reports whether Claude Code recorded the session's cost, which
+// it does when the session ends.
+func (s *Session) recorded() bool { return s.CostUSD > 0 || len(s.ModelCost) > 0 }
+
+// Cost is the session's cost: as recorded, or while the session runs,
+// estimated from its tokens. ok is false when neither is possible.
+func (s *Session) Cost() (usd float64, estimated, ok bool) {
+	if s.recorded() {
+		if s.CostUSD > 0 {
+			return s.CostUSD, false, true
+		}
+		for _, c := range s.ModelCost {
+			usd += c
+		}
+		return usd, false, true
+	}
+	for _, c := range s.est {
+		usd += c
+	}
+	return usd, true, len(s.est) > 0
+}
+
+// ModelCostUSD is one model's cost, recorded or estimated.
+func (s *Session) ModelCostUSD(model string) float64 {
+	if s.recorded() {
+		return s.ModelCost[model]
+	}
+	return s.est[model]
+}
+
+// TurnCost estimates a turn's cost. With a recorded cost, it shares each
+// model's cost across turns by weighted tokens; models seen only in
+// cost-state (used by subagents) are shared by total weight. Without one,
+// it prices the turn's requests. ok is false when neither is possible.
 func (s *Session) TurnCost(t *Turn) (usd float64, ok bool) {
-	if s.CostUSD <= 0 && len(s.ModelCost) == 0 {
-		return 0, false
+	if !s.recorded() {
+		return t.est, len(s.est) > 0
 	}
 	var tw, sw float64
 	for _, w := range t.weight {

@@ -259,7 +259,7 @@ var boardCols = []struct {
 		return cmpAsc(strings.ToLower(a.info.Name()), strings.ToLower(b.info.Name()))
 	}},
 	{"CONTEXT", func(a, b *boardRow) int { return cmpDesc(ctxPct(a.f.Sess), ctxPct(b.f.Sess)) }},
-	{"COST", func(a, b *boardRow) int { return cmpDesc(a.f.Sess.CostUSD, b.f.Sess.CostUSD) }},
+	{"COST", func(a, b *boardRow) int { x, _, _ := a.f.Sess.Cost(); y, _, _ := b.f.Sess.Cost(); return cmpDesc(x, y) }},
 	{"AGE", func(a, b *boardRow) int { return cmpDesc(a.last.UnixNano(), b.last.UnixNano()) }},
 }
 
@@ -407,9 +407,7 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 		} else {
 			ctx = st(sDim).Render(fit("", ctxW))
 		}
-		if s.CostUSD > 0 {
-			cost = fmt.Sprintf("$%.2f", s.CostUSD)
-		}
+		cost = costLabel(s)
 		nameStyle := sText
 		if sel {
 			nameStyle = sBold

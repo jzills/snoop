@@ -56,24 +56,57 @@ func boolInt(b bool) int {
 func renderStats(s *parse.Session, st stats.Stats, w int) string {
 	var b strings.Builder
 	b.WriteString(statsHeadline(s, st, w))
-	b.WriteString(statsTurns(s, w) + "\n")
+	b.WriteString(statsTurns(s, w))
 	tools, toks := statsTools(s, st), statsTokens(s)
 	if w >= 100 {
 		leftW := w * 11 / 20
 		b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top,
-			lipgloss.NewStyle().Width(leftW).Render(tools(leftW-4)), toks(w-leftW-2)) + "\n")
+			lipgloss.NewStyle().Width(leftW).Render(tools(leftW-4)), toks(w-leftW-2)))
 	} else {
-		b.WriteString(tools(w-2) + "\n" + toks(w-2) + "\n")
+		b.WriteString(tools(w-2) + toks(w-2))
 	}
-	b.WriteString(statsDetails(s))
+	b.WriteString(statsModels(s))
 	return b.String()
+}
+
+// costLabel is the session's cost, marked ≈ while it's an estimate from
+// tokens; "" when there is neither.
+func costLabel(s *parse.Session) string {
+	usd, estimated, ok := s.Cost()
+	switch {
+	case !ok:
+		return ""
+	case estimated:
+		return approx(usd)
+	}
+	return dollars(usd)
+}
+
+// approx is an estimated amount, marked ≈ unless it's under a cent.
+func approx(usd float64) string {
+	if d := dollars(usd); d[0] == '$' {
+		return "≈" + d
+	}
+	return dollars(usd)
+}
+
+// dollars shows an amount in cents, and an amount too small for a cent as
+// under one.
+func dollars(usd float64) string {
+	if usd > 0 && usd < 0.005 {
+		return "<$0.01"
+	}
+	return fmt.Sprintf("$%.2f", usd)
 }
 
 // statsHeadline is four figures, bright, each with a dim caption.
 func statsHeadline(s *parse.Session, st stats.Stats, w int) string {
-	cost := "—"
-	if s.CostUSD > 0 {
-		cost = fmt.Sprintf("$%.2f", s.CostUSD)
+	cost, costNote := "—", "cost"
+	if _, estimated, ok := s.Cost(); ok {
+		cost = costLabel(s)
+		if estimated {
+			costNote = "cost · estimated"
+		}
 	}
 	u := s.Usage
 	cached := ""
@@ -89,7 +122,7 @@ func statsHeadline(s *parse.Session, st stats.Stats, w int) string {
 		}
 	}
 	tiles := [][2]string{
-		{cost, "cost"},
+		{cost, costNote},
 		{dur(st.Duration), fmt.Sprintf("%d %s", st.Prompts, plural(st.Prompts, "prompt"))},
 		{count(u.Total()) + " tokens", cached},
 		{ctx, ctxNote},
@@ -195,6 +228,9 @@ func statsTools(s *parse.Session, st stats.Stats) func(w int) string {
 		}
 		sort.SliceStable(order, func(i, j int) bool { return order[i].n > order[j].n })
 		var b strings.Builder
+		if len(order) == 0 {
+			return ""
+		}
 		head := fmt.Sprintf("%d %s", st.ToolCalls, plural(st.ToolCalls, "call"))
 		if st.Errors > 0 {
 			head += fmt.Sprintf(" · %d %s", st.Errors, plural(st.Errors, "error"))
@@ -251,7 +287,7 @@ func statsTokens(s *parse.Session) func(w int) string {
 		}
 		var b strings.Builder
 		b.WriteString(sSection.Render(" Tokens") + sDim.Render(fmt.Sprintf("  %d API %s", s.Requests, plural(s.Requests, "request"))) + "\n")
-		barW := max(w-24, 4)
+		barW := min(max(w-24, 4), 40)
 		for _, r := range rows {
 			b.WriteString(" " + sDim.Render(fit(r.name, 12)) + sText.Render(fmt.Sprintf("%7s ", count(r.n))) +
 				thinBar(r.n, top, barW, cAccent) + sDim.Render(" "+r.note) + "\n")
@@ -260,27 +296,42 @@ func statsTokens(s *parse.Session) func(w int) string {
 	}
 }
 
-// statsDetails is the facts with one value each, on one quiet line.
-func statsDetails(s *parse.Session) string {
-	var parts []string
-	var models []string
-	for m := range s.Models {
-		models = append(models, m)
-	}
-	sort.Strings(models)
-	for _, m := range models {
-		parts = append(parts, fmt.Sprintf("%s · %d %s", m, s.Models[m], plural(s.Models[m], "request")))
-	}
-	if s.Version != "" {
-		parts = append(parts, "Claude Code "+s.Version)
+// statsModels lists each model with its requests and cost, most used
+// first, then the session's pull request.
+func statsModels(s *parse.Session) string {
+	var b strings.Builder
+	if len(s.Models) > 0 {
+		var models []string
+		nameW := 0
+		for m := range s.Models {
+			models = append(models, m)
+			nameW = max(nameW, lipgloss.Width(m))
+		}
+		sort.Slice(models, func(i, j int) bool {
+			if s.Models[models[i]] != s.Models[models[j]] {
+				return s.Models[models[i]] > s.Models[models[j]]
+			}
+			return models[i] < models[j]
+		})
+		_, estimated, priced := s.Cost()
+		b.WriteString(sSection.Render(" Models") + "\n")
+		for _, m := range models {
+			n := s.Models[m]
+			line := " " + sText.Render(fit(m, nameW+3)) + sDim.Render(fmt.Sprintf("%5d %s", n, plural(n, "request")))
+			if usd := s.ModelCostUSD(m); priced && usd > 0 {
+				c := dollars(usd)
+				if estimated {
+					c = approx(usd)
+				}
+				line += sText.Render(fmt.Sprintf("   %9s", c))
+			}
+			b.WriteString(line + "\n")
+		}
 	}
 	if s.PRURL != "" {
-		parts = append(parts, s.PRURL)
+		b.WriteString(sSection.Render(" Pull request") + "\n " + sText.Render(s.PRURL) + "\n")
 	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return " " + sDim.Render(strings.Join(parts, "     ")) + "\n"
+	return b.String()
 }
 
 // mixSegments splits a bar of width w between tool kinds in proportion to
