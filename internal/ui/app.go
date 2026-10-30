@@ -46,6 +46,8 @@ type App struct {
 	showHelp bool
 	helpVP   viewport.Model
 
+	prefs prefs // shared by every session view
+
 	// Notifications.
 	focused  bool                 // snoop's window has focus, as the terminal reports it
 	noted    map[string]time.Time // last notification per session and alert kind
@@ -98,6 +100,7 @@ func (a *App) top() *view {
 }
 
 func (a *App) push(v *view) tea.Cmd {
+	v.prefs = &a.prefs
 	a.stack = append(a.stack, v)
 	return v.waitTail()
 }

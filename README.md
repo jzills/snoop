@@ -85,7 +85,8 @@ edited or wrote, with read, edit and write counts and the lines added and
 removed. Changed files come first, then files only read, each most recent
 first. The right pane shows a file's history with every change as a diff,
 which `n` and `N` step through, and pressing `enter` shows the latest change
-in the timeline. Changes made through Bash aren't tracked.
+in the timeline. Pressing `T` switches to a tree of folders, each with the
+totals of its files. Changes made through Bash aren't tracked.
 
 **Stats:** The Stats tab shows the duration, prompts, tool mix, token usage
 (input, output, cache and thinking), context (current, peak and compactions),
@@ -262,6 +263,11 @@ In the Tools tab, `space` expands or collapses a group, `enter` on a call
 shows it in the timeline, and `←` and `→` collapse and expand (`←` on a call
 moves to its group). Pressing `E` expands everything (press it again to
 reset), and a `/` search keeps only matching calls with their groups opened.
+
+In the Files tab, `T` switches between the list and a tree of folders. In
+the tree, `space` and `enter` open or close a folder, `←` and `→` close and
+open (`←` on a file moves to its folder), and `E` opens every folder (press
+it again to reset).
 
 In the Diff tab, `tab` moves between the files and their lines, `J` and `K`
 jump between hunks, and `c`, `v`, `C`, `e`, `x` and `S` work as described in

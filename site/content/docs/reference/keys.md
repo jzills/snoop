@@ -84,6 +84,9 @@ These work on every tab.
 | `enter` | show the file's latest change in the timeline |
 | `n` `N` | next and previous change |
 | `/` | keep only files whose path matches |
+| `T` | switch between the list and a tree of folders |
+| `space`, `←` `→` | in the tree, close or open a folder (`←` on a file moves to its folder) |
+| `E` | in the tree, open every folder, or go back |
 
 ## Diff
 
