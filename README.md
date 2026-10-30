@@ -141,10 +141,24 @@ the same background scan as the summary and cached with it.
 
 ## Review and comment
 
-The Diff tab (`5`) shows `git diff HEAD` for the session's working directory,
-with untracked files shown as added. Files the session changed come first, and
-files changed by you or another agent are dimmed. The tab refreshes as the
-session edits files, and `r` reads the diff again.
+The Diff tab (`5`) shows the session's changes in one of two scopes, and `b`
+switches between them. **Uncommitted** is `git diff HEAD`, with untracked
+files shown as added. **Branch** is everything the branch changed since it
+left its base, committed or not, which is what a pull request would show plus
+the work in progress, so you can review an agent's whole branch without
+opening a PR. Files with changes since the last commit are tagged
+`uncommitted`. The tab opens in Branch when the branch has commits of its own.
+
+Unless you choose one, snoop compares with the closest of `develop`, `main`,
+`master` and `trunk`, preferring `origin/` copies, since a local one may be
+out of date. The line at the top of the tab names the base. Press `B` to pick
+another base, which is saved for the branch in its git config
+(`branch.<name>.snoopBase`), or set `git config snoop.base` for a whole
+repository.
+
+Files the session changed come first, and files changed by you or another
+agent are dimmed. The tab refreshes as the session edits files or runs a
+command, and `r` reads the diff again.
 
 Press `tab` to move into a file's lines, then `c` to comment on a line. Press
 `v` and move to select a range first, or press `C` to comment on the whole
@@ -292,8 +306,10 @@ the tree, `space` and `enter` open or close a folder, `←` and `→` close and
 open (`←` on a file moves to its folder), and `E` opens every folder (press
 it again to reset).
 
-In the Diff tab, `tab` moves between the files and their lines, `J` and `K`
-jump between hunks, and `c`, `v`, `C`, `e`, `x` and `S` work as described in
+In the Diff tab, `b` switches between the uncommitted changes and the whole
+branch, and `B` picks the branch's base. Press `tab` to move between the
+files and their lines, and `J` and `K` to jump between hunks. The keys `c`,
+`v`, `C`, `e`, `x` and `S` work as described in
 [Review and comment](#review-and-comment).
 
 In the picker, `/` starts a fuzzy search and `f` finds across sessions, and

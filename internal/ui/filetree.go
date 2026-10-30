@@ -30,6 +30,7 @@ func (n *fileNode) entry() *fileEntry {
 // prefs are choices that carry from one session view to the next.
 type prefs struct {
 	filesTree bool
+	diffScope int // scopeAuto until b is pressed
 }
 
 // pathParts splits a path into folders and the file name. An absolute

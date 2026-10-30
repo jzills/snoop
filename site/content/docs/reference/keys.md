@@ -99,6 +99,8 @@ These work on every tab.
 
 | Key | Action |
 | --- | --- |
+| `b` | switch between the uncommitted changes and the whole branch |
+| `B` | choose the base the branch is compared with |
 | `enter`, `tab`, `→` | move into the file's lines |
 | `tab`, `←`, `esc` | back to the files |
 | `J` `K`, `n` `N` | next and previous hunk |

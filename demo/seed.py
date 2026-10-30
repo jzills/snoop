@@ -407,7 +407,9 @@ README_MD_NEW = README_MD + """| `RATE_LIMIT` | `5` |
 
 
 def diff_session(root, repo_dir, now):
-    """A repository with uncommitted changes, most of them the session's."""
+    """A feature branch off main with one commit of the session's and more
+    uncommitted changes, most of them the session's, so the Diff tab opens
+    on the whole branch."""
     cwd = str(repo_dir / "weather-api")
     repo = Path(cwd)
     files = {"internal/ratelimit/middleware.go": MIDDLEWARE_GO,
@@ -420,9 +422,10 @@ def diff_session(root, repo_dir, now):
         subprocess.run(["git", "-C", cwd, "-c", "user.name=demo", "-c", "user.email=demo@example.com",
                         "-c", "commit.gpgsign=false", *args], check=True, capture_output=True)
 
-    git("init", "-q")
+    git("init", "-q", "-b", "main")
     git("add", ".")
     git("commit", "-qm", "Rate limit the forecast endpoint")
+    git("checkout", "-qb", "feat/rate-limit")
 
     s = Transcript(cwd, "feat/rate-limit", now - timedelta(minutes=3))
     s.title("Send Retry-After with 429 responses")
@@ -444,6 +447,7 @@ def diff_session(root, repo_dir, now):
 
     # The session's edits, and one of yours in the README.
     (repo / "internal/ratelimit/limiter.go").write_text(LIMITER_GO_NEW)
+    git("commit", "-qam", "Report how long until the next token")
     (repo / "internal/ratelimit/middleware.go").write_text(MIDDLEWARE_GO_NEW)
     (repo / "internal/ratelimit/middleware_test.go").write_text(MIDDLEWARE_TEST_GO)
     (repo / "README.md").write_text(README_MD_NEW)
