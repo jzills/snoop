@@ -68,7 +68,9 @@ func renderStats(s *parse.Session, st stats.Stats, w int) string {
 		kv("Context", contextLine(s)),
 		kv("Version", s.Version),
 	)
-	b.WriteString(section(" Overview") + "\n")
+	// The first heading needs no margin: the tabs already end in a blank
+	// line.
+	b.WriteString(sSection.MarginTop(0).Render(" Overview") + "\n")
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, lipgloss.NewStyle().Width(max(w/2, 36)).Render(left), right) + "\n")
 
 	if st.ToolCalls > 0 {
