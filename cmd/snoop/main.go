@@ -26,6 +26,7 @@ import (
 
 	"github.com/jzills/snoop/internal/export"
 	"github.com/jzills/snoop/internal/notify"
+	"github.com/jzills/snoop/internal/review"
 	"github.com/jzills/snoop/internal/store"
 	"github.com/jzills/snoop/internal/summary"
 	"github.com/jzills/snoop/internal/ui"
@@ -110,7 +111,8 @@ func main() {
 		fail(fmt.Errorf("--live shows every session; it can't be combined with --follow or a session"))
 	}
 	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow, Live: *live,
-		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir()}
+		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir(),
+		AsksDir: review.AsksDir(), ListeningFile: review.ListeningFile()}
 	if notifyMode != "" {
 		s, err := notify.Choose(string(notifyMode), notify.Env{Getenv: os.Getenv, LookPath: exec.LookPath, GOOS: runtime.GOOS, Out: os.Stderr})
 		if err != nil {

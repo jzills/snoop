@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jzills/snoop/internal/notify"
+	"github.com/jzills/snoop/internal/review"
 	"github.com/jzills/snoop/internal/tail"
 )
 
@@ -23,6 +24,10 @@ type Options struct {
 	CacheDir string // where session summaries are cached; "" keeps them in memory
 
 	Live bool // start on the live board
+
+	// Permission requests: where they wait, and the file that tells the
+	// hook snoop is listening. Either empty turns answering off.
+	AsksDir, ListeningFile string
 
 	Stall    time.Duration   // alert when a live tool call has no result after this long
 	Bell     bool            // ring the terminal bell on alerts
@@ -47,6 +52,11 @@ type App struct {
 	helpVP   viewport.Model
 
 	prefs prefs // shared by every session view
+
+	// Permission requests waiting, by session, oldest first.
+	asks        map[string][]review.Request
+	asksPolling bool
+	lastListen  time.Time
 
 	// Notifications.
 	focused  bool                 // snoop's window has focus, as the terminal reports it
@@ -148,6 +158,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, a.signal(v.own(as)))
 			}
 		}
+		cmds = append(cmds, a.askCmds(time.Now())...)
 		if b := a.board; b != nil {
 			now := time.Now()
 			if now.Sub(b.lastScan) >= boardScan {
@@ -156,6 +167,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.isOpen)))
 		}
 		return a, tea.Batch(cmds...)
+	case asksMsg:
+		a.onAsks(msg)
+		return a, nil
 	case showBoardMsg:
 		a.board = newBoard(a.opts.Root)
 		return a, a.board.scanCmd(time.Now())
