@@ -79,7 +79,7 @@ func main() {
 	ring := flag.Bool("bell", false, "ring the terminal bell on alerts")
 	var notifyMode notifyFlag
 	flag.Var(&notifyMode, "notify", "send desktop notifications on alerts: auto (bare --notify), terminal or system")
-	alerts := flag.String("alerts", "error,turn", "alerts that ring the bell or notify: "+strings.Join(ui.AlertKinds, ","))
+	alerts := flag.String("alerts", "error,turn,ask", "alerts that ring the bell or notify: "+strings.Join(ui.AlertKinds, ","))
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: snoop [--follow | --live] [--project dir] [--bell] [--notify] [--version] [session-id|path]\n\n")
 		flag.PrintDefaults()

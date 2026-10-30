@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -55,16 +56,62 @@ func (a *App) askCmds(now time.Time) []tea.Cmd {
 	return cmds
 }
 
-// onAsks keeps the waiting requests by session, oldest first.
-func (a *App) onAsks(m asksMsg) {
+// onAsks keeps the waiting requests by session, oldest first, and raises
+// an alert for each new one: in its session's view when it's open, else
+// on the board.
+func (a *App) onAsks(m asksMsg) tea.Cmd {
 	a.asksPolling = false
 	if m.err != nil {
-		return
+		return nil
 	}
 	a.asks = map[string][]review.Request{}
+	seen := map[string]bool{}
+	var out []*alert
 	for _, r := range m.reqs {
 		a.asks[r.Session] = append(a.asks[r.Session], r)
+		seen[r.ID] = true
+		if !a.seenAsks[r.ID] {
+			out = append(out, a.askAlert(r))
+		}
 	}
+	a.seenAsks = seen
+	return a.signal(out)
+}
+
+// askAlert raises the alert for a new request and returns it.
+func (a *App) askAlert(r review.Request) *alert {
+	note := r.Tool + " wants permission"
+	if r.Tool == "Bash" {
+		var in struct{ Command string }
+		json.Unmarshal(r.Input, &in)
+		note = "Bash wants to run " + oneLine(in.Command)
+	}
+	al := &alert{kind: alertAsk, text: "? " + askSummary(r), note: note, id: r.ID, path: r.Session,
+		title: noteTitle(filepath.Base(r.Cwd), "")}
+	for _, v := range a.stack {
+		if v.label != "" || v.sessionID() != r.Session {
+			continue
+		}
+		for i := len(v.sess.Events) - 1; i >= 0; i-- {
+			if e := v.sess.Events[i]; e.Tool != nil && e.Tool.Name == r.Tool && !e.Tool.HasResult {
+				al.ev = e
+				break
+			}
+		}
+		v.own([]*alert{al})
+		v.raise([]*alert{al})
+		return al
+	}
+	if b := a.board; b != nil {
+		for _, row := range b.rows {
+			if row.info.ID == r.Session {
+				al.text = row.project() + ": " + al.text
+				al.path, al.title = row.f.Path, noteTitle(row.project(), row.info.Name())
+				b.alert, b.alertShown = al, true
+			}
+		}
+	}
+	return al
 }
 
 // askSummary is a request on one line: the tool and what it wants.

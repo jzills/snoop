@@ -57,6 +57,7 @@ type App struct {
 	asks        map[string][]review.Request
 	asksPolling bool
 	lastListen  time.Time
+	seenAsks    map[string]bool // requests already alerted, by ID
 	ans         answerer
 	note        string // replaces the footer until the next key
 
@@ -170,8 +171,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, tea.Batch(cmds...)
 	case asksMsg:
-		a.onAsks(msg)
-		return a, nil
+		return a, a.onAsks(msg)
 	case answeredMsg:
 		a.onAnswered(msg)
 		return a, nil

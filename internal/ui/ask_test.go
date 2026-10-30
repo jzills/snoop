@@ -251,3 +251,65 @@ func TestNoAskNoEffect(t *testing.T) {
 		t.Errorf("wrote %d entries", len(es))
 	}
 }
+
+func TestAskAlertOnBoard(t *testing.T) {
+	a, dir := boardApp(t)
+	askFor(t, dir, "done", "npm test", time.Now())
+	runAsks(a, time.Now())
+	b := a.board
+	if b.alert == nil || !strings.HasPrefix(b.alert.text, "api: ? Bash: npm test") || b.alert.kind != alertAsk {
+		t.Fatalf("alert = %+v", b.alert)
+	}
+	b.alert = nil
+	runAsks(a, time.Now())
+	if b.alert != nil {
+		t.Errorf("the same request alerted again: %+v", b.alert)
+	}
+}
+
+// A session whose last Bash call has no result yet.
+const askFixture = `{"type":"user","uuid":"u1","cwd":"/w/api","timestamp":"2026-10-24T10:00:00Z","message":{"content":"run the tests"}}
+{"type":"assistant","uuid":"a1","timestamp":"2026-10-24T10:00:01Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"npm test"}}]}}
+`
+
+func TestAskAlertInSessionView(t *testing.T) {
+	a, dir := askApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	p := filepath.Join(t.TempDir(), "s1.jsonl")
+	os.WriteFile(p, []byte(askFixture), 0o644)
+	openNow(a, openMsg{path: p})
+	t.Cleanup(func() {
+		for a.top() != nil {
+			a.pop()
+		}
+	})
+	askFor(t, dir, "s1", "npm test", time.Now())
+	runAsks(a, time.Now())
+	v := a.top()
+	if v.alert == nil || v.alert.text != "? Bash: npm test" || v.alert.ev == nil || v.alert.ev.Tool.ID != "t1" {
+		t.Fatalf("alert = %+v", v.alert)
+	}
+	v.cursor = 0
+	a.Update(key("!"))
+	if sel := v.selected(); sel == nil || sel.Tool == nil || sel.Tool.ID != "t1" {
+		t.Errorf("! selected %+v", sel)
+	}
+}
+
+func TestAskNotifies(t *testing.T) {
+	s := &sent{}
+	a, dir := askApp(t)
+	a.opts.Notifier, a.opts.CacheDir, a.opts.BellOn = s, t.TempDir(), map[string]bool{alertAsk: true}
+	b, _ := newTestBoard(t)
+	a.board = b
+	askFor(t, dir, "done", "npm test", time.Now())
+	for _, c := range a.askCmds(time.Now()) {
+		if m, ok := c().(asksMsg); ok {
+			_, cmd := a.Update(m)
+			runNote(cmd)
+		}
+	}
+	if len(s.notes) != 1 || s.notes[0].Body != "Bash wants to run npm test" || s.notes[0].Title != "api · fix the flaky test" {
+		t.Errorf("notes = %+v", s.notes)
+	}
+}
