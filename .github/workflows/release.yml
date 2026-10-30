@@ -88,7 +88,7 @@ jobs:
         run: |
           notes=()
           if [ -s "release-notes/${GITHUB_REF_NAME}.md" ]; then
-            notes=(--notes-file "release-notes/${GITHUB_REF_NAME}.md")
+            notes=(--notes-file "$GITHUB_WORKSPACE/release-notes/${GITHUB_REF_NAME}.md")
           fi
           cd "$RUNNER_TEMP/release"
           gh release create "$GITHUB_REF_NAME" \
