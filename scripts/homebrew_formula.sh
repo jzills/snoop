@@ -35,7 +35,6 @@ cat <<RUBY
 class Snoop < Formula
   desc "Terminal viewer for Claude Code session transcripts"
   homepage "${repo}"
-  version "${version}"
   license "MIT"
 
   on_macos do
