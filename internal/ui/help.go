@@ -36,6 +36,9 @@ var helpPicker = []helpSection{
 		{"g  G", "first / last"},
 		{"enter  →", "open the session"},
 		{"wheel", "move"},
+		{"o", "sort by the next column: age, project, branch, session, size"},
+		{"O", "reverse the order"},
+		{"", "search and find results stay best match first until you choose a column"},
 	}},
 	{"Search", [][2]string{
 		{"/", "fuzzy search titles, projects and branches"},
@@ -69,6 +72,8 @@ var helpBoard = []helpSection{
 		{"g  G", "first / last"},
 		{"enter  →", "open the session; esc comes back here"},
 		{"esc  w", "back to the session picker"},
+		{"o", "sort by the next column: state, project, session, context, cost, age"},
+		{"O", "reverse the order"},
 	}},
 	{"States", [][2]string{
 		{glyphPending + " waiting", "a tool call has had no result for --stall (30s): often a permission prompt"},

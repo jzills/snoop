@@ -31,6 +31,10 @@ Sessions leave the board after 30 minutes without writes.
 Press `enter` to open a session and `esc` to come back to the board. From
 the board, `esc` or `w` returns to the session picker.
 
+To sort by another column, press `o`, which moves to the next column, and
+`O` to reverse the order. The sorted column's heading is marked `▾`, or `▴`
+when reversed.
+
 The waiting threshold is `--stall`, 30 seconds by default. Permission
 prompts aren't recorded in the transcript until you answer them, so a tool
 call with no result is the closest sign of one.

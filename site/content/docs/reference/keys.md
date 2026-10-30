@@ -24,6 +24,8 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `/` | fuzzy search titles, projects and branches |
 | `f` | find sessions by a file, command or prompt |
 | `c` | only sessions for this directory |
+| `o` | sort by the next column: age, project, branch, session, size |
+| `O` | reverse the order |
 | `s` | switch between the list and the summary |
 | `w` | open the live board |
 
@@ -34,6 +36,8 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `↑` `↓`, `j` `k` | move |
 | `g` `G` | first and last session |
 | `enter`, `→` | open the session; `esc` comes back |
+| `o` | sort by the next column: state, project, session, context, cost, age |
+| `O` | reverse the order |
 | `esc`, `w` | back to the session picker |
 
 ## Session
