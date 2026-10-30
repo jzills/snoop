@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/jzills/snoop/internal/review"
@@ -35,9 +36,11 @@ func hookCmd(args []string) {
 func hooksCmd(root string, args []string) {
 	fs := flag.NewFlagSet("hooks", flag.ExitOnError)
 	project := fs.Bool("project", false, "use .claude/settings.json in the current directory instead of your user settings")
+	askWait := fs.Duration("ask-wait", review.DefaultAskWait, "with install: how long a permission request waits for an answer from snoop (1s to 30m)")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: snoop hooks install|uninstall|status [--project]\n\n")
-		fmt.Fprintf(os.Stderr, "The hooks deliver comments sent from the Diff tab to the agent.\n\n")
+		fmt.Fprintf(os.Stderr, "The hooks deliver comments sent from the Diff tab to the agent, and let\n")
+		fmt.Fprintf(os.Stderr, "the live board and session views answer permission requests.\n\n")
 		fs.PrintDefaults()
 	}
 	if len(args) == 0 {
@@ -52,7 +55,11 @@ func hooksCmd(root string, args []string) {
 	}
 	switch action {
 	case "install":
-		changed, err := review.Install(settings, fmt.Sprintf("%q hook", hookPath()))
+		if *askWait < time.Second || *askWait > 30*time.Minute {
+			fmt.Fprintf(os.Stderr, "--ask-wait must be between 1s and 30m, not %v\n", *askWait)
+			os.Exit(2)
+		}
+		changed, err := review.Install(settings, fmt.Sprintf("%q hook", hookPath()), *askWait)
 		if err != nil {
 			fail(err)
 		}
@@ -72,9 +79,13 @@ func hooksCmd(root string, args []string) {
 			fmt.Printf("There were no snoop hooks in %s.\n", settings)
 		}
 	case "status":
-		if review.Installed(settings) {
+		missing := review.Missing(settings)
+		switch {
+		case len(missing) == 0:
 			fmt.Printf("Installed in %s.\n", settings)
-		} else {
+		case review.Installed(settings):
+			fmt.Printf("Installed in %s, without %s. Run snoop hooks install to add it.\n", settings, strings.Join(missing, ", "))
+		default:
 			fmt.Printf("Not installed in %s.\n", settings)
 			os.Exit(1)
 		}

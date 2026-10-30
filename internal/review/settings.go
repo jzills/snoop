@@ -12,13 +12,23 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
-// HookEvents are the Claude Code hook events that deliver comments: after
-// each tool call, when the agent tries to finish, and with the next prompt.
-var HookEvents = []string{"PostToolUse", "Stop", "UserPromptSubmit"}
+// CommentEvents are the Claude Code hook events that deliver comments:
+// after each tool call, when the agent tries to finish, and with the next
+// prompt.
+var CommentEvents = []string{"PostToolUse", "Stop", "UserPromptSubmit"}
+
+// HookEvents are every event snoop hooks: the comment events, and the
+// permission requests snoop can answer.
+var HookEvents = append(CommentEvents[:len(CommentEvents):len(CommentEvents)], "PermissionRequest")
 
 const hookTimeout = 10 // seconds
+
+// The PermissionRequest hook's timeout is its wait plus this margin, so
+// Claude Code never stops it before it gives up on its own.
+const askMargin = 10 * time.Second
 
 // UserSettings is Claude Code's user settings file, next to the projects
 // folder that holds the transcripts.
@@ -26,7 +36,16 @@ func UserSettings(projectsRoot string) string {
 	return filepath.Join(filepath.Dir(projectsRoot), "settings.json")
 }
 
-var reHookCmd = regexp.MustCompile(`(^|[/\\"' ])snoop(\.exe)?["']? hook$`)
+var (
+	reHookCmd = regexp.MustCompile(`(^|[/\\"' ])snoop(\.exe)?["']? hook( --ask-wait [0-9a-zµ.]+)?$`)
+	reAskWait = regexp.MustCompile(` --ask-wait \S+$`)
+)
+
+// askCommand is the PermissionRequest hook's command: the hook command
+// with its wait.
+func askCommand(command string, wait time.Duration) string {
+	return command + " --ask-wait " + wait.String()
+}
 
 // IsHookCommand reports whether a hook command runs snoop hook.
 func IsHookCommand(cmd string) bool { return reHookCmd.MatchString(cmd) }
@@ -131,6 +150,7 @@ func isSnoopGroup(raw json.RawMessage) bool { return snoopCommand(raw) != "" }
 // runnable reports whether a hook command's program exists, so hooks left
 // pointing at a removed or upgraded-away binary don't count as installed.
 func runnable(cmd string) bool {
+	cmd = reAskWait.ReplaceAllString(cmd, "")
 	prog := strings.TrimSuffix(cmd, " hook")
 	prog = strings.Trim(prog, `"'`)
 	if strings.HasPrefix(cmd, `"`) {
@@ -183,6 +203,32 @@ func events(o object) (object, map[string][]json.RawMessage, error) {
 	return hooks, lists, nil
 }
 
+// Missing lists the events, of HookEvents, that none of the settings
+// files runs snoop hook on.
+func Missing(settings ...string) []string {
+	var out []string
+	for _, ev := range HookEvents {
+		found := false
+		for _, p := range settings {
+			o, _, err := readSettings(p)
+			if err != nil {
+				continue
+			}
+			if _, lists, err := events(o); err == nil {
+				for _, g := range lists[ev] {
+					if c := snoopCommand(g); c != "" && runnable(c) {
+						found = true
+					}
+				}
+			}
+		}
+		if !found {
+			out = append(out, ev)
+		}
+	}
+	return out
+}
+
 // Installed reports whether any of the settings files runs snoop hook on
 // every event that delivers comments.
 func Installed(settings ...string) bool {
@@ -196,7 +242,7 @@ func Installed(settings ...string) bool {
 			continue
 		}
 		all := true
-		for _, ev := range HookEvents {
+		for _, ev := range CommentEvents {
 			found := false
 			for _, g := range lists[ev] {
 				if c := snoopCommand(g); c != "" && runnable(c) {
@@ -213,14 +259,19 @@ func Installed(settings ...string) bool {
 }
 
 // Install makes each event run command, replacing snoop hooks that run
-// another one (an older install's path) and keeping everything else in the
-// file.
-func Install(settings, command string) (changed bool, err error) {
+// another one (an older install's path, or another wait) and keeping
+// everything else in the file. The PermissionRequest hook waits askWait
+// for snoop's answer.
+func Install(settings, command string, askWait time.Duration) (changed bool, err error) {
 	return edit(settings, func(ev string, l []json.RawMessage) []json.RawMessage {
+		want, timeout := command, hookTimeout
+		if ev == "PermissionRequest" {
+			want, timeout = askCommand(command, askWait), int((askWait + askMargin).Seconds())
+		}
 		var kept []json.RawMessage
 		for _, g := range l {
 			switch snoopCommand(g) {
-			case command:
+			case want:
 				return l
 			case "":
 				kept = append(kept, g)
@@ -235,8 +286,8 @@ func Install(settings, command string) (changed bool, err error) {
 		g := struct {
 			Matcher string `json:"matcher,omitempty"`
 			Hooks   []hook `json:"hooks"`
-		}{Hooks: []hook{{"command", command, hookTimeout}}}
-		if ev == "PostToolUse" {
+		}{Hooks: []hook{{"command", want, timeout}}}
+		if ev == "PostToolUse" || ev == "PermissionRequest" {
 			g.Matcher = "*"
 		}
 		b, _ := json.Marshal(g)

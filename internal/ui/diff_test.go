@@ -54,7 +54,7 @@ func diffApp(t *testing.T, hooks bool) (*App, *view, string) {
 	if hooks {
 		bin := filepath.Join(tmp, "snoop")
 		os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755)
-		if _, err := review.Install(review.UserSettings(root), `"`+bin+`" hook`); err != nil {
+		if _, err := review.Install(review.UserSettings(root), `"`+bin+`" hook`, review.DefaultAskWait); err != nil {
 			t.Fatal(err)
 		}
 	}
