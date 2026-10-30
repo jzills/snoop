@@ -4,8 +4,12 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jzills/snoop/internal/review"
 )
@@ -82,5 +86,168 @@ func TestAsksArriveOnTick(t *testing.T) {
 	runAsks(a, now)
 	if rs := a.asks["s1"]; len(rs) != 2 || askSummary(rs[0]) != "Bash: npm test" {
 		t.Errorf("asks = %+v", a.asks)
+	}
+}
+
+// boardApp is an app on the live board of newTestBoard, with requests in
+// a temporary folder.
+func boardApp(t *testing.T) (*App, string) {
+	t.Helper()
+	a, dir := askApp(t)
+	b, _ := newTestBoard(t)
+	a.board = b
+	a.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	return a, dir
+}
+
+// answerFile reads the answer written for a request, or "".
+func answerFile(dir string, r review.Request) string {
+	b, _ := os.ReadFile(filepath.Join(dir, "asks", r.Session, r.ID+".answer"))
+	return strings.TrimSpace(string(b))
+}
+
+// pressAsk sends a key and runs the command it returns, feeding the message
+// back.
+func pressAsk(a *App, k string) {
+	_, cmd := a.Update(key(k))
+	if cmd != nil {
+		if m := cmd(); m != nil {
+			if _, ok := m.(answeredMsg); ok {
+				a.Update(m)
+			}
+		}
+	}
+}
+
+func TestRowAskingComesFirst(t *testing.T) {
+	a, dir := boardApp(t)
+	askFor(t, dir, "done", "npm test", time.Now())
+	runAsks(a, time.Now())
+	out := ansi.Strip(a.View())
+	if i, j := strings.Index(out, "? asking"), strings.Index(out, "◌ waiting"); i < 0 || j < 0 || i > j {
+		t.Errorf("asking should sort above waiting:\n%s", out)
+	}
+	for _, want := range []string{"Bash: npm test", "2 waiting on you"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("board lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestBoardShowsTheRequestInFull(t *testing.T) {
+	a, dir := boardApp(t)
+	r, _ := review.Ask(filepath.Join(dir, "asks"), review.Request{Session: "done", Cwd: "/w/api", Tool: "Bash",
+		Input: json.RawMessage(`{"command":"rm -rf dist","description":"Clean the build"}`), Asked: time.Now(), Deadline: time.Now().Add(time.Minute)})
+	if r.ID == "" {
+		t.Fatal("not asked")
+	}
+	runAsks(a, time.Now())
+	out := ansi.Strip(a.View())
+	for _, want := range []string{"Request", "$ rm -rf dist", "Clean the build", "in /w/api", "A allow once"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("board lacks %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestAnswersTheOldestRequest(t *testing.T) {
+	a, dir := boardApp(t)
+	now := time.Now()
+	old := askFor(t, dir, "done", "first", now.Add(-time.Second))
+	newer := askFor(t, dir, "done", "second", now)
+	runAsks(a, now)
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "(1 of 2)") {
+		t.Errorf("board lacks (1 of 2):\n%s", out)
+	}
+	pressAsk(a, "A")
+	if got := answerFile(dir, old); got != `{"behavior":"allow"}` {
+		t.Errorf("older answer = %q", got)
+	}
+	if got := answerFile(dir, newer); got != "" {
+		t.Errorf("newer answered too: %q", got)
+	}
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "allowed Bash: first") {
+		t.Errorf("footer after A:\n%s", out)
+	}
+}
+
+func TestDenyWithReason(t *testing.T) {
+	a, dir := boardApp(t)
+	r := askFor(t, dir, "done", "npm test", time.Now())
+	runAsks(a, time.Now())
+	pressAsk(a, "D")
+	pressAsk(a, "q") // typed into the reason, not quitting
+	a.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	for _, k := range "use make" {
+		pressAsk(a, string(k))
+	}
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "deny reason") {
+		t.Errorf("no reason input:\n%s", out)
+	}
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	a.Update(cmd())
+	if got := answerFile(dir, r); got != `{"behavior":"deny","message":"use make"}` {
+		t.Errorf("answer = %q", got)
+	}
+
+	r2 := askFor(t, dir, "done", "ls", time.Now())
+	runAsks(a, time.Now())
+	pressAsk(a, "D")
+	a.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if got := answerFile(dir, r2); got != "" || a.ans.typing {
+		t.Errorf("esc still answered: %q", got)
+	}
+}
+
+func TestLateAnswerSaysAlreadyAnswered(t *testing.T) {
+	a, dir := boardApp(t)
+	r := askFor(t, dir, "done", "npm test", time.Now())
+	runAsks(a, time.Now())
+	os.Remove(filepath.Join(dir, "asks", "done", r.ID+".json")) // given up on meanwhile
+	pressAsk(a, "A")
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "already answered") {
+		t.Errorf("footer:\n%s", out)
+	}
+}
+
+func TestAInSessionView(t *testing.T) {
+	a, dir := askApp(t)
+	a.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
+	p := filepath.Join(t.TempDir(), "s1.jsonl")
+	os.WriteFile(p, []byte(fixture), 0o644)
+	openNow(a, openMsg{path: p})
+	t.Cleanup(func() {
+		for a.top() != nil {
+			a.pop()
+		}
+	})
+	r := askFor(t, dir, "s1", "npm test", time.Now())
+	runAsks(a, time.Now())
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "? Bash: npm test") || !strings.Contains(out, "A allow once") {
+		t.Errorf("session footer lacks the request:\n%s", out)
+	}
+	// In the search, A is a letter.
+	pressAsk(a, "/")
+	pressAsk(a, "A")
+	if got := answerFile(dir, r); got != "" {
+		t.Errorf("A in the search answered: %q", got)
+	}
+	a.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	pressAsk(a, "A")
+	if got := answerFile(dir, r); got != `{"behavior":"allow"}` {
+		t.Errorf("answer = %q", got)
+	}
+}
+
+func TestNoAskNoEffect(t *testing.T) {
+	a, dir := boardApp(t)
+	runAsks(a, time.Now())
+	pressAsk(a, "A")
+	pressAsk(a, "D")
+	if a.ans.typing {
+		t.Error("D opened the reason with nothing asked")
+	}
+	if es, _ := os.ReadDir(filepath.Join(dir, "asks")); len(es) != 0 {
+		t.Errorf("wrote %d entries", len(es))
 	}
 }

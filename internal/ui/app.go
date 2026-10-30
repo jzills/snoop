@@ -57,6 +57,8 @@ type App struct {
 	asks        map[string][]review.Request
 	asksPolling bool
 	lastListen  time.Time
+	ans         answerer
+	note        string // replaces the footer until the next key
 
 	// Notifications.
 	focused  bool                 // snoop's window has focus, as the terminal reports it
@@ -169,6 +171,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, tea.Batch(cmds...)
 	case asksMsg:
 		a.onAsks(msg)
+		return a, nil
+	case answeredMsg:
+		a.onAnswered(msg)
 		return a, nil
 	case showBoardMsg:
 		a.board = newBoard(a.opts.Root)
@@ -291,6 +296,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return a, nil
 			}
 		}
+		a.note = ""
+		if a.ans.typing {
+			return a, a.ans.key(msg, a.opts.AsksDir)
+		}
 		v := a.top()
 		if v != nil && v.rev.leaveAsk {
 			quit := v.rev.leaveQuit
@@ -347,6 +356,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.showHelp = true
 			a.helpVP.GotoTop()
 			return a, nil
+		}
+		if k := msg.String(); (k == "A" || k == "D") && !typing {
+			if r, ok := a.askTarget(); ok {
+				if k == "A" {
+					return a, respond(a.opts.AsksDir, r, review.Answer{Behavior: "allow"})
+				}
+				return a, a.ans.startDeny(r)
+			}
 		}
 		if v == nil && a.board != nil {
 			switch msg.String() {
@@ -467,6 +484,7 @@ func (a *App) View() string {
 	case v != nil:
 		out = v.render(a.w, a.h)
 	case a.board != nil:
+		a.board.asks = a.asks
 		out = a.board.view(a.w, a.h, time.Now(), a.stallFor())
 	default:
 		out = a.picker.view(a.w, a.h)
@@ -478,6 +496,12 @@ func (a *App) View() string {
 		footer = sErr.Render(" " + glyphErr + " " + a.err)
 	case a.loading != "":
 		footer = sAccent.Render(" opening "+a.loading+" …") + sDim.Render("  esc cancels")
+	case a.ans.typing:
+		footer = " " + a.ans.input.View()
+	case a.note != "":
+		footer = a.note
+	case a.top() != nil && len(a.asks[a.top().sessionID()]) > 0 && !a.top().inputActive():
+		footer = askLine(a.asks[a.top().sessionID()])
 	}
 	if footer != "" {
 		if i := strings.LastIndexByte(out, '\n'); i >= 0 {
