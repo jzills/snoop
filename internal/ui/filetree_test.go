@@ -148,3 +148,33 @@ func TestFilesTreeCarriesToTheNextSession(t *testing.T) {
 		t.Errorf("the next session view should open in the tree: %q", rowNames(w))
 	}
 }
+
+func TestFilesTreeKeepsIndentOnLongNames(t *testing.T) {
+	long := "/repo/projects/-home-someone-src-repos-a-very-long-project-name/memory/notes-on-a-long-review-2026-10-29.md"
+	in := `{"type":"user","uuid":"u1","cwd":"/repo","timestamp":"2026-10-24T10:00:00Z","message":{"content":"go"}}
+{"type":"assistant","uuid":"a1","timestamp":"2026-10-24T10:00:01Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Write","input":{"file_path":"` + long + `","content":"x\n"}},{"type":"tool_use","id":"t2","name":"Write","input":{"file_path":"/repo/projects/b.md","content":"x\n"}}]}}
+`
+	s, _ := parse.Parse(strings.NewReader(in))
+	v := newTestView(t)
+	v.prefs.filesTree = true
+	v.fTree = buildFileTree(buildFiles([]fileSource{{events: s.Events}}, "/repo", func(string) bool { return true }))
+	v.flattenFiles("")
+	for _, n := range v.fRows {
+		row := ansi.Strip(v.fileTreeRow(n, false, 60))
+		if !strings.HasPrefix(row, " "+strings.Repeat("  ", n.depth)) {
+			t.Errorf("depth %d row %q lost its indent", n.depth, row)
+		}
+	}
+}
+
+func TestTildePath(t *testing.T) {
+	if home == "" {
+		t.Skip("no home folder")
+	}
+	if got := tildePath(home + "/.claude/plans/"); got != "~/.claude/plans/" {
+		t.Errorf("tildePath = %q", got)
+	}
+	if got := tildePath("/etc/hosts"); got != "/etc/hosts" {
+		t.Errorf("tildePath changed /etc/hosts to %q", got)
+	}
+}

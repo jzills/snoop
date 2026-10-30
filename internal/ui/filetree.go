@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 )
@@ -219,7 +220,7 @@ func (v *view) toFileParent() {
 // totals, or a file under it.
 func (v *view) fileTreeRow(n *fileNode, sel bool, w int) string {
 	if !v.prefs.filesTree {
-		return fileRow(n.file, n.name, sel, w)
+		return fileRow(n.file, "", tildePath(n.name), sel, w)
 	}
 	lead := strings.Repeat("  ", n.depth)
 	if n.file == nil {
@@ -231,13 +232,17 @@ func (v *view) fileTreeRow(n *fileNode, sel bool, w int) string {
 	} else {
 		lead += "  "
 	}
-	return fileRow(n.entry(), lead+n.name, sel, w)
+	name := n.name
+	if n.depth == 0 {
+		name = tildePath(name)
+	}
+	return fileRow(n.entry(), lead, name, sel, w)
 }
 
 // renderFolderDetail summarises a folder: its totals, then its files.
 func renderFolderDetail(n *fileNode, w int) string {
 	var b strings.Builder
-	b.WriteString(sBold.Render(wrap(n.key, w)) + "\n")
+	b.WriteString(sBold.Render(wrap(tildePath(n.key), w)) + "\n")
 	b.WriteString(fileSummary(&n.sum) + "\n")
 	b.WriteString(section("Files") + "\n")
 	var walk func([]*fileNode)
@@ -270,4 +275,14 @@ func renderFolderDetail(n *fileNode, w int) string {
 func folderSig(n *fileNode) string {
 	s := n.sum
 	return fmt.Sprintf("%d/%d/%d/%d/%d/%d", s.reads, s.edits, s.writes, s.errs, s.added, s.removed)
+}
+
+var home, _ = os.UserHomeDir()
+
+// tildePath shortens a path in the home folder to start with ~.
+func tildePath(p string) string {
+	if home != "" && home != "/" && strings.HasPrefix(p, home+"/") {
+		return "~" + p[len(home):]
+	}
+	return p
 }

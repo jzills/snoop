@@ -361,8 +361,9 @@ func (v *view) filesView(w, h int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, list, v.detailPane(w-listW, h))
 }
 
-// fileRow draws a file, or a folder's totals, under name.
-func fileRow(f *fileEntry, name string, sel bool, w int) string {
+// fileRow draws a file, or a folder's totals, under name. The lead (the
+// tree's indent and chevron) is kept whole, and a long name loses its start.
+func fileRow(f *fileEntry, lead, name string, sel bool, w int) string {
 	var bg lipgloss.TerminalColor = lipgloss.NoColor{}
 	if sel {
 		bg = cSelBg
@@ -390,8 +391,8 @@ func fileRow(f *fileEntry, name string, sel bool, w int) string {
 	if f.readOnly() {
 		nameStyle = sDim
 	}
-	nameW := w - 1 - lipgloss.Width(right)
-	line := mark + st(nameStyle).Render(fit(fitLeft(name, nameW), nameW)) + right
+	nameW := max(w-1-lipgloss.Width(right)-lipgloss.Width(lead), 1)
+	line := mark + st(sDim).Render(lead) + st(nameStyle).Render(fit(fitLeft(name, nameW), nameW)) + right
 	if pad := w - lipgloss.Width(line); pad > 0 {
 		line += st(sText).Render(strings.Repeat(" ", pad))
 	}
