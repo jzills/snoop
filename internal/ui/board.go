@@ -120,7 +120,8 @@ type board struct {
 	order    []*boardRow // as last shown
 	cursor   int
 	offset   int
-	scanned  bool // the first discovery has finished
+	sort     listSort // by boardCols
+	scanned  bool     // the first discovery has finished
 	lastScan time.Time
 
 	alert      *alert
@@ -240,8 +241,25 @@ func (b *board) sorted() []string {
 	return ps
 }
 
-// arrange works out each row's state and orders them: waiting first, then
-// your turn, working and idle, newest first within each.
+// The board's columns, in order; each sorts in its natural order. Rows
+// that tie are newest first.
+var boardCols = []struct {
+	title string
+	cmp   func(a, b *boardRow) int
+}{
+	{"STATE", func(a, b *boardRow) int { return cmpAsc(int(a.status), int(b.status)) }},
+	{"PROJECT", func(a, b *boardRow) int { return cmpAsc(strings.ToLower(a.project()), strings.ToLower(b.project())) }},
+	{"SESSION", func(a, b *boardRow) int {
+		return cmpAsc(strings.ToLower(a.info.Name()), strings.ToLower(b.info.Name()))
+	}},
+	{"CONTEXT", func(a, b *boardRow) int { return cmpDesc(ctxPct(a.f.Sess), ctxPct(b.f.Sess)) }},
+	{"COST", func(a, b *boardRow) int { return cmpDesc(a.f.Sess.CostUSD, b.f.Sess.CostUSD) }},
+	{"AGE", func(a, b *boardRow) int { return cmpDesc(a.last.UnixNano(), b.last.UnixNano()) }},
+}
+
+// arrange works out each row's state and orders them by the chosen
+// column: by default waiting first, then your turn, working and idle,
+// newest first within each.
 func (b *board) arrange(now time.Time, stall time.Duration) {
 	var selected *boardRow
 	if b.cursor < len(b.order) {
@@ -252,10 +270,11 @@ func (b *board) arrange(now time.Time, stall time.Duration) {
 		r.status, r.detail = rowState(r.f.Sess, r.info.Path, r.last, now, stall)
 		b.order = append(b.order, r)
 	}
+	cmp := boardCols[b.sort.col].cmp
 	sort.Slice(b.order, func(i, j int) bool {
 		x, y := b.order[i], b.order[j]
-		if x.status != y.status {
-			return x.status < y.status
+		if c := cmp(x, y); c != 0 {
+			return b.sort.less(c)
 		}
 		if !x.last.Equal(y.last) {
 			return x.last.After(y.last)
@@ -283,6 +302,10 @@ func (b *board) update(msg tea.KeyMsg, height int) tea.Cmd {
 		b.cursor = 0
 	case "G", "end":
 		b.cursor = max(n-1, 0)
+	case "o":
+		b.sort.next(len(boardCols))
+	case "O":
+		b.sort.rev = !b.sort.rev
 	case "enter", "l", "right":
 		if b.cursor < n {
 			path := b.order[b.cursor].f.Path
@@ -313,10 +336,11 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	sb.WriteString(topBar(right, w) + "\n")
 
 	bodyH := h - 5
-	stateW, projW, ctxW, costW, ageW := 12, min(20, w/6), 8, 8, 6
+	stateW, projW, ctxW, costW, ageW := 12, min(20, w/6), 9, 8, 6
 	nameW := max(w-(1+stateW+2+projW+2+ctxW+2+costW+2+ageW+2), 10)
-	sb.WriteString(fit(sColHead.Render(" "+fit("STATE", stateW)+"  "+fit("PROJECT", projW)+"  "+fit("SESSION", nameW)+"  "+
-		fit("CONTEXT", ctxW)+"  "+fmt.Sprintf("%*s", costW, "COST")+"  "+fmt.Sprintf("%*s", ageW, "AGE")), w) + "\n")
+	hd := b.sort.head
+	sb.WriteString(fit(sColHead.Render(" "+fit(hd("STATE", 0), stateW)+"  "+fit(hd("PROJECT", 1), projW)+"  "+fit(hd("SESSION", 2), nameW)+"  "+
+		fit(hd("CONTEXT", 3), ctxW)+"  "+fmt.Sprintf("%*s", costW, hd("COST", 4))+"  "+fmt.Sprintf("%*s", ageW, hd("AGE", 5))), w) + "\n")
 	switch {
 	case !b.scanned:
 		sb.WriteString(sDim.Render(" looking for live sessions…") + "\n")
@@ -377,7 +401,7 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 		sb.WriteString(strings.Repeat("\n", pad))
 	}
 	sb.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
-	sb.WriteString(fit(" "+keyHelp("↑↓", "move", "enter", "open", "esc", "sessions", "?", "help"), w))
+	sb.WriteString(fit(" "+keyHelp("↑↓", "move", "enter", "open", "o", "sort", "esc", "sessions", "?", "help"), w))
 	return sb.String()
 }
 

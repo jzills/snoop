@@ -115,7 +115,7 @@ projects, most urgent first.
 The board's header counts the sessions waiting on you (`1 waiting on you`).
 Each row shows the project, the session, how full its context is, its cost
 and when it last wrote. Press `enter` to open a session and `esc` to come
-back. Only sessions on the board are read, and after the first read, only
+back, or `o` and `O` to sort by another column. Only sessions on the board are read, and after the first read, only
 what they add.
 
 **Find:** Pressing `f` in the picker finds sessions by a file they read or
@@ -275,7 +275,9 @@ jump between hunks, and `c`, `v`, `C`, `e`, `x` and `S` work as described in
 
 In the picker, `/` starts a fuzzy search and `f` finds across sessions, and
 `esc` clears either. Pressing `c` toggles this project only, `s` switches to
-the summary, and `w` opens the live board.
+the summary, and `w` opens the live board. On the picker and the live board,
+`o` sorts by the next column and `O` reverses the order. Search results stay
+best match first until you choose a column.
 
 ## Notes
 
