@@ -24,6 +24,8 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `/` | fuzzy search titles, projects and branches |
 | `f` | find sessions by a file, command or prompt |
 | `c` | only sessions for this directory |
+| `o` | sort by the next column: age, project, branch, session, size |
+| `O` | reverse the order |
 | `s` | switch between the list and the summary |
 | `w` | open the live board |
 
@@ -34,6 +36,10 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `↑` `↓`, `j` `k` | move |
 | `g` `G` | first and last session |
 | `enter`, `→` | open the session; `esc` comes back |
+| `A` | allow the selected session's permission request once |
+| `D` | deny it, with an optional reason Claude sees |
+| `o` | sort by the next column: state, project, session, context, cost, age |
+| `O` | reverse the order |
 | `esc`, `w` | back to the session picker |
 
 ## Session
@@ -45,6 +51,7 @@ These work on every tab.
 | `1` `2` `3` `4` `5` | Timeline, Tools, Stats, Files, Diff |
 | `[` `]` | previous and next tab |
 | `!` | jump to the latest alert |
+| `A` `D` | allow once or deny the session's permission request |
 | `y` | copy the selection |
 | `e` | export the timeline as shown to Markdown |
 
@@ -84,11 +91,16 @@ These work on every tab.
 | `enter` | show the file's latest change in the timeline |
 | `n` `N` | next and previous change |
 | `/` | keep only files whose path matches |
+| `T` | switch between the list and a tree of folders |
+| `space`, `←` `→` | in the tree, close or open a folder (`←` on a file moves to its folder) |
+| `E` | in the tree, open every folder, or go back |
 
 ## Diff
 
 | Key | Action |
 | --- | --- |
+| `b` | switch between the uncommitted changes and the whole branch |
+| `B` | choose the base the branch is compared with |
 | `enter`, `tab`, `→` | move into the file's lines |
 | `tab`, `←`, `esc` | back to the files |
 | `J` `K`, `n` `N` | next and previous hunk |

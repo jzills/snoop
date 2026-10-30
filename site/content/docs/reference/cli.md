@@ -6,7 +6,7 @@ weight: 1
 ```text
 snoop [--follow | --live] [--project dir] [--bell] [--notify] [session-id|path]
 snoop export <session-id|path> [-o file]
-snoop hooks install|uninstall|status [--project]
+snoop hooks install|uninstall|status [--project] [--ask-wait duration]
 ```
 
 ## Commands
@@ -18,10 +18,10 @@ snoop hooks install|uninstall|status [--project]
 | `snoop --follow` | follow the newest session for this directory, and switch to new ones |
 | `snoop --live` | open the live board: every session written in the last 30 minutes |
 | `snoop export <session>` | write a session as Markdown to stdout, without thinking blocks |
-| `snoop hooks install` | add the hooks that deliver the Diff tab's comments to your Claude Code settings; `--project` uses `./.claude/settings.json` |
+| `snoop hooks install` | add the hooks that deliver the Diff tab's comments and let snoop answer permission requests; `--project` uses `./.claude/settings.json`, and `--ask-wait` (default `5m`, from `1s` to `30m`) sets how long a request waits for snoop |
 | `snoop hooks uninstall` | remove exactly those hooks |
-| `snoop hooks status` | report whether they're installed, exiting with 1 if not |
-| `snoop hook` | run by the hooks: deliver the comments waiting for the session; you don't run it yourself |
+| `snoop hooks status` | report whether they're installed, exiting with 1 if not; an older install without the permission hook is reported as such |
+| `snoop hook` | run by the hooks: deliver the comments waiting for the session, or wait for snoop's answer to a permission request; you don't run it yourself |
 
 ## Flags
 
@@ -33,7 +33,7 @@ snoop hooks install|uninstall|status [--project]
 | `--stall DURATION` | `30s` | raise the waiting alert when a tool call has no result after this long. `0` disables it |
 | `--bell` | off | ring the terminal bell on the alerts chosen with `--alerts` |
 | `--notify[=MODE]` | off | send desktop notifications on those alerts. `MODE` is `auto` (the default), `terminal` or `system` |
-| `--alerts LIST` | `error,turn` | which alerts ring the bell or notify: any of `error`, `stall`, `turn`, `compact`, `ctx` |
+| `--alerts LIST` | `error,turn,ask` | which alerts ring the bell or notify: any of `error`, `stall`, `turn`, `compact`, `ctx`, `ask` |
 | `--version` | | print the version and exit |
 
 The export command takes `-o FILE` to write to a file instead of stdout.

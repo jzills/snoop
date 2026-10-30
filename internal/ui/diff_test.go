@@ -54,7 +54,7 @@ func diffApp(t *testing.T, hooks bool) (*App, *view, string) {
 	if hooks {
 		bin := filepath.Join(tmp, "snoop")
 		os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755)
-		if _, err := review.Install(review.UserSettings(root), `"`+bin+`" hook`); err != nil {
+		if _, err := review.Install(review.UserSettings(root), `"`+bin+`" hook`, review.DefaultAskWait); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -106,6 +106,8 @@ func runCmd(a *App, cmd tea.Cmd) {
 	case reviewPollMsg:
 		_, next := a.Update(m)
 		runCmd(a, next)
+	case basesMsg, baseSavedMsg:
+		a.Update(m)
 	case tea.BatchMsg:
 		for _, c := range m {
 			runCmd(a, c)

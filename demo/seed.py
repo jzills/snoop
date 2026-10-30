@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write fictional Claude Code transcripts for the demo recording.
 
-    demo/seed.py <config-dir> [--live | --live-only | --diff <repo-dir>]
+    demo/seed.py <config-dir> [--live | --live-only | --diff <repo-dir> | --ask <state-dir> <pid>]
 
 Creates <config-dir>/projects/... in the layout Claude Code uses, so
 CLAUDE_CONFIG_DIR=<config-dir> snoop shows them instead of your own sessions.
@@ -407,7 +407,9 @@ README_MD_NEW = README_MD + """| `RATE_LIMIT` | `5` |
 
 
 def diff_session(root, repo_dir, now):
-    """A repository with uncommitted changes, most of them the session's."""
+    """A feature branch off main with one commit of the session's and more
+    uncommitted changes, most of them the session's, so the Diff tab opens
+    on the whole branch."""
     cwd = str(repo_dir / "weather-api")
     repo = Path(cwd)
     files = {"internal/ratelimit/middleware.go": MIDDLEWARE_GO,
@@ -420,9 +422,10 @@ def diff_session(root, repo_dir, now):
         subprocess.run(["git", "-C", cwd, "-c", "user.name=demo", "-c", "user.email=demo@example.com",
                         "-c", "commit.gpgsign=false", *args], check=True, capture_output=True)
 
-    git("init", "-q")
+    git("init", "-q", "-b", "main")
     git("add", ".")
     git("commit", "-qm", "Rate limit the forecast endpoint")
+    git("checkout", "-qb", "feat/rate-limit")
 
     s = Transcript(cwd, "feat/rate-limit", now - timedelta(minutes=3))
     s.title("Send Retry-After with 429 responses")
@@ -444,14 +447,35 @@ def diff_session(root, repo_dir, now):
 
     # The session's edits, and one of yours in the README.
     (repo / "internal/ratelimit/limiter.go").write_text(LIMITER_GO_NEW)
+    git("commit", "-qam", "Report how long until the next token")
     (repo / "internal/ratelimit/middleware.go").write_text(MIDDLEWARE_GO_NEW)
     (repo / "internal/ratelimit/middleware_test.go").write_text(MIDDLEWARE_TEST_GO)
     (repo / "README.md").write_text(README_MD_NEW)
     s.write(project_dir(root, cwd) / f"{s.id}.jsonl")
 
 
+def ask(root, state, pid, now):
+    """A permission request from the waiting live session, as snoop's hook
+    writes it, for the board's screenshot of a session asking. pid stands
+    in for the hook, which must be running for snoop to show the request."""
+    path = next(p for p in Path(root, "projects").rglob("*.jsonl") if "Paginate the device list" in p.read_text())
+    session = path.stem
+    d = Path(state, "snoop", "asks", session)
+    d.mkdir(parents=True, exist_ok=True)
+    stamp = lambda t: t.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    req = {"session_id": session, "cwd": "/home/demo/src/dashboard", "tool_name": "Bash",
+           "tool_input": {"command": "npm run e2e -- devices",
+                          "description": "Run the device list e2e tests"},
+           "asked": stamp(now), "deadline": stamp(now + timedelta(minutes=5))}
+    nanos = int(now.timestamp()) * 1_000_000_000
+    (d / f"{nanos:020d}-{pid}.json").write_text(json.dumps(req))
+
+
 if __name__ == "__main__":
     mode = sys.argv[2:]
+    if mode[:1] == ["--ask"] and len(mode) == 3:
+        ask(Path(sys.argv[1]), Path(mode[1]), int(mode[2]), datetime.now(timezone.utc))
+        sys.exit()
     if mode[:1] == ["--diff"] and len(mode) == 2:
         diff_session(Path(sys.argv[1]), Path(mode[1]), datetime.now(timezone.utc))
         sys.exit()

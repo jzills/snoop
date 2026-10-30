@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jzills/snoop/internal/notify"
+	"github.com/jzills/snoop/internal/review"
 	"github.com/jzills/snoop/internal/tail"
 )
 
@@ -23,6 +24,10 @@ type Options struct {
 	CacheDir string // where session summaries are cached; "" keeps them in memory
 
 	Live bool // start on the live board
+
+	// Permission requests: where they wait, and the file that tells the
+	// hook snoop is listening. Either empty turns answering off.
+	AsksDir, ListeningFile string
 
 	Stall    time.Duration   // alert when a live tool call has no result after this long
 	Bell     bool            // ring the terminal bell on alerts
@@ -45,6 +50,16 @@ type App struct {
 
 	showHelp bool
 	helpVP   viewport.Model
+
+	prefs prefs // shared by every session view
+
+	// Permission requests waiting, by session, oldest first.
+	asks        map[string][]review.Request
+	asksPolling bool
+	lastListen  time.Time
+	seenAsks    map[string]bool // requests already alerted, by ID
+	ans         answerer
+	note        string // replaces the footer until the next key
 
 	// Notifications.
 	focused  bool                 // snoop's window has focus, as the terminal reports it
@@ -98,6 +113,7 @@ func (a *App) top() *view {
 }
 
 func (a *App) push(v *view) tea.Cmd {
+	v.prefs = &a.prefs
 	a.stack = append(a.stack, v)
 	return v.waitTail()
 }
@@ -145,6 +161,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, a.signal(v.own(as)))
 			}
 		}
+		cmds = append(cmds, a.askCmds(time.Now())...)
 		if b := a.board; b != nil {
 			now := time.Now()
 			if now.Sub(b.lastScan) >= boardScan {
@@ -153,6 +170,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.isOpen)))
 		}
 		return a, tea.Batch(cmds...)
+	case asksMsg:
+		return a, a.onAsks(msg)
+	case answeredMsg:
+		a.onAnswered(msg)
+		return a, nil
 	case showBoardMsg:
 		a.board = newBoard(a.opts.Root)
 		return a, a.board.scanCmd(time.Now())
@@ -242,6 +264,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case diffMsg:
 		msg.v.onDiff(msg)
 		return a, nil
+	case basesMsg:
+		msg.v.onBases(msg)
+		return a, nil
+	case baseSavedMsg:
+		if msg.err != nil {
+			msg.v.flash = sDim.Render(" comparing with " + msg.base + " for now; not saved: " + msg.err.Error())
+		} else {
+			msg.v.flash = sDim.Render(" comparing with " + msg.base + ", saved for this branch")
+		}
+		return a, nil
 	case sentMsg:
 		return a, msg.v.onSent(msg)
 	case reviewPollMsg:
@@ -273,6 +305,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.loading = ""
 				return a, nil
 			}
+		}
+		a.note = ""
+		if a.ans.typing {
+			return a, a.ans.key(msg, a.opts.AsksDir)
 		}
 		v := a.top()
 		if v != nil && v.rev.leaveAsk {
@@ -330,6 +366,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.showHelp = true
 			a.helpVP.GotoTop()
 			return a, nil
+		}
+		if k := msg.String(); (k == "A" || k == "D") && !typing {
+			if r, ok := a.askTarget(); ok {
+				if k == "A" {
+					return a, respond(a.opts.AsksDir, r, review.Answer{Behavior: "allow"})
+				}
+				return a, a.ans.startDeny(r)
+			}
 		}
 		if v == nil && a.board != nil {
 			switch msg.String() {
@@ -450,6 +494,7 @@ func (a *App) View() string {
 	case v != nil:
 		out = v.render(a.w, a.h)
 	case a.board != nil:
+		a.board.asks = a.asks
 		out = a.board.view(a.w, a.h, time.Now(), a.stallFor())
 	default:
 		out = a.picker.view(a.w, a.h)
@@ -461,6 +506,12 @@ func (a *App) View() string {
 		footer = sErr.Render(" " + glyphErr + " " + a.err)
 	case a.loading != "":
 		footer = sAccent.Render(" opening "+a.loading+" …") + sDim.Render("  esc cancels")
+	case a.ans.typing:
+		footer = " " + a.ans.input.View()
+	case a.note != "":
+		footer = a.note
+	case a.top() != nil && len(a.asks[a.top().sessionID()]) > 0 && !a.top().inputActive():
+		footer = askLine(a.asks[a.top().sessionID()])
 	}
 	if footer != "" {
 		if i := strings.LastIndexByte(out, '\n'); i >= 0 {

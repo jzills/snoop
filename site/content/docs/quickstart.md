@@ -15,7 +15,8 @@ projects, newest first, with each one's project, branch, title and size.
 {{< shot src="picker.png" alt="The session picker listing sessions with their age, project, branch and title" >}}
 
 Type `/` to search titles, projects and branches, or `c` to show only the
-sessions for the current directory.
+sessions for the current directory. Press `o` to sort by the next column,
+and `O` to reverse the order.
 
 ### Open a session
 

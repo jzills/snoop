@@ -26,22 +26,26 @@ const (
 	orphanAge = time.Minute
 )
 
-// InboxDir is where snoop keeps comments waiting to be delivered.
-func InboxDir() string {
+// StateDir is where snoop keeps what it hands to its hooks: the inbox,
+// permission requests and the listening file.
+func StateDir() string {
 	if d := os.Getenv("XDG_STATE_HOME"); d != "" {
-		return filepath.Join(d, "snoop", "inbox")
+		return filepath.Join(d, "snoop")
 	}
 	home, _ := os.UserHomeDir()
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(home, "Library", "Application Support", "snoop", "inbox")
+		return filepath.Join(home, "Library", "Application Support", "snoop")
 	case "windows":
 		if d, err := os.UserConfigDir(); err == nil {
-			return filepath.Join(d, "snoop", "inbox")
+			return filepath.Join(d, "snoop")
 		}
 	}
-	return filepath.Join(home, ".local", "state", "snoop", "inbox")
+	return filepath.Join(home, ".local", "state", "snoop")
 }
+
+// InboxDir is where snoop keeps comments waiting to be delivered.
+func InboxDir() string { return filepath.Join(StateDir(), "inbox") }
 
 // sessionDir keeps a session id from naming anything outside the inbox.
 func sessionDir(dir, session string) (string, error) {

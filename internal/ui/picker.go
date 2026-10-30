@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -50,7 +51,8 @@ type picker struct {
 	input       textinput.Model
 	filtering   bool
 	projectOnly bool
-	projectDir  string // transcript folder for the current working directory
+	sort        listSort // by pickerCols
+	projectDir  string   // transcript folder for the current working directory
 	loaded      bool
 	err         error
 
@@ -106,6 +108,51 @@ func (p pickerSource) String(i int) string {
 }
 func (p pickerSource) Len() int { return len(p) }
 
+// The picker's columns, in order; each sorts in its natural order.
+var pickerCols = []struct {
+	title string
+	cmp   func(a, b store.SessionInfo) int
+}{
+	{"AGE", func(a, b store.SessionInfo) int { return cmpDesc(a.ModTime.UnixNano(), b.ModTime.UnixNano()) }},
+	{"PROJECT", func(a, b store.SessionInfo) int {
+		return cmpAsc(strings.ToLower(filepath.Base(a.Project())), strings.ToLower(filepath.Base(b.Project())))
+	}},
+	{"BRANCH", func(a, b store.SessionInfo) int { return cmpAsc(a.Branch, b.Branch) }},
+	{"SESSION", func(a, b store.SessionInfo) int { return cmpAsc(strings.ToLower(a.Name()), strings.ToLower(b.Name())) }},
+	{"SIZE", func(a, b store.SessionInfo) int { return cmpDesc(a.Size, b.Size) }},
+}
+
+// sortShown orders the listed sessions by the chosen column. Search and
+// find results keep their own order (best match first) until a column is
+// chosen.
+func (p *picker) sortShown(query bool) {
+	if query && p.sort.isDefault() {
+		return
+	}
+	cmp := pickerCols[p.sort.col].cmp
+	sort.SliceStable(p.shown, func(i, j int) bool {
+		a, b := p.all[p.shown[i]], p.all[p.shown[j]]
+		if c := cmp(a, b); c != 0 {
+			return p.sort.less(c)
+		}
+		return a.ModTime.After(b.ModTime)
+	})
+}
+
+// resort applies a new order, keeping the same session selected.
+func (p *picker) resort() {
+	sel := ""
+	if p.cursor < len(p.shown) {
+		sel = p.all[p.shown[p.cursor]].Path
+	}
+	p.refilter()
+	for i, j := range p.shown {
+		if p.all[j].Path == sel {
+			p.cursor = i
+		}
+	}
+}
+
 func (p *picker) refilter() {
 	base := make([]int, 0, len(p.all))
 	for i, s := range p.all {
@@ -114,6 +161,7 @@ func (p *picker) refilter() {
 		}
 	}
 	q := strings.TrimSpace(p.input.Value())
+	defer p.sortShown(q != "" || p.find)
 	switch {
 	case p.find:
 		paths := make([]string, len(base))
@@ -128,7 +176,7 @@ func (p *picker) refilter() {
 			p.shown = append(p.shown, at[h.Path])
 		}
 	case q == "":
-		p.shown = base
+		p.shown = append(p.shown[:0], base...)
 	default:
 		src := make(pickerSource, len(base))
 		for j, i := range base {
@@ -214,6 +262,12 @@ func (p *picker) update(msg tea.Msg, height int) tea.Cmd {
 			p.cursor = 0
 		case "G", "end":
 			p.cursor = max(len(p.shown)-1, 0)
+		case "o":
+			p.sort.next(len(pickerCols))
+			p.resort()
+		case "O":
+			p.sort.rev = !p.sort.rev
+			p.resort()
 		case "c":
 			p.projectOnly = !p.projectOnly
 			p.cursor = 0
@@ -280,8 +334,9 @@ func (p *picker) view(w, h int) string {
 	branchW := min(20, w/6)
 	fixed := 1 + 7 + projW + branchW + 7 + 7
 	if p.loaded && len(p.shown) > 0 {
-		b.WriteString(fit(sColHead.Render(" "+fit(" AGE", 7)+"  "+fit("PROJECT", projW)+"  "+fit("BRANCH", branchW)+"  "+
-			fit("SESSION", max(w-fixed, 10))+fmt.Sprintf("%7s", "SIZE")), w) + "\n")
+		h := p.sort.head
+		b.WriteString(fit(sColHead.Render(" "+fit(" "+h("AGE", 0), 7)+"  "+fit(h("PROJECT", 1), projW)+"  "+fit(h("BRANCH", 2), branchW)+"  "+
+			fit(h("SESSION", 3), max(w-fixed, 10))+fmt.Sprintf("%7s", h("SIZE", 4))), w) + "\n")
 		bodyH--
 	}
 	p.offset = scrollOffset(p.offset, p.cursor, len(p.shown), bodyH)
@@ -319,7 +374,7 @@ func (p *picker) view(w, h int) string {
 	if p.filtering || p.input.Value() != "" {
 		b.WriteString(fit(p.input.View(), w))
 	} else {
-		b.WriteString(fit(" "+keyHelp("enter", "open", "/", "search", "f", "find", "w", "live", "?", "help"), w))
+		b.WriteString(fit(" "+keyHelp("enter", "open", "/", "search", "f", "find", "o", "sort", "w", "live", "?", "help"), w))
 	}
 	return b.String()
 }

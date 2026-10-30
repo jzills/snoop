@@ -17,22 +17,54 @@ Comments reach the agent through Claude Code hooks. Run this once:
 snoop hooks install
 ```
 
-It adds three entries to `~/.claude/settings.json`, keeping everything else
-in the file. With `--project`, it uses `.claude/settings.json` in the current
+It adds four entries to `~/.claude/settings.json`, keeping everything else
+in the file. Three deliver comments, and the fourth lets the live board
+[answer permission prompts](../live-board/#answer-permission-prompts). With `--project`, it uses `.claude/settings.json` in the current
 directory instead. Run `snoop hooks status` to check them, and
 `snoop hooks uninstall` to remove them. A session that was already running
 may need a restart before it uses the hooks.
 
+## Uncommitted or the whole branch
+
+The line at the top of the tab shows two scopes, and `b` switches between
+them:
+
+- **Uncommitted** lists every file in `git diff HEAD`, plus untracked files,
+  shown as added.
+- **Branch** lists everything the branch changed since it left its base,
+  committed or not. It's what a pull request would show, plus the work in
+  progress, so you can review an agent's whole branch without opening a PR.
+  Files with changes since the last commit are tagged `uncommitted`.
+
+The tab opens in Branch when the branch has commits of its own, and in
+Uncommitted otherwise. Your choice holds for every session until you quit.
+
+Unless you choose a base, snoop compares with the closest of `develop`,
+`main`, `master` and `trunk`, meaning the one your branch has the fewest
+commits since. It prefers `origin/develop` to a local `develop`, since a
+local copy may be out of date, and on a tie it prefers `develop`. The line at
+the top names the base and counts the branch's commits.
+
+To compare with another branch, press `B`, which lists the usual bases and
+recently changed branches with the commits since each. Press `enter` to
+choose one. It's saved for the current branch with
+`git config branch.<name>.snoopBase`, so the next time you open the tab it
+compares with the same base. To set a base for a whole repository, run
+`git config snoop.base develop`.
+
+Comments work the same in both scopes. Each diff ends at the files on disk,
+so line numbers match what the agent sees.
+
 ## Read the diff
 
-The tab lists every file in `git diff HEAD`, plus untracked files, shown as
-added. Files this session or its subagents changed come first. Files changed
+Files this session or its subagents changed come first. Files changed
 by you or another agent are dimmed, and the right pane says so. Press
 `enter` or `tab` to move into a file's lines, and `J` and `K` to jump between
 hunks.
 
 The diff is read when you open the tab, again when the session finishes an
-edit or a command (at most every two seconds), and when you press `r`. Git
+edit or a command (at most every two seconds), which includes the agent's
+commits, and when you press `r`. Git
 runs in the background, so following the session doesn't slow down.
 
 ## Comment

@@ -50,6 +50,12 @@ type reviewState struct {
 	delivered bool
 	leaveAsk  bool // leaving with unsent comments asks first
 	leaveQuit bool // and the leaving is quitting
+
+	// The branch diff's base, once guessed or chosen, and the B list.
+	base    string
+	picking bool
+	bases   []review.Base
+	bCursor int
 }
 
 // pending is a comment not sent yet. Its id survives edits and deletes,
@@ -76,6 +82,7 @@ func newReviewState() reviewState {
 type diffMsg struct {
 	v    *view
 	seq  int
+	base string // the branch diff's base, when there is one
 	d    *review.Diff
 	err  error
 	ours map[string]bool
@@ -149,11 +156,11 @@ func (v *view) loadDiff() tea.Cmd {
 	}
 	r.seq++
 	r.loading, r.at, r.sig = true, time.Now(), v.changeCount()
-	seq, cwd, root := r.seq, v.sess.CWD, v.rootPath
+	seq, cwd, root, base, scope := r.seq, v.sess.CWD, v.rootPath, r.base, v.prefs.diffScope
 	own := changedPaths(v.sess.Events)
 	cache := r.subs
 	return func() tea.Msg {
-		d, err := review.Load(cwd)
+		d, err := loadScoped(cwd, base, scope)
 		subs := readSubs(root, cache)
 		if err != nil {
 			return diffMsg{v: v, seq: seq, err: err, subs: subs}
@@ -161,7 +168,7 @@ func (v *view) loadDiff() tea.Cmd {
 		for _, c := range subs {
 			own = append(own, c.paths...)
 		}
-		return diffMsg{v: v, seq: seq, d: d, ours: ownPaths(d.Root, cwd, own), subs: subs}
+		return diffMsg{v: v, seq: seq, base: d.Base, d: d, ours: ownPaths(d.Root, cwd, own), subs: subs}
 	}
 }
 
@@ -292,6 +299,9 @@ func (v *view) onDiff(m diffMsg) {
 		return
 	}
 	r.diff, r.ours = m.d, m.ours
+	if m.base != "" {
+		r.base = m.base
+	}
 	// The session's own files first, each group in git's order.
 	sort.SliceStable(m.d.Files, func(i, j int) bool {
 		return r.ours[m.d.Files[i].Path] && !r.ours[m.d.Files[j].Path]
@@ -584,10 +594,17 @@ func (v *view) addComment(c review.Comment, text string) {
 // to the session view.
 func (v *view) updateDiff(k tea.KeyMsg, w, bodyH int) (cmd tea.Cmd, ok bool) {
 	r := &v.rev
+	if r.picking {
+		return v.pickKey(k), true
+	}
 	f := v.diffFile()
 	switch k.String() {
 	case "r":
 		return v.loadDiff(), true
+	case "b":
+		return v.switchScope(), true
+	case "B":
+		return v.startPick(), true
 	case "S":
 		return v.sendComments(), true
 	case "C":
@@ -769,7 +786,7 @@ func (v *view) sendStatus() string {
 	return sDim.Render("sent "+n+", waiting for the agent") + "  "
 }
 
-func (v *view) diffView(w, h int) string {
+func (v *view) diffView(w, h int) (out string) {
 	r := &v.rev
 	files := v.diffFiles()
 	var msg string
@@ -778,8 +795,19 @@ func (v *view) diffView(w, h int) string {
 		msg = " " + r.err.Error()
 	case r.diff == nil:
 		msg = " reading the diff …"
+	case len(files) == 0 && v.branchShown():
+		msg = " no changes against " + r.diff.Base + " in " + r.diff.Root
 	case len(files) == 0:
 		msg = " no changes against HEAD in " + r.diff.Root
+	}
+	if r.picking {
+		return v.pickView(w, h)
+	}
+	if r.diff != nil {
+		// The scopes, then a blank line, above the files.
+		top := v.scopeLine(w) + "\n" + strings.Repeat(" ", w) + "\n"
+		h = max(h-2, 1)
+		defer func() { out = top + out }()
 	}
 	if msg != "" {
 		lines := []string{sDim.Render(fit(msg, w))}
@@ -842,6 +870,9 @@ func (v *view) diffFileRow(f *review.File, sel bool, w int) string {
 		tag = " new"
 	case f.Deleted:
 		tag = " deleted"
+	}
+	if f.Uncommitted && !f.Untracked {
+		tag += " uncommitted"
 	}
 	nameW := w - 1 - lipgloss.Width(right) - len(tag)
 	line := mark + st(nameStyle).Render(fit(fitLeft(f.Path, nameW), nameW)) + st(sFaint).Render(tag) + right
