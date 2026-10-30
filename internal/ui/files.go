@@ -184,8 +184,8 @@ func (v *view) fileSources() []fileSource {
 
 func (v *view) rebuildFiles() {
 	var sel string
-	if f := v.selectedFile(); f != nil {
-		sel = f.path
+	if n := v.selectedFileRow(); n != nil {
+		sel = n.key
 	}
 	terms := strings.Fields(strings.ToLower(v.search.Value()))
 	v.files = buildFiles(v.fileSources(), v.sess.CWD, func(p string) bool {
@@ -197,28 +197,26 @@ func (v *view) rebuildFiles() {
 		}
 		return true
 	})
+	v.fTree = buildFileTree(v.files)
 	v.filesBuilt, v.filesDirty = time.Now(), false
-	for i, f := range v.files {
-		if f.path == sel {
-			v.fCursor = i
-			return
-		}
-	}
-	v.fCursor = max(0, min(v.fCursor, len(v.files)-1))
+	v.flattenFiles(sel)
 }
 
+// selectedFile is the file on the selected row; nil on a folder.
 func (v *view) selectedFile() *fileEntry {
-	if v.fCursor < len(v.files) {
-		return v.files[v.fCursor]
+	if n := v.selectedFileRow(); n != nil {
+		return n.file
 	}
 	return nil
 }
 
 func (v *view) moveFile(d int) {
-	v.fCursor = max(0, min(v.fCursor+d, len(v.files)-1))
+	v.fCursor = max(0, min(v.fCursor+d, len(v.fRows)-1))
 }
 
 func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) tea.Cmd {
+	n := v.selectedFileRow()
+	folder := n != nil && n.file == nil
 	switch k.String() {
 	case "up", "k":
 		v.moveFile(-1)
@@ -226,12 +224,18 @@ func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) tea.Cmd {
 		v.moveFile(1)
 	case "pgup", "ctrl+b":
 		v.moveFile(-bodyH)
-	case "pgdown", "ctrl+f", " ":
+	case "pgdown", "ctrl+f":
 		v.moveFile(bodyH)
+	case " ":
+		if folder {
+			v.setFileOpen(n, !v.fileOpen(n))
+		} else {
+			v.moveFile(bodyH)
+		}
 	case "g", "home":
-		v.moveFile(-len(v.files))
+		v.moveFile(-len(v.fRows))
 	case "G", "end":
-		v.moveFile(len(v.files))
+		v.moveFile(len(v.fRows))
 	case "ctrl+d", "J":
 		v.detail.HalfViewDown()
 	case "ctrl+u", "K":
@@ -241,11 +245,32 @@ func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) tea.Cmd {
 	case "N":
 		v.jumpMark(-1)
 	case "enter":
-		if f := v.selectedFile(); f != nil {
-			v.showTouch(lastChange(f))
+		switch {
+		case folder:
+			v.setFileOpen(n, !v.fileOpen(n))
+		case n != nil:
+			v.showTouch(lastChange(n.file))
 		}
-	case "tab", "right", "l":
+	case "right", "l":
+		if folder && !v.fileOpen(n) {
+			v.setFileOpen(n, true)
+		} else {
+			v.focusDetail(w)
+		}
+	case "left", "h":
+		if folder && v.fileOpen(n) {
+			v.setFileOpen(n, false)
+		} else {
+			v.toFileParent()
+		}
+	case "tab":
 		v.focusDetail(w)
+	case "T":
+		v.toggleFilesTree()
+	case "E":
+		if v.prefs.filesTree {
+			v.expandAllFiles()
+		}
 	case "/":
 		v.typing = true
 		return v.search.Focus()
@@ -305,12 +330,20 @@ func (v *view) filesView(w, h int) string {
 		listW = w * 11 / 20
 	}
 	listH := max(h-1, 1)
-	v.fOffset = scrollOffset(v.fOffset, v.fCursor, len(v.files), listH)
-	lines := make([]string, 0, h)
-	for i := v.fOffset; i < len(v.files) && len(lines) < listH; i++ {
-		lines = append(lines, fileRow(v.files[i], i == v.fCursor, listW))
+	if v.fRowsTree != v.prefs.filesTree {
+		// Another session view switched between the list and the tree.
+		sel := ""
+		if n := v.selectedFileRow(); n != nil {
+			sel = n.key
+		}
+		v.flattenFiles(sel)
 	}
-	if len(v.files) == 0 {
+	v.fOffset = scrollOffset(v.fOffset, v.fCursor, len(v.fRows), listH)
+	lines := make([]string, 0, h)
+	for i := v.fOffset; i < len(v.fRows) && len(lines) < listH; i++ {
+		lines = append(lines, v.fileTreeRow(v.fRows[i], i == v.fCursor, listW))
+	}
+	if len(v.fRows) == 0 {
 		msg := " no files touched yet"
 		if v.search.Value() != "" {
 			msg = " no files match"
@@ -328,7 +361,8 @@ func (v *view) filesView(w, h int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, list, v.detailPane(w-listW, h))
 }
 
-func fileRow(f *fileEntry, sel bool, w int) string {
+// fileRow draws a file, or a folder's totals, under name.
+func fileRow(f *fileEntry, name string, sel bool, w int) string {
 	var bg lipgloss.TerminalColor = lipgloss.NoColor{}
 	if sel {
 		bg = cSelBg
@@ -357,7 +391,7 @@ func fileRow(f *fileEntry, sel bool, w int) string {
 		nameStyle = sDim
 	}
 	nameW := w - 1 - lipgloss.Width(right)
-	line := mark + st(nameStyle).Render(fit(fitLeft(f.path, nameW), nameW)) + right
+	line := mark + st(nameStyle).Render(fit(fitLeft(name, nameW), nameW)) + right
 	if pad := w - lipgloss.Width(line); pad > 0 {
 		line += st(sText).Render(strings.Repeat(" ", pad))
 	}
@@ -387,23 +421,7 @@ func renderFileDetail(f *fileEntry, w int) (string, []int) {
 	var b strings.Builder
 	var marks []int
 	b.WriteString(sBold.Render(wrap(f.path, w)) + "\n")
-	var parts []string
-	for _, p := range []struct {
-		n    int
-		word string
-	}{{f.edits, "edit"}, {f.writes, "write"}, {f.reads, "read"}} {
-		if p.n > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s", p.n, plural(p.n, p.word)))
-		}
-	}
-	summary := sDim.Render(strings.Join(parts, " · "))
-	if f.added+f.removed > 0 {
-		summary += sDim.Render(" · ") + sAdd.Render(plusMinus("+", f.added)) + " " + sDel.Render(plusMinus("−", f.removed))
-	}
-	if f.errs > 0 {
-		summary += sDim.Render(" · ") + sErr.Render(fmt.Sprintf("%d %s", f.errs, plural(f.errs, "error")))
-	}
-	b.WriteString(summary + "\n")
+	b.WriteString(fileSummary(f) + "\n")
 	b.WriteString(section("History") + "\n")
 	for _, t := range f.touches {
 		e := t.ev
@@ -446,4 +464,25 @@ func renderFileDetail(f *fileEntry, w int) (string, []int) {
 	}
 	b.WriteString("\n" + sKey.Render("n N") + sDim.Render(" next / previous change · ") + sKey.Render("enter") + sDim.Render(" show in timeline"))
 	return b.String(), marks
+}
+
+// fileSummary is a file's or folder's counts on one line.
+func fileSummary(f *fileEntry) string {
+	var parts []string
+	for _, p := range []struct {
+		n    int
+		word string
+	}{{f.edits, "edit"}, {f.writes, "write"}, {f.reads, "read"}} {
+		if p.n > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", p.n, plural(p.n, p.word)))
+		}
+	}
+	summary := sDim.Render(strings.Join(parts, " · "))
+	if f.added+f.removed > 0 {
+		summary += sDim.Render(" · ") + sAdd.Render(plusMinus("+", f.added)) + " " + sDel.Render(plusMinus("−", f.removed))
+	}
+	if f.errs > 0 {
+		summary += sDim.Render(" · ") + sErr.Render(fmt.Sprintf("%d %s", f.errs, plural(f.errs, "error")))
+	}
+	return summary
 }

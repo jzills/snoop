@@ -167,7 +167,13 @@ var helpFiles = []helpSection{
 		{"enter", "show the file's latest change in the timeline (a subagent's change shows its Agent call)"},
 		{"n  N", "next / previous change in the detail pane"},
 		{"/", "keep only files whose path matches"},
+		{"T", "switch between the list and a tree of folders"},
 		{"", "changed files first, then files only read; most recent first"},
+	}},
+	{"Tree", [][2]string{
+		{"space  enter", "open or close a folder"},
+		{"←  →", "close / open a folder (← on a file moves to its folder)"},
+		{"E", "open every folder, or go back"},
 		{"", "changes made through Bash aren't tracked"},
 	}},
 	{"Detail pane", [][2]string{

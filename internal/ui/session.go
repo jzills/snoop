@@ -86,6 +86,11 @@ type view struct {
 
 	// Files tab: files touched, rebuilt when dirty or every filesTTL.
 	files      []*fileEntry
+	fTree      []*fileNode // the files in folders
+	fRows      []*fileNode // visible rows, flat or as a tree
+	fRowsTree  bool        // fRows were laid out as a tree
+	fOpen      map[string]bool
+	prefs      *prefs
 	fCursor    int
 	fOffset    int
 	fMarks     []int // detail pane line of each change, for n/N
@@ -144,7 +149,7 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	ti.Placeholder = "search text, commands, paths, results"
 	v := &view{
 		path: path, rootPath: rootPath, label: label, sess: s,
-		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(rootPath), rev: newReviewState(),
+		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, fOpen: map[string]bool{}, prefs: &prefs{}, agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(rootPath), rev: newReviewState(),
 		detail: viewport.New(0, 0), page: viewport.New(0, 0),
 	}
 	v.tl, _ = tail.Open(path, off, followNew)
@@ -387,7 +392,7 @@ func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 			case "G":
 				v.detail.GotoBottom()
 				return nil
-			case "a", "o", "/", "f", "t", "n", "N", "E", "x", "X":
+			case "a", "o", "/", "f", "t", "n", "N", "E", "T", "x", "X":
 				// handled below
 			default:
 				var cmd tea.Cmd
@@ -721,8 +726,10 @@ func (v *view) footer(w int) string {
 		help = keyHelp("tab", "back to list", "a", "subagent", "?", "help")
 	case v.tab == tabTools:
 		help = keyHelp("space", "expand", "enter", "show in timeline", "?", "help")
+	case v.tab == tabFiles && v.prefs.filesTree:
+		help = keyHelp("space", "expand", "T", "flat list", "enter", "show in timeline", "?", "help")
 	case v.tab == tabFiles:
-		help = keyHelp("n N", "next change", "enter", "show in timeline", "?", "help")
+		help = keyHelp("n N", "next change", "T", "tree", "enter", "show in timeline", "?", "help")
 	default:
 		help = keyHelp("enter", "detail", "/", "search", "f", "filter", "?", "help")
 	}
@@ -806,8 +813,12 @@ func (v *view) detailPane(w, h int) string {
 	e := v.selected()
 	var group *groupNode
 	var file *fileEntry
+	var folder *fileNode
 	if v.tab == tabFiles {
 		e, file = nil, v.selectedFile()
+		if n := v.selectedFileRow(); n != nil && n.file == nil {
+			folder = n
+		}
 	}
 	if v.tab == tabTools {
 		e = nil
@@ -840,6 +851,9 @@ func (v *view) detailPane(w, h int) string {
 		}
 		groupKey, groupSig = "f:"+file.path, fmt.Sprintf("%d/%d", len(file.touches), done)
 	}
+	if folder != nil {
+		groupKey, groupSig = "d:"+folder.key, folderSig(folder)
+	}
 	done := e != nil && e.Tool != nil && e.Tool.HasResult
 	agent := false
 	if e != nil && e.Tool != nil && e.Tool.AgentID != "" {
@@ -850,6 +864,9 @@ func (v *view) detailPane(w, h int) string {
 		switch {
 		case group != nil:
 			v.detail.SetContent(renderGroupDetail(group, innerW))
+		case folder != nil:
+			v.detail.SetContent(renderFolderDetail(folder, innerW))
+			v.fMarks = nil
 		case file != nil:
 			content, marks := renderFileDetail(file, innerW)
 			v.detail.SetContent(content)
