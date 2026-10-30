@@ -88,16 +88,20 @@ which `n` and `N` step through, and pressing `enter` shows the latest change
 in the timeline. Pressing `T` switches to a tree of folders, each with the
 totals of its files. Changes made through Bash aren't tracked.
 
-**Stats:** The Stats tab shows the duration, prompts, tool mix, token usage
-(input, output, cache and thinking), context (current, peak and compactions),
-the cost when Claude Code recorded it, and the skills, MCP servers, subagent
-types and models used. Its Turns breakdown lists each prompt's duration,
-tokens, estimated cost and context at the end of the turn.
+**Stats:** The Stats tab opens with the session's cost, duration, tokens (and
+how many came from cache) and context. Below them, Turns lists each prompt's
+time, tokens, cost and context, with a bar for its share of the cost and the
+costliest prompt highlighted. Tools lists the tools used most, with errors
+and average time, beside where the tokens went. Models lists each model with
+its requests and cost.
 
-Cost per prompt is an estimate. Claude Code records only each model's total
-cost for the session, so that total is split across prompts by token use,
-weighted by relative token price. The prompt costs add up to the recorded
-total. Sessions without a recorded cost show tokens only.
+Claude Code records a session's cost only when the session ends, so while it
+runs, snoop estimates the cost from each request's tokens at the model's API
+prices, and marks it `≈` and "estimated". Once the cost is recorded, snoop
+splits each model's total across the prompts by token use, weighted by each
+kind of token's price, so the prompt costs add up to the recorded total. The
+estimate leaves out subagents' requests, and models without a known price
+show tokens only.
 
 ## Many sessions at once
 

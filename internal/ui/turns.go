@@ -42,7 +42,7 @@ func contextMeter(used, window, w int) string {
 	return st.Render(fmt.Sprintf("ctx %s/%s %s %d%%", tokens(used), tokens(window), bar, pct))
 }
 
-func costText(usd float64) string { return fmt.Sprintf("≈$%.2f", usd) }
+func costText(usd float64) string { return approx(usd) }
 
 // turnSummary is the plain "48.2k · ≈$0.31 · 2m10s" shown on a prompt row,
 // dropping cost below 22 cells and tokens below 12.

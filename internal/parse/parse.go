@@ -167,6 +167,7 @@ func (e *Event) Duration() time.Duration {
 
 type Usage struct {
 	Input, Output, CacheRead, CacheCreate, Thinking int
+	CacheCreate1h                                   int // of CacheCreate, written to the 1-hour cache
 }
 
 func (u Usage) Total() int { return u.Input + u.Output + u.CacheRead + u.CacheCreate }
@@ -199,6 +200,7 @@ type Session struct {
 	messages     map[string]int // message id -> context size of the request
 	turnByPrompt map[*Event]*Turn
 	weight       map[string]float64 // weighted tokens per model
+	est          map[string]float64 // estimated cost per model, for models with prices
 	pending      *Compaction        // waiting for the next request's context
 	lastModel    string
 	ctxMax       int            // context window Claude Code reported
@@ -214,6 +216,7 @@ func NewSession() *Session {
 		messages:     map[string]int{},
 		turnByPrompt: map[*Event]*Turn{},
 		weight:       map[string]float64{},
+		est:          map[string]float64{},
 		windows:      map[string]int{},
 	}
 }
@@ -304,7 +307,10 @@ type rawUsage struct {
 	OutputTokens        int `json:"output_tokens"`
 	CacheReadTokens     int `json:"cache_read_input_tokens"`
 	CacheCreationTokens int `json:"cache_creation_input_tokens"`
-	OutputDetails       struct {
+	CacheCreation       struct {
+		OneHour int `json:"ephemeral_1h_input_tokens"`
+	} `json:"cache_creation"`
+	OutputDetails struct {
 		ThinkingTokens int `json:"thinking_tokens"`
 	} `json:"output_tokens_details"`
 }
@@ -550,7 +556,8 @@ func (s *Session) feedAssistant(rec *rawRecord, ts time.Time) []*Event {
 		var u Usage
 		if r := m.Usage; r != nil {
 			u = Usage{Input: r.InputTokens, Output: r.OutputTokens, CacheRead: r.CacheReadTokens,
-				CacheCreate: r.CacheCreationTokens, Thinking: r.OutputDetails.ThinkingTokens}
+				CacheCreate: r.CacheCreationTokens, CacheCreate1h: min(r.CacheCreation.OneHour, r.CacheCreationTokens),
+				Thinking: r.OutputDetails.ThinkingTokens}
 		}
 		s.request(m.Model, u)
 		ctx = u.Context()
