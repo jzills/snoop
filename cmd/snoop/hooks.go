@@ -12,10 +12,20 @@ import (
 )
 
 // hookCmd is what Claude Code runs on each hook event: it hands the
-// session any review comments waiting for it. It never fails the hook, so
-// a problem with snoop can't stop an agent.
-func hookCmd() {
-	if err := review.Hook(os.Stdin, os.Stdout, review.InboxDir(), time.Now()); err != nil {
+// session any review comments waiting for it, and lets snoop answer
+// permission requests. It never fails the hook, so a problem with snoop
+// can't stop an agent.
+func hookCmd(args []string) {
+	wait := review.DefaultAskWait
+	if len(args) == 2 && args[0] == "--ask-wait" {
+		// A bad value keeps the default rather than failing the hook.
+		if d, err := time.ParseDuration(args[1]); err == nil && d > 0 {
+			wait = d
+		}
+	}
+	o := review.HookOptions{Inbox: review.InboxDir(), Asks: review.AsksDir(), Listening: review.ListeningFile(),
+		AskWait: wait, Now: time.Now, Sleep: time.Sleep}
+	if err := review.Hook(os.Stdin, os.Stdout, o); err != nil {
 		fmt.Fprintln(os.Stderr, "snoop hook:", err)
 	}
 }

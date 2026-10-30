@@ -95,7 +95,7 @@ func main() {
 		exportCmd(root, flag.Args()[1:])
 		return
 	case "hook":
-		hookCmd()
+		hookCmd(flag.Args()[1:])
 		return
 	case "hooks":
 		hooksCmd(root, flag.Args()[1:])
