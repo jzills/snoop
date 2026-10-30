@@ -39,12 +39,17 @@ type File struct {
 	Binary         bool
 	Untracked      bool
 	Deleted        bool
+	Uncommitted    bool // in a branch diff: also changed since the last commit
 	Truncated      bool
 }
 
 type Diff struct {
 	Root  string // the repository's top-level directory
 	Files []*File
+
+	// A branch diff's base, and the commits since the branch left it.
+	Base    string
+	Commits int
 }
 
 var (
@@ -65,14 +70,10 @@ const MaxLines = 3000
 // Load runs git in dir and returns the working tree's changes against
 // HEAD, with untracked files shown as added.
 func Load(dir string) (*Diff, error) {
-	top, err := run(dir, nil, "rev-parse", "--show-toplevel")
+	root, err := repoRoot(dir)
 	if err != nil {
-		if errors.Is(err, ErrNoGit) {
-			return nil, err
-		}
-		return nil, ErrNotRepo
+		return nil, err
 	}
-	root := strings.TrimSpace(top)
 	base := "HEAD"
 	if _, err := run(root, nil, "rev-parse", "--verify", "-q", "HEAD"); err != nil {
 		// No commits yet: compare with the empty tree.
@@ -82,6 +83,23 @@ func Load(dir string) (*Diff, error) {
 		}
 		base = strings.TrimSpace(t)
 	}
+	return load(root, base)
+}
+
+// repoRoot is the top-level directory of the repository holding dir.
+func repoRoot(dir string) (string, error) {
+	top, err := run(dir, nil, "rev-parse", "--show-toplevel")
+	if err != nil {
+		if errors.Is(err, ErrNoGit) {
+			return "", err
+		}
+		return "", ErrNotRepo
+	}
+	return strings.TrimSpace(top), nil
+}
+
+// load diffs the working tree against base, adding untracked files.
+func load(root, base string) (*Diff, error) {
 	out, err := run(root, nil, "diff", base, "--no-color", "--no-ext-diff", "-U3")
 	if err != nil {
 		return nil, err
