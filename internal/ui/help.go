@@ -21,7 +21,8 @@ var helpTabs = helpSection{"Tabs", [][2]string{
 }}
 
 var helpGeneral = helpSection{"General", [][2]string{
-	{"!", "jump to the latest alert (error, waiting tool, end of turn, compaction, context 90%)"},
+	{"!", "jump to the latest alert (error, waiting tool, end of turn, compaction, context 90%, permission request)"},
+	{"A  D", "allow once / deny the session's permission request (needs snoop hooks install)"},
 	{"y", "copy the selection: a command, diff, file content, message or result (Files: the file's changes)"},
 	{"e", "export the timeline as shown to Markdown in the current directory"},
 	{"esc", "clear search and filter, then go back"},
@@ -72,10 +73,12 @@ var helpBoard = []helpSection{
 		{"g  G", "first / last"},
 		{"enter  →", "open the session; esc comes back here"},
 		{"esc  w", "back to the session picker"},
+		{"A  D", "allow once / deny the selected session's permission request (needs snoop hooks install)"},
 		{"o", "sort by the next column: state, project, session, context, cost, age"},
 		{"O", "reverse the order"},
 	}},
 	{"States", [][2]string{
+		{"? asking", "the session asks for permission to use a tool; A allows it once, D denies it"},
 		{glyphPending + " waiting", "a tool call has had no result for --stall (30s): often a permission prompt"},
 		{glyphOK + " your turn", "the turn ended, or was interrupted"},
 		{"● working", "replying or running a tool or subagent"},

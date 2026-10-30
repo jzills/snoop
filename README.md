@@ -107,6 +107,7 @@ projects, most urgent first.
 
 | State | Meaning |
 | --- | --- |
+| `? asking` | the session asks for permission to use a tool, which you can answer here |
 | `◌ waiting` | a tool call has had no result for `--stall` (30s), usually a permission prompt |
 | `✓ your turn` | the turn ended, or you interrupted it |
 | `● working` | replying, or running a tool or subagent (shown underneath) |
@@ -117,6 +118,20 @@ Each row shows the project, the session, how full its context is, its cost
 and when it last wrote. Press `enter` to open a session and `esc` to come
 back, or `o` and `O` to sort by another column. Only sessions on the board are read, and after the first read, only
 what they add.
+
+**Answer permission prompts:** With snoop's hooks installed (see
+[Review and comment](#review-and-comment)), a session that asks for
+permission shows as `? asking` on the board, with the request in full under
+the list: the command, the edit's diff, or the tool's input. Press `A` to
+allow it once, or `D` to deny it, optionally with a reason that Claude sees.
+The same keys work in the session's own view, where its footer shows the
+request. Claude Code's own prompt still appears in the session's terminal,
+and whichever answer comes first wins.
+
+The hook waits for an answer only while a live board or session view is
+open, for at most 5 minutes (set with `snoop hooks install --ask-wait 10m`),
+and answering in the terminal ends the wait at once. There is no "always
+allow" here, so rules stay in Claude Code's own prompt.
 
 **Find:** Pressing `f` in the picker finds sessions by a file they read or
 changed, a command they ran, or a prompt, subagents included. Every word must
@@ -150,12 +165,18 @@ The hooks run `snoop hook` after each tool call, when the agent tries to
 finish, and when you submit a prompt. The agent sees your comments at the
 first of these, so a working agent gets them mid-turn and an agent that has
 finished keeps going. The footer shows when they are delivered. Without the
-hooks, `S` copies the comments to the clipboard instead.
+hooks, `S` copies the comments to the clipboard instead. A fourth hook runs
+when a session asks for permission, so the live board can
+[answer it](#many-sessions-at-once). If you installed the hooks before that
+hook existed, `snoop hooks status` says so, and running `snoop hooks install`
+again adds it.
 
 The hooks are the only change snoop makes to Claude Code's settings, and
 `snoop hooks uninstall` removes exactly those entries. Sent comments wait in a
 `snoop/inbox` folder in your state directory (`~/.local/state` on Linux) until
-a hook delivers them. A session that was already running may need a restart
+a hook delivers them. Permission requests wait in `snoop/asks` beside it, and
+open snoops refresh a small `snoop/listening` file every 2 seconds, which is
+how the hook knows to wait. A session that was already running may need a restart
 before it uses the hooks.
 
 ## Summary across sessions
@@ -200,14 +221,15 @@ attention:
 | `✓ your turn` | Claude finishes |
 | `⟳ compacted` | the context is compacted |
 | `ctx 90%` | the context window passes 90% |
+| `? Bash: npm test` | the session asks for permission (needs the hooks) |
 
 Any key hides the alert, and pressing `!` jumps to it. Lines already in the
 transcript when it opens never raise alerts.
 
 ```
-snoop --follow --bell                    # ring the bell on errors and turn ends
+snoop --follow --bell                    # ring the bell on errors, turn ends and permission requests
 snoop --live --notify                    # a desktop notification when any session needs you
-snoop --follow --bell --alerts error,stall,turn,compact,ctx
+snoop --follow --bell --alerts error,stall,turn,compact,ctx,ask
 snoop --stall 2m                         # 0 disables the waiting alert
 ```
 
@@ -255,6 +277,7 @@ Press `?` anywhere for the keys of the current screen. The full list follows.
 | `1 2 3 4 5`, `[ ]` | switch tabs |
 | `esc` | clear the search or filter, then go back |
 | `!` | jump to the latest alert |
+| `A` / `D` | allow once / deny the session's permission request |
 | `y` / `e` | copy the selection / export the view to Markdown |
 | `?` | every key for the current screen |
 | `q` | quit |

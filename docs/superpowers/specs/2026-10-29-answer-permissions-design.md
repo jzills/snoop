@@ -1,6 +1,6 @@
 # Answering permission prompts — design
 
-Status: approved 2026-10-29; spike done (see "Spike results"), which changed the default wait to 5 minutes and added the hook-PID check.
+Status: implemented 2026-10-30. Deviations: after the spike, the default wait is 5 minutes (1s to 30m) and a request whose hook has exited counts as gone; leftover files are deleted after 40 minutes rather than a minute past their deadline; the board keeps the app's requests in a field rather than taking them as a parameter; the PermissionRequest hook uses the matcher "*", like PostToolUse; the board's screenshot of a request is a separate ask.png, as live.png is too short for it.
 
 ## Spike results (2026-10-29, Claude Code 2.1.314)
 

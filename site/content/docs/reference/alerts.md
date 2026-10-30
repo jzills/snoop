@@ -17,6 +17,7 @@ alerts.
 | `turn` | `✓ your turn` | Claude finishes a turn |
 | `compact` | `⟳ compacted` | the context is compacted |
 | `ctx` | `ctx 90%` | the context window passes 90% |
+| `ask` | `? Bash: npm test` | the session asks for permission to use a tool. Needs snoop's hooks; press `A` or `D` to answer |
 
 Any key hides the alert. Press `!` to jump to the event that raised it.
 
@@ -28,7 +29,7 @@ raise `stall`.
 The bell and desktop notifications are both off by default. With `--bell`,
 snoop rings the terminal bell, and with `--notify` it sends a desktop
 notification, both for the alerts chosen with `--alerts` (by default
-`error,turn`):
+`error,turn,ask`):
 
 ```sh
 snoop --follow --bell
