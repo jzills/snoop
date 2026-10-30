@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jzills/snoop/internal/parse"
+	"github.com/jzills/snoop/internal/review"
 	"github.com/jzills/snoop/internal/store"
 )
 
@@ -29,18 +30,21 @@ type rowStatus int
 
 // In display order.
 const (
-	rowWaiting rowStatus = iota
+	rowAsking rowStatus = iota
+	rowWaiting
 	rowYourTurn
 	rowWorking
 	rowIdle
 )
 
 func (s rowStatus) String() string {
-	return [...]string{"waiting", "your turn", "working", "idle"}[s]
+	return [...]string{"asking", "waiting", "your turn", "working", "idle"}[s]
 }
 
 func (s rowStatus) render(sel func(lipgloss.Style) lipgloss.Style) string {
 	switch s {
+	case rowAsking:
+		return sel(sAccent.Bold(true)).Render("? asking")
 	case rowWaiting:
 		return sel(sAccent.Bold(true)).Render(glyphPending + " waiting")
 	case rowYourTurn:
@@ -126,6 +130,8 @@ type board struct {
 
 	alert      *alert
 	alertShown bool
+
+	asks map[string][]review.Request // the app's, by session
 }
 
 func newBoard(root string) *board {
@@ -268,6 +274,12 @@ func (b *board) arrange(now time.Time, stall time.Duration) {
 	b.order = b.order[:0]
 	for _, r := range b.rows {
 		r.status, r.detail = rowState(r.f.Sess, r.info.Path, r.last, now, stall)
+		if rs := b.asks[r.info.ID]; len(rs) > 0 {
+			r.status, r.detail = rowAsking, askSummary(rs[0])
+			if len(rs) > 1 {
+				r.detail += fmt.Sprintf("  (1 of %d)", len(rs))
+			}
+		}
 		b.order = append(b.order, r)
 	}
 	cmp := boardCols[b.sort.col].cmp
@@ -320,7 +332,7 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	var sb strings.Builder
 	waiting := 0
 	for _, r := range b.order {
-		if r.status == rowWaiting {
+		if r.status == rowWaiting || r.status == rowAsking {
 			waiting++
 		}
 	}
@@ -336,6 +348,24 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	sb.WriteString(topBar(right, w) + "\n")
 
 	bodyH := h - 5
+	// The selected session's request, in full, under the list.
+	var panel []string
+	if b.cursor < len(b.order) {
+		if rs := b.asks[b.order[b.cursor].info.ID]; len(rs) > 0 {
+			panel = strings.Split(renderRequest(rs[0], max(w-4, 10)), "\n")
+			panel = panel[:min(len(panel), max(bodyH/2-3, 1))]
+			title := "Request"
+			if len(rs) > 1 {
+				title += fmt.Sprintf(" 1 of %d", len(rs))
+			}
+			// section's top margin is the blank line above the title.
+			panel = append(strings.Split(section(" "+title), "\n"), panel...)
+			for i := 2; i < len(panel); i++ {
+				panel[i] = "   " + panel[i]
+			}
+			bodyH -= len(panel)
+		}
+	}
 	stateW, projW, ctxW, costW, ageW := 12, min(20, w/6), 9, 8, 6
 	nameW := max(w-(1+stateW+2+projW+2+ctxW+2+costW+2+ageW+2), 10)
 	hd := b.sort.head
@@ -397,11 +427,18 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 		}
 		sb.WriteString(fit(st(sText).Render(" ")+strings.Repeat(" ", stateW+2)+detailStyle.Render(oneLine(r.detail)), w) + "\n")
 	}
-	if pad := h - 2 - strings.Count(sb.String(), "\n"); pad > 0 {
+	if pad := h - 2 - len(panel) - strings.Count(sb.String(), "\n"); pad > 0 {
 		sb.WriteString(strings.Repeat("\n", pad))
 	}
+	for _, l := range panel {
+		sb.WriteString(fit(l, w) + "\n")
+	}
 	sb.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
-	sb.WriteString(fit(" "+keyHelp("↑↓", "move", "enter", "open", "o", "sort", "esc", "sessions", "?", "help"), w))
+	help := keyHelp("↑↓", "move", "enter", "open", "o", "sort", "esc", "sessions", "?", "help")
+	if panel != nil {
+		help = keyHelp("A", "allow once", "D", "deny", "↑↓", "move", "enter", "open", "?", "help")
+	}
+	sb.WriteString(fit(" "+help, w))
 	return sb.String()
 }
 

@@ -17,8 +17,9 @@ Comments reach the agent through Claude Code hooks. Run this once:
 snoop hooks install
 ```
 
-It adds three entries to `~/.claude/settings.json`, keeping everything else
-in the file. With `--project`, it uses `.claude/settings.json` in the current
+It adds four entries to `~/.claude/settings.json`, keeping everything else
+in the file. Three deliver comments, and the fourth lets the live board
+[answer permission prompts](../live-board/#answer-permission-prompts). With `--project`, it uses `.claude/settings.json` in the current
 directory instead. Run `snoop hooks status` to check them, and
 `snoop hooks uninstall` to remove them. A session that was already running
 may need a restart before it uses the hooks.

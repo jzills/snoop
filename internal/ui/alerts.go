@@ -18,10 +18,11 @@ const (
 	alertTurn    = "turn"
 	alertCompact = "compact"
 	alertContext = "ctx"
+	alertAsk     = "ask"
 )
 
 // AlertKinds lists the alert names --alerts accepts.
-var AlertKinds = []string{alertError, alertStall, alertTurn, alertCompact, alertContext}
+var AlertKinds = []string{alertError, alertStall, alertTurn, alertCompact, alertContext, alertAsk}
 
 const ctxAlertPct = 90
 
@@ -30,6 +31,7 @@ type alert struct {
 	text string       // shown in the header
 	note string       // a notification's text: what happened, without glyphs
 	ev   *parse.Event // what ! jumps to
+	id   string       // what the alert is about, when not an event: a request's ID
 
 	// The session it came from, set by whoever raises it.
 	path, title string
@@ -39,7 +41,10 @@ type alert struct {
 // watching the session, so only one of them notifies.
 func (a *alert) key() string {
 	id := a.text
-	if a.ev != nil {
+	switch {
+	case a.id != "":
+		id = a.id
+	case a.ev != nil:
 		id = a.ev.UUID
 		if a.ev.Tool != nil {
 			id = a.ev.Tool.ID
@@ -56,6 +61,8 @@ func (a *alert) render() string {
 		return sOK.Render(a.text)
 	case alertStall:
 		return sAccent.Render(a.text)
+	case alertAsk:
+		return sAccent.Bold(true).Render(a.text)
 	}
 	return sDim.Render(a.text)
 }

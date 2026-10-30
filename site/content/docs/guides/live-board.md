@@ -19,6 +19,7 @@ You can also press `w` in the session picker.
 
 | State | Meaning |
 | --- | --- |
+| `? asking` | the session asks for permission to use a tool, which you can answer here |
 | `◌ waiting` | a tool call has had no result for 30 seconds, usually a permission prompt |
 | `✓ your turn` | the turn ended, or you interrupted it |
 | `● working` | replying, or running a tool or subagent |
@@ -39,6 +40,40 @@ The waiting threshold is `--stall`, 30 seconds by default. Permission
 prompts aren't recorded in the transcript until you answer them, so a tool
 call with no result is the closest sign of one.
 
+## Answer permission prompts
+
+When a session asks for permission to use a tool, its row shows `? asking`
+and what it wants, such as `Bash: npm test`. Selecting the row shows the
+request in full under the list: the command and its description, the
+edit's diff, or the tool's input, with the folder it runs in.
+
+{{< shot src="ask.png" width="960" height="460" alt="The live board with a session asking to run an npm command, and the request in full under the list" caption="The selected session asks to run its e2e tests, and the request is shown in full under the list." >}}
+
+Press `A` to allow it once, or `D` to deny it. After `D`, you can type a
+reason, which Claude sees, and press `enter`, or press `esc` to cancel. The
+same keys work in the session's own view, whose footer shows the request.
+When a session has several requests, such as from parallel subagents, the
+keys answer the oldest.
+
+This needs snoop's hooks, which you add once:
+
+```sh
+snoop hooks install
+```
+
+Claude Code's own prompt still appears in the session's terminal, and
+whichever answer comes first wins. The hook waits for snoop only while a
+live board or session view is open, for at most 5 minutes; to change that,
+pass `--ask-wait`, such as `snoop hooks install --ask-wait 10m`. With no
+snoop open, the hook returns at once. There is no "always allow" here, so
+permission rules stay in Claude Code's own prompt.
+
+{{< callout type="info" >}}
+Sessions that can't show a prompt, such as background subagents in
+non-interactive mode, deny a request no hook answers. That's Claude Code's
+behavior with or without snoop.
+{{< /callout >}}
+
 ## Notifications
 
 Add `--notify` to get a desktop notification when a session needs you:
@@ -54,7 +89,8 @@ api · Fix the flaky test
 Your turn · finished after 2m10s
 ```
 
-By default snoop notifies when a turn ends and when a tool call fails. Choose
+By default snoop notifies when a turn ends, when a tool call fails, and when
+a session asks for permission (`Bash wants to run npm test`). Choose
 others with `--alerts`, for example `--alerts turn,stall,error` to include
 sessions waiting on a tool call.
 
