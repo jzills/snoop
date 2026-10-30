@@ -315,7 +315,7 @@ func (v *view) move(d int) {
 }
 
 // inputActive reports whether keys are going to a text input.
-func (v *view) inputActive() bool { return v.typing || v.rev.typing }
+func (v *view) inputActive() bool { return v.typing || v.rev.typing || v.rev.picking }
 
 func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 	if k, ok := msg.(tea.KeyMsg); ok {
@@ -710,6 +710,9 @@ func (v *view) footer(w int) string {
 	}
 	if v.tab == tabDiff {
 		help := keyHelp("tab", "lines", "c", "comment", "S", "send", "?", "help")
+		if v.rev.picking {
+			return fit(" "+keyHelp("↑↓", "move", "enter", "compare", "esc", "cancel"), w)
+		}
 		if !v.focusR {
 			help = keyHelp("enter", "lines", "C", "comment on file", "S", "send", "?", "help")
 		}

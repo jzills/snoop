@@ -26,6 +26,7 @@ instead. It never writes to these files.
 | `<state>/snoop/inbox/<session>/` | comments sent from the Diff tab, one file per send, removed once a hook delivers them |
 | `<state>/snoop/asks/<session>/` | permission requests waiting for an answer, one file per request, and snoop's answers; removed once answered or given up on |
 | `<state>/snoop/listening` | rewritten every 2 seconds while a live board or session view is open, so the permission hook knows to wait |
+| `.git/config` of the session's repository | `branch.<name>.snoopBase`, only when you choose a base with `B` in the Diff tab |
 | `~/.claude/settings.json` | snoop's four hook entries, only when you run `snoop hooks install`; `snoop hooks uninstall` removes them |
 
 Here `<cache>` is your user cache directory:

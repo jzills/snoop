@@ -198,6 +198,8 @@ var helpDiff = []helpSection{
 		{"g  G", "first / last file"},
 		{"enter  tab  →", "move into the file's lines"},
 		{"", "files this session changed come first; the others are dimmed"},
+		{"b", "switch between the uncommitted changes and the whole branch since it left its base"},
+		{"B", "choose the base (saved for the branch in git config)"},
 		{"r", "read the diff again (it also refreshes as the session edits files)"},
 	}},
 	{"Lines", [][2]string{

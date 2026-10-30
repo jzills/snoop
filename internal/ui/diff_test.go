@@ -106,6 +106,8 @@ func runCmd(a *App, cmd tea.Cmd) {
 	case reviewPollMsg:
 		_, next := a.Update(m)
 		runCmd(a, next)
+	case basesMsg, baseSavedMsg:
+		a.Update(m)
 	case tea.BatchMsg:
 		for _, c := range m {
 			runCmd(a, c)

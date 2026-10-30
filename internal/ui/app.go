@@ -264,6 +264,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case diffMsg:
 		msg.v.onDiff(msg)
 		return a, nil
+	case basesMsg:
+		msg.v.onBases(msg)
+		return a, nil
+	case baseSavedMsg:
+		if msg.err != nil {
+			msg.v.flash = sDim.Render(" comparing with " + msg.base + " for now; not saved: " + msg.err.Error())
+		} else {
+			msg.v.flash = sDim.Render(" comparing with " + msg.base + ", saved for this branch")
+		}
+		return a, nil
 	case sentMsg:
 		return a, msg.v.onSent(msg)
 	case reviewPollMsg:
