@@ -72,8 +72,12 @@ function Install-Snoop {
         Expand-Archive -Path (Join-Path $tmp $archive) -DestinationPath (Join-Path $tmp 'x')
         $exe = Join-Path $tmp 'x\snoop\snoop.exe'
         if (-not (Test-Path $exe)) { Fail "$archive has no snoop\snoop.exe" }
-        $reported = & $exe --version 2>&1 | Select-Object -First 1
-        if ($LASTEXITCODE -ne 0) { Fail "the downloaded snoop doesn't run on this machine: $reported" }
+        # All of the output first: taking one line mid-pipeline stops snoop
+        # early and leaves a failing exit code.
+        $output = @(& $exe --version 2>&1)
+        $code = $LASTEXITCODE
+        $reported = "$($output | Select-Object -First 1)"
+        if ($code -ne 0) { Fail "the downloaded snoop doesn't run on this machine: $reported" }
 
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $target = Join-Path $dir 'snoop.exe'
