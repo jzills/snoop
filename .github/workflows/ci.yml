@@ -83,6 +83,7 @@ jobs:
         run: |
           shellcheck scripts/*.sh demo/*.sh
           shellcheck -s sh site/static/install.sh
+          python3 -m py_compile scripts/wheels.py
 
       - name: Build every target
         run: scripts/build_binaries.sh 0.0.0-dev
@@ -92,6 +93,92 @@ jobs:
 
       - name: Render the Homebrew formula
         run: scripts/homebrew_formula.sh 0.0.0-dev
+
+      - name: Build and check the npm, PyPI and Windows packages
+        run: |
+          scripts/npm_packages.sh 0.0.0-dev
+          python3 scripts/wheels.py 0.0.0-dev
+          scripts/windows_manifests.sh 0.0.0-dev
+          scripts/check_packages.sh 0.0.0-dev
+
+      - name: Upload the packages for the macOS and Windows checks
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: |
+            dist/snoop_*.zip
+            dist/npm/
+            dist/wheels/*.whl
+          if-no-files-found: error
+          retention-days: 3
+
+  # The Linux job installs the packages on Linux; this installs them where
+  # their launchers and paths differ, and on Windows runs install.ps1
+  # against a local copy of the release.
+  packages:
+    name: Packages on ${{ matrix.os }}
+    needs: binaries
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: packages
+          path: dist
+
+      - name: npm
+        run: |
+          tmp="$RUNNER_TEMP/npm"
+          mkdir -p "$tmp/tgz"
+          for dir in dist/npm/*/; do (cd "$dir" && npm pack --silent --pack-destination "$tmp/tgz" >/dev/null); done
+          platform="$(node -p 'process.platform + "-" + process.arch')"
+          npm install --prefix "$tmp/app" --offline --omit=optional --no-audit --no-fund \
+            "$tmp/tgz/snoop-cli-0.0.0-dev.tgz" "$tmp/tgz/jzills-snoop-cli-$platform-0.0.0-dev.tgz"
+          out="$(node "$tmp/app/node_modules/snoop-cli/bin/snoop.js" --version | head -1)"
+          echo "$out"
+          [ "$out" = "snoop v0.0.0-dev" ]
+
+      - name: PyPI
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          bin="$RUNNER_TEMP/venv/bin"
+          if [ "$RUNNER_OS" = Windows ]; then bin="$RUNNER_TEMP/venv/Scripts"; fi
+          "$bin/python" -m pip install --quiet --pre --no-index --find-links dist/wheels snoop-cli
+          out="$("$bin/snoop" --version | head -1)"
+          echo "$out"
+          [ "$out" = "snoop v0.0.0-dev" ]
+
+      - name: install.ps1
+        if: runner.os == 'Windows'
+        run: |
+          # A release as the script sees it: latest/download/ with the
+          # version-free zips and SHA256SUMS.
+          serve="$RUNNER_TEMP/serve/latest/download"
+          mkdir -p "$serve"
+          cp dist/snoop_windows_*.zip "$serve/"
+          (cd "$serve" && sha256sum snoop_windows_*.zip > SHA256SUMS)
+          (cd "$RUNNER_TEMP/serve" && python -m http.server 8765 --bind 127.0.0.1 >/dev/null 2>&1 &)
+          sleep 2
+          export SNOOP_INSTALL_BASE_URL=http://127.0.0.1:8765
+          for ps in pwsh powershell; do
+            export SNOOP_INSTALL_DIR="$RUNNER_TEMP/install-$ps"
+            "$ps" -NoProfile -ExecutionPolicy Bypass -File site/static/install.ps1
+            out="$("$SNOOP_INSTALL_DIR/snoop.exe" --version | head -1)"
+            echo "$ps: $out"
+            [ "$out" = "snoop v0.0.0-dev" ]
+          done
+          # Installing again replaces the binary in place.
+          SNOOP_INSTALL_DIR="$RUNNER_TEMP/install-pwsh" pwsh -NoProfile -File site/static/install.ps1
 
   # Linux runs the install script's tests in the test job; macOS is here
   # because its shasum, uname, BSD tar and mktemp are what the script meets

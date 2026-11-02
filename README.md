@@ -21,13 +21,29 @@ waterfall, an expanded subagent, the Files tab and Stats](demo/demo.gif)
 ```
 brew install jzills/tap/snoop                      # macOS and Linux
 curl -fsSL https://jzills.github.io/snoop/install.sh | sh
+npm install -g snoop-cli                           # or: pipx install snoop-cli
 go install github.com/jzills/snoop/cmd/snoop@latest
 ```
+
+On Windows, use winget, Scoop or the PowerShell script:
+
+```
+winget install jzills.snoop
+scoop bucket add jzills https://github.com/jzills/scoop-bucket; scoop install snoop
+irm https://jzills.github.io/snoop/install.ps1 | iex
+```
+
+Every method installs the same `snoop` command. On npm and PyPI the package
+is named `snoop-cli`, since `snoop` was taken, and it carries the binary for
+your platform, so nothing is downloaded or built when it installs. With
+`uv`, run `uv tool install snoop-cli`.
 
 The install script picks the build for your machine, checks it against the
 release's `SHA256SUMS`, and installs it to `~/.local/bin` without sudo. To
 install somewhere else, set `SNOOP_INSTALL_DIR`, and to install a given
-release instead of the newest, set `SNOOP_VERSION`, such as `v0.1.0`.
+release instead of the newest, set `SNOOP_VERSION`, such as `v0.1.0`. The
+PowerShell script does the same on Windows, installing to
+`%LOCALAPPDATA%\Programs\snoop` and adding it to your `PATH`.
 
 You can also download a binary for Linux, macOS or Windows from the
 [latest release](https://github.com/jzills/snoop/releases/latest). Each

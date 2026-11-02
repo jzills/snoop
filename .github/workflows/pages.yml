@@ -66,7 +66,9 @@ jobs:
           shopt -s nullglob
           compiled=(css/compiled/*.css)
           [ ${#compiled[@]} -gt 0 ] || { echo "::error::no compiled stylesheet; the site would publish unstyled"; exit 1; }
-          cmp install.sh ../static/install.sh || { echo "::error::install.sh is missing or differs from site/static/install.sh"; exit 1; }
+          for script in install.sh install.ps1; do
+            cmp "$script" "../static/$script" || { echo "::error::$script is missing or differs from site/static/$script"; exit 1; }
+          done
           for shot in timeline live; do
             [ -s "shots/$shot.png" ] || { echo "::error::shots/$shot.png is missing; render it with demo/shots.sh"; exit 1; }
           done
