@@ -7,7 +7,10 @@
 #
 #   scripts/npm_packages.sh <version> [dist]
 #
-# Writes dist/npm/snoop-cli/ and dist/npm/snoop-cli-<platform>-<arch>/.
+# Writes dist/npm/snoop-cli/ and dist/npm/snoop-cli-<platform>-<arch>/, and
+# packs each into dist/npm-packs/*.tgz. The release publishes the tarballs,
+# not the folders: they keep the binaries' executable bit, which a workflow
+# artifact drops.
 set -euo pipefail
 
 version="${1:?usage: npm_packages.sh <version> [dist]}"
@@ -89,5 +92,13 @@ $optional
 }
 JSON
 
-echo "npm packages in $out:"
-ls -1 "$out"
+packs="$dist/npm-packs"
+rm -rf "$packs"
+mkdir -p "$packs"
+packs="$(cd "$packs" && pwd)"
+for dir in "$out"/*/; do
+  (cd "$dir" && npm pack --silent --pack-destination "$packs" >/dev/null)
+done
+
+echo "npm packages in $packs:"
+ls -1 "$packs"

@@ -72,7 +72,7 @@ jobs:
             dist/snoop_*.zip
             dist/SHA256SUMS
             dist/snoop.rb
-            dist/npm/
+            dist/npm-packs/*.tgz
             dist/wheels/*.whl
             dist/scoop/snoop.json
             dist/winget/*.yaml
@@ -202,14 +202,14 @@ jobs:
           if [ -n "$NPM_TOKEN" ]; then
             echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$HOME/.npmrc"
           fi
-          cd "$RUNNER_TEMP/release/npm"
-          for dir in snoop-cli-*/ snoop-cli/; do
-            name="$(node -p "require('./${dir}package.json').name")"
+          cd "$RUNNER_TEMP/release/npm-packs"
+          for tgz in jzills-snoop-cli-*.tgz snoop-cli-*.tgz; do
+            name="$(tar -xOzf "$tgz" package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).name')"
             if npm view "${name}@${VERSION}" version >/dev/null 2>&1; then
               echo "${name}@${VERSION} is already published"
               continue
             fi
-            (cd "$dir" && npm publish --provenance --access public)
+            npm publish "./$tgz" --provenance --access public
           done
 
   # Uploads the wheels with PyPI trusted publishing: add a (pending)

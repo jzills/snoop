@@ -61,8 +61,9 @@ function Install-Snoop {
 
         $expected = $null
         foreach ($line in Get-Content (Join-Path $tmp 'SHA256SUMS')) {
+            # "<hash>  <name>", or "<hash> *<name>" from a sha256sum in binary mode.
             $fields = $line -split '\s+', 2
-            if ($fields.Count -eq 2 -and $fields[1] -eq $archive) { $expected = $fields[0] }
+            if ($fields.Count -eq 2 -and $fields[1].TrimStart('*') -eq $archive) { $expected = $fields[0] }
         }
         if (-not $expected) { Fail "$archive is not listed in the release's SHA256SUMS; refusing to install it" }
         $actual = (Get-FileHash -Algorithm SHA256 (Join-Path $tmp $archive)).Hash

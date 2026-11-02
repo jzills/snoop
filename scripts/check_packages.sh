@@ -23,16 +23,17 @@ expect() {
   echo "$what: $out"
 }
 
-# npm: pack every package, then install the main one with the Linux x64
-# one beside it. --omit=optional and --offline keep npm from looking for the
-# other platforms' packages, which aren't published yet.
-mkdir -p "$tmp/tgz"
-for dir in "$dist"/npm/*/; do
-  (cd "$dir" && npm pack --silent --pack-destination "$tmp/tgz" >/dev/null)
+# npm: install the main package with the Linux x64 one beside it, from the
+# tarballs the release publishes. --omit=optional and --offline keep npm from
+# looking for the other platforms' packages, which aren't published yet.
+packs="$dist/npm-packs"
+test "$(find "$packs" -name '*.tgz' | wc -l)" -eq 7 || { echo "expected 7 npm packages" >&2; exit 1; }
+for f in "$packs"/jzills-snoop-cli-*.tgz; do
+  listing="$(tar -tvzf "$f")"
+  grep -q '^-rwx.* package/bin/snoop' <<<"$listing" || { echo "$f: the binary isn't executable" >&2; exit 1; }
 done
-test "$(find "$tmp/tgz" -name '*.tgz' | wc -l)" -eq 7 || { echo "expected 7 npm packages" >&2; exit 1; }
 npm install --global --prefix "$tmp/npm" --offline --omit=optional --no-audit --no-fund \
-  "$tmp/tgz/snoop-cli-$version.tgz" "$tmp/tgz/jzills-snoop-cli-linux-x64-$version.tgz" >/dev/null
+  "$packs/snoop-cli-$version.tgz" "$packs/jzills-snoop-cli-linux-x64-$version.tgz" >/dev/null
 expect npm "$tmp/npm/bin/snoop"
 
 # PyPI: one wheel per target, and the Linux x64 one installs into a fresh
