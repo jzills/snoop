@@ -48,6 +48,21 @@ jobs:
       - name: Render the Homebrew formula
         run: scripts/homebrew_formula.sh "${{ steps.version.outputs.value }}" > dist/snoop.rb
 
+      # The npm packages and PyPI wheels carry the binaries built above.
+      - name: Build the npm packages
+        run: scripts/npm_packages.sh "${{ steps.version.outputs.value }}"
+
+      - name: Build the PyPI wheels
+        run: python3 scripts/wheels.py "${{ steps.version.outputs.value }}"
+
+      - name: Render the Scoop and winget manifests
+        run: scripts/windows_manifests.sh "${{ steps.version.outputs.value }}"
+
+      # Installs each package the way users will and runs it, so a broken
+      # package stops the release before anything is published.
+      - name: Check the packages
+        run: scripts/check_packages.sh "${{ steps.version.outputs.value }}"
+
       - name: Upload release files
         uses: actions/upload-artifact@v7
         with:
@@ -57,6 +72,10 @@ jobs:
             dist/snoop_*.zip
             dist/SHA256SUMS
             dist/snoop.rb
+            dist/npm-packs/*.tgz
+            dist/wheels/*.whl
+            dist/scoop/snoop.json
+            dist/winget/*.yaml
           if-no-files-found: error
 
   # The approval gate. Give the `release` environment a required reviewer
@@ -148,3 +167,163 @@ jobs:
           fi
           git commit -m "snoop ${{ needs.build.outputs.version }}"
           git push
+
+  # Publishes the six platform packages, then snoop-cli, which depends on
+  # them. Turned on by the repository variable NPM_PUBLISH=true. The first
+  # release needs an NPM_TOKEN secret (a granular token that can publish);
+  # once each package lists this workflow as a trusted publisher on
+  # npmjs.com, delete the token and publishing uses OIDC. A version already
+  # on npm is skipped, so a rerun picks up where a failed one stopped.
+  npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: [build, github-release]
+    if: vars.NPM_PUBLISH == 'true'
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - name: Update npm
+        run: npm install --global npm@11
+
+      - name: Publish
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$HOME/.npmrc"
+          fi
+          cd "$RUNNER_TEMP/release/npm-packs"
+          for tgz in jzills-snoop-cli-*.tgz snoop-cli-*.tgz; do
+            name="$(tar -xOzf "$tgz" package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).name')"
+            if npm view "${name}@${VERSION}" version >/dev/null 2>&1; then
+              echo "${name}@${VERSION} is already published"
+              continue
+            fi
+            npm publish "./$tgz" --provenance --access public
+          done
+
+  # Uploads the wheels with PyPI trusted publishing: add a (pending)
+  # publisher on pypi.org for project snoop-cli, this repository and
+  # release.yml, then set the repository variable PYPI_PUBLISH=true. No token.
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [build, github-release]
+    if: vars.PYPI_PUBLISH == 'true'
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+    steps:
+      - name: Download the wheels
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ runner.temp }}/release/wheels/
+          skip-existing: true
+
+  # Commits the manifest to jzills/scoop-bucket. Needs a SCOOP_BUCKET_TOKEN
+  # secret: a fine-grained token with Contents read and write on that repo
+  # only. Skipped, not failed, when the secret is absent.
+  scoop:
+    name: Update Scoop bucket
+    runs-on: ubuntu-latest
+    needs: [build, github-release]
+    timeout-minutes: 10
+    env:
+      BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+    steps:
+      - name: Check for the bucket token
+        id: token
+        run: |
+          if [ -z "$BUCKET_TOKEN" ]; then
+            echo "::warning::SCOOP_BUCKET_TOKEN is not set; the Scoop bucket was not updated."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the bucket
+        if: steps.token.outputs.present == 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: jzills/scoop-bucket
+          token: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          path: bucket
+
+      - name: Download the manifest
+        if: steps.token.outputs.present == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+
+      - name: Commit the manifest
+        if: steps.token.outputs.present == 'true'
+        run: |
+          mkdir -p bucket/bucket
+          cp "$RUNNER_TEMP/release/scoop/snoop.json" bucket/bucket/snoop.json
+          cd bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/snoop.json
+          if git diff --cached --quiet; then
+            echo "manifest unchanged"
+            exit 0
+          fi
+          git commit -m "snoop ${{ needs.build.outputs.version }}"
+          git push
+
+  # Opens a pull request to microsoft/winget-pkgs with the manifests, using
+  # wingetcreate. Needs a WINGET_TOKEN secret: a classic token with the
+  # public_repo scope, from an account with a fork of winget-pkgs. Microsoft
+  # reviews the first version by hand. Skipped, not failed, without the
+  # secret.
+  winget:
+    name: Submit to winget
+    runs-on: windows-latest
+    needs: [build, github-release]
+    timeout-minutes: 15
+    env:
+      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+    steps:
+      - name: Check for the winget token
+        id: token
+        shell: bash
+        run: |
+          if [ -z "$WINGET_TOKEN" ]; then
+            echo "::warning::WINGET_TOKEN is not set; nothing was submitted to winget."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download the manifests
+        if: steps.token.outputs.present == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+
+      - name: Submit
+        if: steps.token.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -UseBasicParsing https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe submit --token $env:WINGET_TOKEN `
+            --prtitle "jzills.snoop version ${{ needs.build.outputs.version }}" `
+            "$env:RUNNER_TEMP\release\winget"
