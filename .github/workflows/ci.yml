@@ -94,11 +94,10 @@ jobs:
       - name: Render the Homebrew formula
         run: scripts/homebrew_formula.sh 0.0.0-dev
 
-      - name: Build and check the npm, PyPI and Windows packages
+      - name: Build and check the npm and PyPI packages
         run: |
           scripts/npm_packages.sh 0.0.0-dev
           python3 scripts/wheels.py 0.0.0-dev
-          scripts/windows_manifests.sh 0.0.0-dev
           scripts/check_packages.sh 0.0.0-dev
 
       - name: Upload the packages for the macOS and Windows checks
