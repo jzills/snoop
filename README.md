@@ -25,11 +25,9 @@ npm install -g snoop-cli                           # or: pipx install snoop-cli
 go install github.com/jzills/snoop/cmd/snoop@latest
 ```
 
-On Windows, use winget, Scoop or the PowerShell script:
+On Windows, use npm, PyPI or the PowerShell script:
 
 ```
-winget install jzills.snoop
-scoop bucket add jzills https://github.com/jzills/scoop-bucket; scoop install snoop
 irm https://jzills.github.io/snoop/install.ps1 | iex
 ```
 

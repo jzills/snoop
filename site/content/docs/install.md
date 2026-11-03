@@ -52,20 +52,7 @@ with `npm update -g snoop-cli`, `pipx upgrade snoop-cli` or
 `uv tool upgrade snoop-cli`.
   {{< /tab >}}
   {{< tab name="Windows" >}}
-Install it with winget:
-
-```powershell
-winget install jzills.snoop
-```
-
-Or with Scoop, from the snoop bucket:
-
-```powershell
-scoop bucket add jzills https://github.com/jzills/scoop-bucket
-scoop install snoop
-```
-
-Or with the PowerShell script, which checks the download against the
+Install it with the PowerShell script, which checks the download against the
 release's `SHA256SUMS`, installs `snoop.exe` to
 `%LOCALAPPDATA%\Programs\snoop` and adds that folder to your `PATH`:
 
@@ -74,7 +61,8 @@ irm https://jzills.github.io/snoop/install.ps1 | iex
 ```
 
 The script reads `SNOOP_INSTALL_DIR` and `SNOOP_VERSION` like the shell
-script. Builds cover Windows on x64 and arm64.
+script. Builds cover Windows on x64 and arm64. The npm and PyPI packages
+work on Windows too.
   {{< /tab >}}
   {{< tab name="Go" >}}
 With Go 1.26 or later installed, run:
@@ -110,8 +98,7 @@ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc   # or ~/.bashrc
 
 Run the same install command again to update; it replaces the binary in
 place. To uninstall, use the package manager you installed with (such as
-`npm uninstall -g snoop-cli`, `pipx uninstall snoop-cli`,
-`winget uninstall jzills.snoop` or `scoop uninstall snoop`), or delete the
+`npm uninstall -g snoop-cli` or `pipx uninstall snoop-cli`), or delete the
 binary, and optionally the cache described in
 [What snoop reads and writes](../reference/data/):
 

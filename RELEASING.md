@@ -35,15 +35,8 @@ publishes.
    project `snoop-cli`, owner `jzills`, repository `snoop`, workflow
    `release.yml` (no environment), then set the repository variable
    `PYPI_PUBLISH` to `true`. No token is needed.
-8. **Scoop** (optional): create the public repository `jzills/scoop-bucket`
-   and a `SCOOP_BUCKET_TOKEN` secret, a fine-grained token with *Contents:
-   read and write* on that repository only.
-9. **winget** (optional): fork `microsoft/winget-pkgs` to your account and
-   add a `WINGET_TOKEN` secret, a classic token with the `public_repo` scope.
-   Microsoft reviews the first version of `jzills.snoop` by hand, which can
-   take a few days; later versions usually merge on their own.
 
-Each of the last four is skipped while its variable or secret is missing,
+Each of the last two is skipped while its variable or secret is missing,
 and the others still publish.
 
 ## Each release
@@ -64,9 +57,7 @@ and the others still publish.
      and `SHA256SUMS`;
    - commits `Formula/snoop.rb` to the tap;
    - publishes `snoop-cli` and its six platform packages to npm, and the six
-     `snoop-cli` wheels to PyPI;
-   - commits `bucket/snoop.json` to the Scoop bucket, and opens a pull
-     request to `microsoft/winget-pkgs` for `jzills.snoop`.
+     `snoop-cli` wheels to PyPI.
 5. Check the install paths:
 
    ```
@@ -77,8 +68,7 @@ and the others still publish.
    pipx install snoop-cli && snoop --version
    ```
 
-   On Windows, also `winget install jzills.snoop` (once the winget pull
-   request merges), `scoop install snoop`, and
+   On Windows, also run
    `irm https://jzills.github.io/snoop/install.ps1 | iex`.
 
 A run stopped at the approval gate has published nothing. Delete the tag
@@ -92,7 +82,6 @@ scripts/check_archives.sh 0.1.0      # what CI and the release check
 scripts/homebrew_formula.sh 0.1.0    # the formula the release would commit
 scripts/npm_packages.sh 0.1.0        # dist/npm/: snoop-cli and its platform packages
 python3 scripts/wheels.py 0.1.0      # dist/wheels/: the PyPI wheels
-scripts/windows_manifests.sh 0.1.0   # dist/scoop/ and dist/winget/
 scripts/check_packages.sh 0.1.0      # installs the npm and PyPI packages and runs them
 ```
 

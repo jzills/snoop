@@ -55,9 +55,6 @@ jobs:
       - name: Build the PyPI wheels
         run: python3 scripts/wheels.py "${{ steps.version.outputs.value }}"
 
-      - name: Render the Scoop and winget manifests
-        run: scripts/windows_manifests.sh "${{ steps.version.outputs.value }}"
-
       # Installs each package the way users will and runs it, so a broken
       # package stops the release before anything is published.
       - name: Check the packages
@@ -74,8 +71,6 @@ jobs:
             dist/snoop.rb
             dist/npm-packs/*.tgz
             dist/wheels/*.whl
-            dist/scoop/snoop.json
-            dist/winget/*.yaml
           if-no-files-found: error
 
   # The approval gate. Give the `release` environment a required reviewer
@@ -235,95 +230,3 @@ jobs:
         with:
           packages-dir: ${{ runner.temp }}/release/wheels/
           skip-existing: true
-
-  # Commits the manifest to jzills/scoop-bucket. Needs a SCOOP_BUCKET_TOKEN
-  # secret: a fine-grained token with Contents read and write on that repo
-  # only. Skipped, not failed, when the secret is absent.
-  scoop:
-    name: Update Scoop bucket
-    runs-on: ubuntu-latest
-    needs: [build, github-release]
-    timeout-minutes: 10
-    env:
-      BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
-    steps:
-      - name: Check for the bucket token
-        id: token
-        run: |
-          if [ -z "$BUCKET_TOKEN" ]; then
-            echo "::warning::SCOOP_BUCKET_TOKEN is not set; the Scoop bucket was not updated."
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Check out the bucket
-        if: steps.token.outputs.present == 'true'
-        uses: actions/checkout@v7
-        with:
-          repository: jzills/scoop-bucket
-          token: ${{ secrets.SCOOP_BUCKET_TOKEN }}
-          path: bucket
-
-      - name: Download the manifest
-        if: steps.token.outputs.present == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: release
-          path: ${{ runner.temp }}/release
-
-      - name: Commit the manifest
-        if: steps.token.outputs.present == 'true'
-        run: |
-          mkdir -p bucket/bucket
-          cp "$RUNNER_TEMP/release/scoop/snoop.json" bucket/bucket/snoop.json
-          cd bucket
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add bucket/snoop.json
-          if git diff --cached --quiet; then
-            echo "manifest unchanged"
-            exit 0
-          fi
-          git commit -m "snoop ${{ needs.build.outputs.version }}"
-          git push
-
-  # Opens a pull request to microsoft/winget-pkgs with the manifests, using
-  # wingetcreate. Needs a WINGET_TOKEN secret: a classic token with the
-  # public_repo scope, from an account with a fork of winget-pkgs. Microsoft
-  # reviews the first version by hand. Skipped, not failed, without the
-  # secret.
-  winget:
-    name: Submit to winget
-    runs-on: windows-latest
-    needs: [build, github-release]
-    timeout-minutes: 15
-    env:
-      WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-    steps:
-      - name: Check for the winget token
-        id: token
-        shell: bash
-        run: |
-          if [ -z "$WINGET_TOKEN" ]; then
-            echo "::warning::WINGET_TOKEN is not set; nothing was submitted to winget."
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Download the manifests
-        if: steps.token.outputs.present == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: release
-          path: ${{ runner.temp }}/release
-
-      - name: Submit
-        if: steps.token.outputs.present == 'true'
-        shell: pwsh
-        run: |
-          Invoke-WebRequest -UseBasicParsing https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
-          .\wingetcreate.exe submit --token $env:WINGET_TOKEN `
-            --prtitle "jzills.snoop version ${{ needs.build.outputs.version }}" `
-            "$env:RUNNER_TEMP\release\winget"

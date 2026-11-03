@@ -1,6 +1,6 @@
 # More install paths: npm, PyPI and Windows — design
 
-Status: built 2026-11-02, not yet released. Deviations: npm and PyPI publishing are turned on by the repository variables `NPM_PUBLISH` and `PYPI_PUBLISH` (a secret can't gate a job, and trusted publishing has no secret to test for); the PyPI publisher has no environment, since a second job on the `release` environment would ask for approval again; winget manifests are written by `scripts/windows_manifests.sh` and submitted with `wingetcreate submit` rather than komac; the packaged README has its relative links made absolute (`scripts/package_readme.sh`).
+Status: built 2026-11-02, not yet released. Scoop and winget were built and then dropped on 2026-11-02 at the user's request; Windows is covered by `install.ps1`, npm and PyPI for now, and the sections on them below are kept for when they come back. Deviations: npm and PyPI publishing are turned on by the repository variables `NPM_PUBLISH` and `PYPI_PUBLISH` (a secret can't gate a job, and trusted publishing has no secret to test for); the PyPI publisher has no environment, since a second job on the `release` environment would ask for approval again; winget manifests are written by `scripts/windows_manifests.sh` and submitted with `wingetcreate submit` rather than komac; the packaged README has its relative links made absolute (`scripts/package_readme.sh`).
 
 ## Context
 
