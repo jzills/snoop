@@ -186,9 +186,16 @@ jobs:
           name: release
           path: ${{ runner.temp }}/release
 
-      # Trusted publishing needs npm 11.5.1 or later.
+      # Trusted publishing needs npm 11.5.1 or later. The runner's own Node
+      # is in a root-owned /usr/local, so npm can't update itself there; this
+      # one is in the tool cache, which the job owns.
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
       - name: Update npm
-        run: npm install --global npm@11
+        run: npm install --global npm@11 && npm --version
 
       - name: Publish
         run: |
