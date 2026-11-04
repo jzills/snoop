@@ -25,62 +25,52 @@ type diffNode struct {
 	children       []*diffNode
 }
 
-// buildDiffTree arranges files into folders, merging folders that hold
-// only one folder. Folders come first; within each, the session's own
-// files first, then by name.
+// buildDiffTree arranges files into folders, with each folder's totals.
+// Folders come first; within each, the session's own files first, then by
+// name.
 func buildDiffTree(files []*review.File, ours map[string]bool) []*diffNode {
-	root := &diffNode{}
-	for _, f := range files {
-		parts := pathParts(f.Path)
-		n, key := root, ""
-		for _, dir := range parts[:len(parts)-1] {
-			key += dir + "/"
-			var next *diffNode
-			for _, c := range n.children {
-				if c.file == nil && c.key == key {
-					next = c
-					break
+	paths := make([]string, len(files))
+	for i, f := range files {
+		paths[i] = f.Path
+	}
+	var conv func([]*pathGroup) []*diffNode
+	conv = func(gs []*pathGroup) []*diffNode {
+		out := make([]*diffNode, len(gs))
+		for i, g := range gs {
+			n := &diffNode{key: g.key, name: g.name, depth: g.depth}
+			if g.item >= 0 {
+				f := files[g.item]
+				n.file, n.files, n.added, n.removed, n.ours = f, 1, f.Added, f.Removed, ours[f.Path]
+			} else {
+				n.children = conv(g.children)
+				for _, c := range n.children {
+					n.files += c.files
+					n.added += c.added
+					n.removed += c.removed
+					n.ours = n.ours || c.ours
 				}
 			}
-			if next == nil {
-				next = &diffNode{key: key, name: dir + "/"}
-				n.children = append(n.children, next)
-			}
-			n = next
+			out[i] = n
 		}
-		n.children = append(n.children, &diffNode{key: f.Path, name: parts[len(parts)-1], file: f,
-			files: 1, added: f.Added, removed: f.Removed, ours: ours[f.Path]})
+		sort.SliceStable(out, func(i, j int) bool {
+			a, b := out[i], out[j]
+			if (a.file == nil) != (b.file == nil) {
+				return a.file == nil
+			}
+			if a.ours != b.ours {
+				return a.ours
+			}
+			return a.name < b.name
+		})
+		return out
 	}
-	finishDiffTree(root, -1)
-	return root.children
+	return conv(groupPaths(paths))
 }
 
-func finishDiffTree(n *diffNode, depth int) {
-	for n.file == nil && depth >= 0 && len(n.children) == 1 && n.children[0].file == nil {
-		c := n.children[0]
-		n.key, n.name, n.children = c.key, n.name+c.name, c.children
-	}
-	n.depth = depth
-	for _, c := range n.children {
-		finishDiffTree(c, depth+1)
-		if n.file == nil {
-			n.files += c.files
-			n.added += c.added
-			n.removed += c.removed
-			n.ours = n.ours || c.ours
-		}
-	}
-	sort.SliceStable(n.children, func(i, j int) bool {
-		a, b := n.children[i], n.children[j]
-		if (a.file == nil) != (b.file == nil) {
-			return a.file == nil
-		}
-		if a.ours != b.ours {
-			return a.ours
-		}
-		return a.name < b.name
-	})
-}
+func (n *diffNode) nodeKey() string   { return n.key }
+func (n *diffNode) nodeDepth() int    { return n.depth }
+func (n *diffNode) isFolder() bool    { return n.file == nil }
+func (n *diffNode) kids() []*diffNode { return n.children }
 
 // diffOpen reports whether a folder shows its contents; every folder
 // starts open.
@@ -150,18 +140,7 @@ func (v *view) setDiffOpen(n *diffNode, open bool) {
 }
 
 // toDiffParent selects the folder holding the selected row.
-func (v *view) toDiffParent() {
-	n := v.selectedDiffRow()
-	if n == nil {
-		return
-	}
-	for i := v.rev.cursor - 1; i >= 0; i-- {
-		if v.rev.rows[i].depth < n.depth {
-			v.rev.cursor = i
-			return
-		}
-	}
-}
+func (v *view) toDiffParent() { v.rev.cursor = parentRow(v.rev.rows, v.rev.cursor) }
 
 // diffTreeRow draws a row of the list: a file, or in the tree a folder
 // with its chevron and totals.
@@ -239,54 +218,10 @@ func (v *view) renderDiffFolder(n *diffNode, w int) string {
 	return b.String()
 }
 
-// expandAllDiff opens the selected folder and every folder in it, or on a
-// file, every folder; once they are all open, it closes them.
+// expandAllDiff is E: see expandFrom.
 func (v *view) expandAllDiff() {
-	r := &v.rev
-	tree := buildDiffTree(v.diffFiles(), r.ours)
-	scope := tree
 	sel := v.selectedDiffRow()
-	if sel != nil && sel.file == nil {
-		scope = nil
-		var find func([]*diffNode)
-		find = func(ns []*diffNode) {
-			for _, n := range ns {
-				if n.key == sel.key {
-					scope = []*diffNode{n}
-				}
-				find(n.children)
-			}
-		}
-		find(tree)
-	}
-	var all []*diffNode
-	var walk func([]*diffNode)
-	walk = func(ns []*diffNode) {
-		for _, n := range ns {
-			if n.file == nil {
-				all = append(all, n)
-				walk(n.children)
-			}
-		}
-	}
-	walk(scope)
-	expand := false
-	for _, n := range all {
-		if !v.diffOpen(n) {
-			expand = true
-		}
-	}
-	for _, n := range all {
-		r.open[n.key] = expand
-	}
-	key := v.selectedDiffKey()
-	// A file hidden by closing them moves the cursor to its folder.
-	if !expand && sel != nil && sel.file != nil {
-		for _, n := range tree {
-			if n.file == nil && strings.HasPrefix(key, n.key) {
-				key = n.key
-			}
-		}
-	}
+	tree := buildDiffTree(v.diffFiles(), v.rev.ours)
+	key := expandFrom(tree, sel, sel != nil, v.diffOpen, func(k string, open bool) { v.rev.open[k] = open })
 	v.layoutDiff(key)
 }

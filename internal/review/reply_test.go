@@ -187,6 +187,16 @@ func TestWaitingTurnsDropsDeadHooks(t *testing.T) {
 	if _, err := os.Stat(p); err == nil {
 		t.Error("the marker was kept")
 	}
+	// The folder it left empty goes once it's a minute old.
+	if _, err := os.Stat(d); err != nil {
+		t.Error("removed a session's new folder")
+	}
+	old := time.Now().Add(-2 * time.Minute)
+	os.Chtimes(d, old, old)
+	WaitingTurns(dir, time.Now())
+	if _, err := os.Stat(d); err == nil {
+		t.Error("kept an empty session folder")
+	}
 	if ts, err := WaitingTurns(filepath.Join(dir, "none"), t0); ts != nil || err != nil {
 		t.Errorf("missing folder: %v, %v", ts, err)
 	}

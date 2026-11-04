@@ -61,6 +61,7 @@ func WaitingTurns(dir string, now time.Time) (map[string]Turn, error) {
 		if err != nil {
 			continue
 		}
+		left := len(entries)
 		for _, e := range entries {
 			n := e.Name()
 			at, pid, ok := askName(n)
@@ -69,7 +70,9 @@ func WaitingTurns(dir string, now time.Time) (map[string]Turn, error) {
 			}
 			p := filepath.Join(d, n)
 			if now.Sub(at) > askLeftover || !alive(pid) {
-				os.Remove(p)
+				if os.Remove(p) == nil {
+					left--
+				}
 				continue
 			}
 			b, err := os.ReadFile(p)
@@ -83,6 +86,11 @@ func WaitingTurns(dir string, now time.Time) (map[string]Turn, error) {
 			if old, ok := out[t.Session]; !ok || t.Ended.After(old.Ended) {
 				out[t.Session] = t
 			}
+		}
+		// A session's folder left empty goes too, unless it's new: a hook
+		// may be about to write its marker there.
+		if info, err := s.Info(); left == 0 && err == nil && now.Sub(info.ModTime()) > time.Minute {
+			os.Remove(d)
 		}
 	}
 	return out, nil
