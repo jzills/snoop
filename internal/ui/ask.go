@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/review"
 )
 
@@ -22,8 +23,9 @@ import (
 const listenEvery = 2 * time.Second
 
 type asksMsg struct {
-	reqs []review.Request
-	err  error
+	reqs  []review.Request
+	turns map[string]review.Turn
+	err   error
 }
 
 // listening reports whether snoop can show requests: on the board or in a
@@ -47,23 +49,28 @@ func (a *App) askCmds(now time.Time) []tea.Cmd {
 	}
 	if !a.asksPolling {
 		a.asksPolling = true
-		dir := a.opts.AsksDir
+		dir, turnsDir := a.opts.AsksDir, a.opts.TurnsDir
 		cmds = append(cmds, func() tea.Msg {
 			rs, err := review.Pending(dir, now)
-			return asksMsg{rs, err}
+			var ts map[string]review.Turn
+			if turnsDir != "" {
+				ts, _ = review.WaitingTurns(turnsDir, now)
+			}
+			return asksMsg{rs, ts, err}
 		})
 	}
 	return cmds
 }
 
-// onAsks keeps the waiting requests by session, oldest first, and raises
-// an alert for each new one: in its session's view when it's open, else
-// on the board.
+// onAsks keeps the waiting requests by session, oldest first, and the
+// turns waiting for a reply, and raises an alert for each new one: in its
+// session's view when it's open, else on the board.
 func (a *App) onAsks(m asksMsg) tea.Cmd {
 	a.asksPolling = false
 	if m.err != nil {
 		return nil
 	}
+	turnAlerts := a.onTurns(m.turns)
 	a.asks = map[string][]review.Request{}
 	seen := map[string]bool{}
 	var out []*alert
@@ -75,7 +82,7 @@ func (a *App) onAsks(m asksMsg) tea.Cmd {
 		}
 	}
 	a.seenAsks = seen
-	return a.signal(out)
+	return a.signal(append(turnAlerts, out...))
 }
 
 // askAlert raises the alert for a new request and returns it.
@@ -142,46 +149,120 @@ func askSummary(r review.Request) string {
 	return oneLine(s)
 }
 
-// answerer sends answers, and holds the deny reason while it is typed.
+// answerer sends answers and replies, and holds the deny reason or the
+// reply while it is typed.
 type answerer struct {
-	input  textinput.Model
-	typing bool
-	target review.Request
+	input   textinput.Model
+	typing  bool
+	target  review.Request
+	replyTo string // the session a reply goes to; "" while a deny reason is typed
+	about   string // what the reply quotes first, or ""
 }
 
 type answeredMsg struct {
-	allow bool
-	r     review.Request
-	err   error
+	allow, always bool
+	r             review.Request
+	err           error
 }
 
 func respond(dir string, r review.Request, a review.Answer) tea.Cmd {
 	return func() tea.Msg {
-		return answeredMsg{allow: a.Behavior == "allow", r: r, err: review.Respond(dir, r, a)}
+		return answeredMsg{allow: a.Behavior == "allow", always: len(a.Permissions) > 0, r: r, err: review.Respond(dir, r, a)}
 	}
+}
+
+// alwaysSummary says what always allowing a request changes, as Claude
+// Code's "don't ask again" would; "" when it offers nothing.
+func alwaysSummary(r review.Request) string {
+	where := map[string]string{
+		"localSettings":   " in this project's local settings",
+		"projectSettings": " in this project's settings",
+		"userSettings":    " in your user settings",
+		"session":         " for this session",
+	}
+	modes := map[string]string{"acceptEdits": "accept all edits", "plan": "plan mode", "bypassPermissions": "bypass permissions"}
+	var parts []string
+	for _, s := range r.SuggestionList() {
+		switch s.Type {
+		case "addRules":
+			var rules []string
+			for _, rl := range s.Rules {
+				if rl.RuleContent == "" {
+					rules = append(rules, rl.ToolName)
+				} else {
+					rules = append(rules, rl.ToolName+"("+rl.RuleContent+")")
+				}
+			}
+			if len(rules) > 0 {
+				verb := s.Behavior
+				if verb == "" {
+					verb = "allow"
+				}
+				parts = append(parts, verb+" "+strings.Join(rules, ", ")+where[s.Destination])
+			}
+		case "setMode":
+			m := modes[s.Mode]
+			if m == "" {
+				m = s.Mode + " mode"
+			}
+			parts = append(parts, "switch to "+m+where[s.Destination])
+		case "addDirectories":
+			var ds []string
+			for _, d := range s.Directories {
+				ds = append(ds, tildePath(d))
+			}
+			parts = append(parts, "allow access to "+strings.Join(ds, ", ")+where[s.Destination])
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 // startDeny asks for the reason, which Claude sees; it may be empty.
 func (an *answerer) startDeny(r review.Request) tea.Cmd {
-	if an.input.Prompt == "" {
-		an.input = textinput.New()
-		an.input.Prompt = "deny reason (optional) "
-		an.input.PromptStyle = sKey
-		an.input.Placeholder = "what Claude should do instead"
-	}
-	an.input.SetValue("")
-	an.typing, an.target = true, r
+	an.prompt("deny reason (optional) ", "what Claude should do instead")
+	an.typing, an.target, an.replyTo = true, r, ""
 	return an.input.Focus()
 }
 
-// key takes every key while the reason is typed: enter denies, esc
-// cancels.
-func (an *answerer) key(k tea.KeyMsg, dir string) tea.Cmd {
+// startReply asks for a message to the session's agent, about the event e
+// when it isn't nil: the reply quotes it first.
+func (an *answerer) startReply(session string, e *parse.Event) tea.Cmd {
+	label, about := quoteEvent(e)
+	an.prompt("reply ", "a message for the agent; enter sends it")
+	if label != "" {
+		an.prompt("reply about "+label+" ", "a message for the agent; enter sends it")
+	}
+	an.typing, an.replyTo, an.about = true, session, about
+	return an.input.Focus()
+}
+
+func (an *answerer) prompt(prompt, placeholder string) {
+	if an.input.Prompt == "" {
+		an.input = textinput.New()
+		an.input.PromptStyle = sKey
+	}
+	an.input.Prompt, an.input.Placeholder = prompt, placeholder
+	an.input.SetValue("")
+}
+
+// key takes every key while the reason or reply is typed: enter sends it
+// (an empty reply sends nothing), esc cancels.
+func (an *answerer) key(k tea.KeyMsg, asksDir, inboxDir string, settings []string) tea.Cmd {
 	switch k.String() {
 	case "enter":
 		an.typing = false
 		an.input.Blur()
-		return respond(dir, an.target, review.Answer{Behavior: "deny", Message: strings.TrimSpace(an.input.Value())})
+		text := strings.TrimSpace(an.input.Value())
+		if an.replyTo != "" {
+			if text == "" {
+				return nil
+			}
+			if an.about != "" {
+				text = an.about + "\n\n" + text
+			}
+			return reply(inboxDir, an.replyTo, text, settings)
+		}
+		return respond(asksDir, an.target, review.Answer{Behavior: "deny", Message: text})
 	case "esc":
 		an.typing = false
 		an.input.Blur()
@@ -192,21 +273,25 @@ func (an *answerer) key(k tea.KeyMsg, dir string) tea.Cmd {
 	return cmd
 }
 
-// askTarget is the oldest request of the session on screen: the open
-// session, or the board's selected row.
-func (a *App) askTarget() (review.Request, bool) {
-	id := ""
+// focusedSession is the session on screen: the open session, or the
+// board's selected row.
+func (a *App) focusedSession() string {
 	switch v := a.top(); {
 	case v != nil:
-		id = v.sessionID()
+		return v.sessionID()
 	case a.board != nil:
-		a.board.asks = a.asks
+		a.board.asks, a.board.turns = a.asks, a.turns
 		a.board.arrange(time.Now(), a.stallFor())
 		if a.board.cursor < len(a.board.order) {
-			id = a.board.order[a.board.cursor].info.ID
+			return a.board.order[a.board.cursor].info.ID
 		}
 	}
-	if rs := a.asks[id]; len(rs) > 0 {
+	return ""
+}
+
+// askTarget is the oldest request of the session on screen.
+func (a *App) askTarget() (review.Request, bool) {
+	if rs := a.asks[a.focusedSession()]; len(rs) > 0 {
 		return rs[0], true
 	}
 	return review.Request{}, false
@@ -215,6 +300,8 @@ func (a *App) askTarget() (review.Request, bool) {
 // onAnswered drops the answered request and says how it went.
 func (a *App) onAnswered(m answeredMsg) {
 	switch {
+	case m.err == nil && m.always:
+		a.note = sOK.Render(" "+glyphOK+" always allowed "+askSummary(m.r)) + sDim.Render(": "+alwaysSummary(m.r))
 	case m.err == nil && m.allow:
 		a.note = sOK.Render(" " + glyphOK + " allowed " + askSummary(m.r))
 	case m.err == nil:
@@ -240,8 +327,16 @@ func askLine(rs []review.Request) string {
 	if len(rs) > 1 {
 		more = fmt.Sprintf("  (1 of %d)", len(rs))
 	}
-	return sAccent.Bold(true).Render(" ? "+askSummary(rs[0])) + sDim.Render(more) + "   " +
-		keyHelp("A", "allow once", "D", "deny")
+	return sAccent.Bold(true).Render(" ? "+askSummary(rs[0])) + sDim.Render(more) + "   " + askKeys(rs[0])
+}
+
+// askKeys are the keys that answer a request; always allowing only when
+// Claude Code offers a way to stop asking.
+func askKeys(r review.Request) string {
+	if alwaysSummary(r) != "" {
+		return keyHelp("A", "allow once", "Y", "always", "D", "deny")
+	}
+	return keyHelp("A", "allow once", "D", "deny")
 }
 
 // renderRequest shows what a request would do in full, so it can be

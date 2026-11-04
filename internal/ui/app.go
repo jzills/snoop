@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jzills/snoop/internal/notify"
+	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/review"
 	"github.com/jzills/snoop/internal/tail"
 )
@@ -28,8 +29,12 @@ type Options struct {
 	// Permission requests: where they wait, and the file that tells the
 	// hook snoop is listening. Either empty turns answering off.
 	AsksDir, ListeningFile string
+	// Replies: the inbox they go to, and where finished turns wait for
+	// one. An empty InboxDir turns replying off.
+	InboxDir, TurnsDir string
 
 	Stall    time.Duration   // alert when a live tool call has no result after this long
+	Limits   Limits          // the cost and long-turn alerts
 	Bell     bool            // ring the terminal bell on alerts
 	Notifier notify.Sender   // send desktop notifications on alerts; nil for none
 	BellOn   map[string]bool // alert kinds that ring the bell or notify
@@ -57,7 +62,9 @@ type App struct {
 	asks        map[string][]review.Request
 	asksPolling bool
 	lastListen  time.Time
-	seenAsks    map[string]bool // requests already alerted, by ID
+	seenAsks    map[string]bool        // requests already alerted, by ID
+	turns       map[string]review.Turn // finished turns waiting for a reply, by session
+	seenTurns   map[string]time.Time   // when each session's alerted turn ended
 	ans         answerer
 	note        string // replaces the footer until the next key
 
@@ -154,12 +161,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.followNext = ""
 			cmds = append(cmds, func() tea.Msg { return openMsg{path: path} })
 		}
-		if a.opts.Stall > 0 {
-			for _, v := range a.stack {
-				as := v.stalls(time.Now(), a.opts.Stall)
-				v.raise(as)
-				cmds = append(cmds, a.signal(v.own(as)))
+		for _, v := range a.stack {
+			var as []*alert
+			if a.opts.Stall > 0 {
+				as = v.stalls(time.Now(), a.opts.Stall)
 			}
+			// A subagent's transcript never records its turns as done.
+			if v.label == "" {
+				_, waiting := a.turns[v.sessionID()]
+				as = append(as, v.limits(v.sess, time.Now(), a.opts.Limits, waiting)...)
+			}
+			v.raise(as)
+			cmds = append(cmds, a.signal(v.own(as)))
 		}
 		cmds = append(cmds, a.askCmds(time.Now())...)
 		if b := a.board; b != nil {
@@ -167,7 +180,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if now.Sub(b.lastScan) >= boardScan {
 				cmds = append(cmds, b.scanCmd(now))
 			}
-			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.isOpen)))
+			b.turns = a.turns
+			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.opts.Limits, a.isOpen)))
 		}
 		return a, tea.Batch(cmds...)
 	case asksMsg:
@@ -175,6 +189,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case answeredMsg:
 		a.onAnswered(msg)
 		return a, nil
+	case repliedMsg:
+		return a, a.onReplied(msg)
 	case showBoardMsg:
 		a.board = newBoard(a.opts.Root)
 		return a, a.board.scanCmd(time.Now())
@@ -308,7 +324,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.note = ""
 		if a.ans.typing {
-			return a, a.ans.key(msg, a.opts.AsksDir)
+			var settings []string
+			if a.ans.replyTo != "" {
+				settings = a.replySettings(a.ans.replyTo)
+			}
+			return a, a.ans.key(msg, a.opts.AsksDir, a.opts.InboxDir, settings)
 		}
 		v := a.top()
 		if v != nil && v.rev.leaveAsk {
@@ -367,12 +387,28 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.helpVP.GotoTop()
 			return a, nil
 		}
-		if k := msg.String(); (k == "A" || k == "D") && !typing {
+		if k := msg.String(); (k == "A" || k == "D" || k == "Y") && !typing {
 			if r, ok := a.askTarget(); ok {
-				if k == "A" {
+				switch k {
+				case "A":
 					return a, respond(a.opts.AsksDir, r, review.Answer{Behavior: "allow"})
+				case "Y":
+					if alwaysSummary(r) == "" {
+						a.note = sDim.Render(" Claude Code offers no way to stop asking for this request; A allows it once")
+						return a, nil
+					}
+					return a, respond(a.opts.AsksDir, r, review.Always(r))
 				}
 				return a, a.ans.startDeny(r)
+			}
+		}
+		if msg.String() == "R" && !typing && a.opts.InboxDir != "" {
+			if id := a.focusedSession(); id != "" {
+				var about *parse.Event
+				if v := a.top(); v != nil {
+					about = v.replyAbout()
+				}
+				return a, a.ans.startReply(id, about)
 			}
 		}
 		if v == nil && a.board != nil {
@@ -494,7 +530,7 @@ func (a *App) View() string {
 	case v != nil:
 		out = v.render(a.w, a.h)
 	case a.board != nil:
-		a.board.asks = a.asks
+		a.board.asks, a.board.turns = a.asks, a.turns
 		out = a.board.view(a.w, a.h, time.Now(), a.stallFor())
 	default:
 		out = a.picker.view(a.w, a.h)
@@ -512,6 +548,10 @@ func (a *App) View() string {
 		footer = a.note
 	case a.top() != nil && len(a.asks[a.top().sessionID()]) > 0 && !a.top().inputActive():
 		footer = askLine(a.asks[a.top().sessionID()])
+	case a.top() != nil && !a.top().inputActive():
+		if t, ok := a.turns[a.top().sessionID()]; ok {
+			footer = replyLine(t)
+		}
 	}
 	if footer != "" {
 		if i := strings.LastIndexByte(out, '\n'); i >= 0 {

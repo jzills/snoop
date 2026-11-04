@@ -215,16 +215,39 @@ func TestInstallAddsPermissionRequest(t *testing.T) {
 	cmd := fakeSnoop(t)
 	p := filepath.Join(t.TempDir(), "settings.json")
 	Install(p, cmd, DefaultAskWait)
-	if c, to := snoopHook(t, p, "PermissionRequest"); c != cmd+" --ask-wait 5m0s" || to != 310 {
-		t.Errorf("PermissionRequest = %q, timeout %v", c, to)
+	// The Stop hook waits for a reply as long as a request waits.
+	for _, ev := range []string{"PermissionRequest", "Stop"} {
+		if c, to := snoopHook(t, p, ev); c != cmd+" --ask-wait 5m0s" || to != 310 {
+			t.Errorf("%s = %q, timeout %v", ev, c, to)
+		}
 	}
-	for _, ev := range CommentEvents {
+	for _, ev := range []string{"PostToolUse", "UserPromptSubmit"} {
 		if c, to := snoopHook(t, p, ev); c != cmd || to != 10 {
 			t.Errorf("%s = %q, timeout %v", ev, c, to)
 		}
 	}
+	if NoReplyWait(p) {
+		t.Error("NoReplyWait after install")
+	}
 	if m := Missing(p); m != nil {
 		t.Errorf("Missing = %v", m)
+	}
+}
+
+// An install from before replies has a Stop hook with no wait, which
+// can't wait for a reply.
+func TestNoReplyWait(t *testing.T) {
+	cmd := fakeSnoop(t)
+	p := filepath.Join(t.TempDir(), "settings.json")
+	b, _ := json.Marshal(map[string]any{"hooks": map[string]any{"Stop": []any{
+		map[string]any{"hooks": []any{map[string]any{"type": "command", "command": cmd, "timeout": 10}}}}}})
+	os.WriteFile(p, b, 0o644)
+	if !NoReplyWait(p) {
+		t.Error("NoReplyWait = false for a Stop hook with no wait")
+	}
+	Install(p, cmd, DefaultAskWait)
+	if NoReplyWait(p) {
+		t.Error("NoReplyWait = true after install")
 	}
 }
 

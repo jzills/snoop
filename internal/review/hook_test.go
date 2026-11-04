@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -148,6 +149,34 @@ func TestHookAllows(t *testing.T) {
 	}
 	if es, _ := os.ReadDir(filepath.Join(o.Asks, "s1")); len(es) != 0 {
 		t.Errorf("left %d files", len(es))
+	}
+}
+
+// Always allowing applies the suggestions Claude Code passed, as its own
+// prompt's "don't ask again" does.
+func TestHookAlwaysAllows(t *testing.T) {
+	const sugg = `[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"npm test"}],"behavior":"allow","destination":"localSettings"}]`
+	in := strings.Replace(askInput, `"tool_name"`, `"permission_suggestions":`+sugg+`,"tool_name"`, 1)
+	var seen []Suggestion
+	o, _ := askOpts(t, time.Minute, func(dir string, now time.Time) {
+		rs, _ := Pending(dir, now)
+		if len(rs) > 0 {
+			seen = rs[0].SuggestionList()
+			Respond(dir, rs[0], Always(rs[0]))
+		}
+	})
+	var out bytes.Buffer
+	if err := Hook(strings.NewReader(in), &out, o); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 1 || seen[0].Type != "addRules" || seen[0].Rules[0].RuleContent != "npm test" || seen[0].Destination != "localSettings" {
+		t.Errorf("the request's suggestions = %+v", seen)
+	}
+	d := decision(t, out.Bytes())
+	var want any
+	json.Unmarshal([]byte(sugg), &want)
+	if d["behavior"] != "allow" || !reflect.DeepEqual(d["updatedPermissions"], want) {
+		t.Errorf("decision = %v", d)
 	}
 }
 

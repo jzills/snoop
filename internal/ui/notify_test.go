@@ -115,7 +115,7 @@ func TestEverySessionsAlertNotifies(t *testing.T) {
 func TestBoardAlertsCarryTheSession(t *testing.T) {
 	b, proj := newTestBoard(t)
 	appendLines(t, filepath.Join(proj, "busy.jsonl"), bBashDone, bTurnEnd)
-	as := b.poll(time.Now(), 0, func(string) bool { return false })
+	as := b.poll(time.Now(), 0, Limits{}, func(string) bool { return false })
 	if len(as) != 1 {
 		t.Fatalf("alerts = %+v", as)
 	}

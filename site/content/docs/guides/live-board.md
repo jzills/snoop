@@ -50,7 +50,13 @@ edit's diff, or the tool's input, with the folder it runs in.
 {{< shot src="ask.png" width="960" height="460" alt="The live board with a session asking to run an npm command, and the request in full under the list" caption="The selected session asks to run its e2e tests, and the request is shown in full under the list." >}}
 
 Press `A` to allow it once, or `D` to deny it. After `D`, you can type a
-reason, which Claude sees, and press `enter`, or press `esc` to cancel. The
+reason, which Claude sees, and press `enter`, or press `esc` to cancel.
+Press `Y` to allow it and stop Claude Code asking again. That makes the same
+change as the "don't ask again" choice in Claude Code's own prompt, which the
+board shows under the request: usually a rule such as `Bash(npm test)` in the
+project's local settings, and for some requests a session-wide change, such
+as accepting all edits. When Claude Code offers no such change, `Y` does
+nothing. The
 same keys work in the session's own view, whose footer shows the request.
 When a session has several requests, such as from parallel subagents, the
 keys answer the oldest.
@@ -65,8 +71,26 @@ Claude Code's own prompt still appears in the session's terminal, and
 whichever answer comes first wins. The hook waits for snoop only while a
 live board or session view is open, for at most 5 minutes; to change that,
 pass `--ask-wait`, such as `snoop hooks install --ask-wait 10m`. With no
-snoop open, the hook returns at once. There is no "always allow" here, so
-permission rules stay in Claude Code's own prompt.
+snoop open, the hook returns at once.
+
+## Reply when it's your turn
+
+When a session's turn ends, its row shows `your turn`. Press `R` to type a
+reply and `enter` to send it, or `esc` to cancel, and the agent carries on
+as if you'd typed it in its terminal. The same key works in the session's own
+view, whose footer shows the agent's last message. In the Timeline and Tools
+tabs, the reply is about the selected call or message. It quotes that first,
+such as `About the Bash call at 14:03:12 (npm test), which failed:` with the
+first lines of the result, and then your text.
+
+With snoop's hooks installed, a finished turn waits for a reply while a live
+board or session view is open, for as long as a permission request waits.
+Typing in the session's terminal ends the wait at once, so the terminal never
+waits for snoop, and a run with no terminal, such as `claude -p`, doesn't
+wait at all. A reply sent while the agent is working reaches it after its
+current tool call, and one sent with no turn waiting reaches it with your next
+prompt in its terminal. If you installed the hooks before replies existed,
+run `snoop hooks install` again.
 
 {{< callout type="info" >}}
 Sessions that can't show a prompt, such as background subagents in
@@ -93,6 +117,14 @@ By default snoop notifies when a turn ends, when a tool call fails, and when
 a session asks for permission (`Bash wants to run npm test`). Choose
 others with `--alerts`, for example `--alerts turn,stall,error` to include
 sessions waiting on a tool call.
+
+To catch a runaway session, set a cost or time limit. With
+`--cost-alert 5`, snoop alerts each time a session spends another $5, and
+with `--long-turn 15m`, it alerts when a turn has run for 15 minutes:
+
+```sh
+snoop --live --notify --cost-alert 5 --long-turn 15m
+```
 
 Nothing is sent while snoop's window has focus. At most one notification goes
 out per session and alert a minute, and several snoops watching the same

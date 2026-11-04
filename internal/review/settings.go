@@ -26,8 +26,8 @@ var HookEvents = append(CommentEvents[:len(CommentEvents):len(CommentEvents)], "
 
 const hookTimeout = 10 // seconds
 
-// The PermissionRequest hook's timeout is its wait plus this margin, so
-// Claude Code never stops it before it gives up on its own.
+// The PermissionRequest and Stop hooks' timeout is their wait plus this
+// margin, so Claude Code never stops them before they give up on their own.
 const askMargin = 10 * time.Second
 
 // UserSettings is Claude Code's user settings file, next to the projects
@@ -258,14 +258,34 @@ func Installed(settings ...string) bool {
 	return false
 }
 
+// NoReplyWait reports whether a settings file's Stop hook runs snoop hook
+// with no wait, as installs from before replies do, so it can't wait for
+// a reply.
+func NoReplyWait(settings string) bool {
+	o, _, err := readSettings(settings)
+	if err != nil {
+		return false
+	}
+	_, lists, err := events(o)
+	if err != nil {
+		return false
+	}
+	for _, g := range lists["Stop"] {
+		if c := snoopCommand(g); c != "" && !reAskWait.MatchString(c) {
+			return true
+		}
+	}
+	return false
+}
+
 // Install makes each event run command, replacing snoop hooks that run
 // another one (an older install's path, or another wait) and keeping
 // everything else in the file. The PermissionRequest hook waits askWait
-// for snoop's answer.
+// for snoop's answer, and the Stop hook as long for a reply.
 func Install(settings, command string, askWait time.Duration) (changed bool, err error) {
 	return edit(settings, func(ev string, l []json.RawMessage) []json.RawMessage {
 		want, timeout := command, hookTimeout
-		if ev == "PermissionRequest" {
+		if ev == "PermissionRequest" || ev == "Stop" {
 			want, timeout = askCommand(command, askWait), int((askWait + askMargin).Seconds())
 		}
 		var kept []json.RawMessage

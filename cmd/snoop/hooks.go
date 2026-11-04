@@ -13,19 +13,22 @@ import (
 )
 
 // hookCmd is what Claude Code runs on each hook event: it hands the
-// session any review comments waiting for it, and lets snoop answer
-// permission requests. It never fails the hook, so a problem with snoop
-// can't stop an agent.
+// session any review comments and replies waiting for it, and lets snoop
+// answer permission requests. It never fails the hook, so a problem with
+// snoop can't stop an agent.
 func hookCmd(args []string) {
-	wait := review.DefaultAskWait
+	wait, stopWait := review.DefaultAskWait, time.Duration(0)
 	if len(args) == 2 && args[0] == "--ask-wait" {
 		// A bad value keeps the default rather than failing the hook.
 		if d, err := time.ParseDuration(args[1]); err == nil && d > 0 {
 			wait = d
 		}
+		// Only a hook installed with a wait has a timeout long enough to
+		// wait for a reply.
+		stopWait = wait
 	}
-	o := review.HookOptions{Inbox: review.InboxDir(), Asks: review.AsksDir(), Listening: review.ListeningFile(),
-		AskWait: wait, Now: time.Now, Sleep: time.Sleep}
+	o := review.HookOptions{Inbox: review.InboxDir(), Asks: review.AsksDir(), Turns: review.TurnsDir(),
+		Listening: review.ListeningFile(), AskWait: wait, StopWait: stopWait, Now: time.Now, Sleep: time.Sleep}
 	if err := review.Hook(os.Stdin, os.Stdout, o); err != nil {
 		fmt.Fprintln(os.Stderr, "snoop hook:", err)
 	}
@@ -36,11 +39,11 @@ func hookCmd(args []string) {
 func hooksCmd(root string, args []string) {
 	fs := flag.NewFlagSet("hooks", flag.ExitOnError)
 	project := fs.Bool("project", false, "use .claude/settings.json in the current directory instead of your user settings")
-	askWait := fs.Duration("ask-wait", review.DefaultAskWait, "with install: how long a permission request waits for an answer from snoop (1s to 30m)")
+	askWait := fs.Duration("ask-wait", review.DefaultAskWait, "with install: how long a permission request waits for an answer from snoop, and a finished turn for a reply (1s to 30m)")
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: snoop hooks install|uninstall|status [--project]\n\n")
-		fmt.Fprintf(os.Stderr, "The hooks deliver comments sent from the Diff tab to the agent, and let\n")
-		fmt.Fprintf(os.Stderr, "the live board and session views answer permission requests.\n\n")
+		fmt.Fprintf(os.Stderr, "The hooks deliver comments sent from the Diff tab and replies to the agent,\n")
+		fmt.Fprintf(os.Stderr, "and let the live board and session views answer permission requests.\n\n")
 		fs.PrintDefaults()
 	}
 	if len(args) == 0 {
@@ -81,6 +84,8 @@ func hooksCmd(root string, args []string) {
 	case "status":
 		missing := review.Missing(settings)
 		switch {
+		case len(missing) == 0 && review.NoReplyWait(settings):
+			fmt.Printf("Installed in %s, from before replies. Run snoop hooks install to let snoop reply when a turn ends.\n", settings)
 		case len(missing) == 0:
 			fmt.Printf("Installed in %s.\n", settings)
 		case review.Installed(settings):

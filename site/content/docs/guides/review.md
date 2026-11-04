@@ -58,7 +58,10 @@ so line numbers match what the agent sees.
 ## Read the diff
 
 Files this session or its subagents changed come first. Files changed
-by you or another agent are dimmed, and the right pane says so. Press
+by you or another agent are dimmed, and the right pane says so. Press `T` to
+show the files in a tree of folders, which works as in the
+[Files tab](../files/#the-tree): selecting a folder lists its files and their
+totals. Press
 `enter` or `tab` to move into a file's lines, and `J` and `K` to jump between
 hunks.
 
@@ -74,6 +77,8 @@ move to the last line, and press `c`. Press `C` to comment on the whole file.
 A `●` marks commented lines, the comment's text shows under its last line,
 and the file list counts each file's comments.
 Press `e` on a commented line to edit its comment, or `x` to delete it.
+You can also comment on one of the session's changes from the
+[Files tab](../files/#comment-on-a-change), and `S` sends those too.
 
 ## Send
 

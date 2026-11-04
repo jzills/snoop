@@ -19,7 +19,6 @@ the full documentation.
 | `internal/stats`, `internal/export` | the Stats tab, and Markdown export |
 | `site/` | the Hugo site and docs; it serves `install.sh` |
 | `demo/` | the README GIF and the site's screenshots, from fictional sessions |
-| `docs/superpowers/` | design specs and plans for past feature sets |
 
 ## Conventions
 

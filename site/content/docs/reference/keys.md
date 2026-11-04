@@ -37,7 +37,9 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `g` `G` | first and last session |
 | `enter`, `→` | open the session; `esc` comes back |
 | `A` | allow the selected session's permission request once |
+| `Y` | allow it and stop Claude Code asking again, as its "don't ask again" does |
 | `D` | deny it, with an optional reason Claude sees |
+| `R` | reply to the selected session's agent |
 | `o` | sort by the next column: state, project, session, context, cost, age |
 | `O` | reverse the order |
 | `esc`, `w` | back to the session picker |
@@ -51,7 +53,8 @@ These work on every tab.
 | `1` `2` `3` `4` `5` | Timeline, Tools, Stats, Files, Diff |
 | `[` `]` | previous and next tab |
 | `!` | jump to the latest alert |
-| `A` `D` | allow once or deny the session's permission request |
+| `A` `Y` `D` | allow once, always allow, or deny the session's permission request |
+| `R` | reply to the session's agent; in the Timeline and Tools, about the selected call or message, which the reply quotes |
 | `y` | copy the selection |
 | `e` | export the timeline as shown to Markdown |
 
@@ -93,7 +96,10 @@ These work on every tab.
 | `/` | keep only files whose path matches |
 | `T` | switch between the list and a tree of folders |
 | `space`, `←` `→` | in the tree, close or open a folder (`←` on a file moves to its folder) |
-| `E` | in the tree, open every folder, or go back |
+| `E` | in the tree, open the folder and every folder in it, or close them; on a file, every folder |
+| `c` | comment on the change at the top of the right pane |
+| `C` | comment on the whole file |
+| `S` | send every comment to the agent |
 
 ## Diff
 
@@ -103,6 +109,9 @@ These work on every tab.
 | `B` | choose the base the branch is compared with |
 | `enter`, `tab`, `→` | move into the file's lines |
 | `tab`, `←`, `esc` | back to the files |
+| `T` | switch between the list and a tree of folders |
+| `space`, `←` `→` | in the tree, close or open a folder (`←` on a file moves to its folder) |
+| `E` | in the tree, open the folder and every folder in it, or close them; on a file, every folder |
 | `J` `K`, `n` `N` | next and previous hunk |
 | `c` | comment on the line, or on the selected range |
 | `v` | start or clear a range selection |

@@ -11,8 +11,12 @@ import (
 
 // hookInput is the part of Claude Code's hook input snoop needs.
 type hookInput struct {
-	SessionID string `json:"session_id"`
-	Event     string `json:"hook_event_name"`
+	SessionID      string `json:"session_id"`
+	Event          string `json:"hook_event_name"`
+	TranscriptPath string `json:"transcript_path"`
+
+	// Stop only.
+	Last string `json:"last_assistant_message"`
 
 	// PermissionRequest only.
 	Cwd       string          `json:"cwd"`
@@ -20,6 +24,9 @@ type hookInput struct {
 	AgentType string          `json:"agent_type"`
 	Tool      string          `json:"tool_name"`
 	Input     json.RawMessage `json:"tool_input"`
+	// The permission changes Claude Code's own prompt offers as "don't ask
+	// again".
+	Suggestions json.RawMessage `json:"permission_suggestions"`
 }
 
 // DefaultAskWait is how long the hook waits for snoop to answer a
@@ -34,18 +41,20 @@ const (
 	askGrace = 2 * time.Second
 )
 
-// HookOptions are where the hook finds comments, requests and the
-// listening file, and its clock.
+// HookOptions are where the hook finds comments, requests, waiting turns
+// and the listening file, and its clock. A Stop hook waits StopWait for a
+// reply, and doesn't wait when it is zero, as for hooks installed before
+// replies, whose timeout is too short.
 type HookOptions struct {
-	Inbox, Asks, Listening string
-	AskWait                time.Duration
-	Now                    func() time.Time
-	Sleep                  func(time.Duration)
+	Inbox, Asks, Turns, Listening string
+	AskWait, StopWait             time.Duration
+	Now                           func() time.Time
+	Sleep                         func(time.Duration)
 }
 
 // Hook delivers a session's waiting comments in the shape the hook event
-// expects, and on a permission request waits for snoop's answer while a
-// snoop is listening. It prints nothing when there is nothing to say, and
+// expects, and while a snoop is listening, waits for its answer to a
+// permission request, or for a reply when a turn ends. It prints nothing when there is nothing to say, and
 // runs after every tool call, so it reads only its input and the inbox.
 func Hook(in io.Reader, out io.Writer, o HookOptions) error {
 	var h hookInput
@@ -71,8 +80,14 @@ func Hook(in io.Reader, out io.Writer, o HookOptions) error {
 		return nil
 	}
 	text, done, err := Claim(o.Inbox, h.SessionID, o.Now())
-	if err != nil || text == "" {
+	if err != nil {
 		return err
+	}
+	if text == "" {
+		if h.Event == "Stop" {
+			return awaitReply(h, out, o)
+		}
+		return nil
 	}
 	if err := json.NewEncoder(out).Encode(shape(text)); err != nil {
 		return err
@@ -93,7 +108,7 @@ func ask(h hookInput, out io.Writer, o HookOptions) error {
 		wait = DefaultAskWait
 	}
 	r, err := Ask(o.Asks, Request{Session: h.SessionID, Cwd: h.Cwd, AgentID: h.AgentID, AgentType: h.AgentType,
-		Tool: h.Tool, Input: h.Input, Asked: now, Deadline: now.Add(wait)})
+		Tool: h.Tool, Input: h.Input, Suggestions: h.Suggestions, Asked: now, Deadline: now.Add(wait)})
 	if err != nil {
 		return err
 	}

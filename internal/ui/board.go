@@ -131,7 +131,8 @@ type board struct {
 	alert      *alert
 	alertShown bool
 
-	asks map[string][]review.Request // the app's, by session
+	asks  map[string][]review.Request // the app's, by session
+	turns map[string]review.Turn      // the app's turns waiting for a reply, by session
 }
 
 func newBoard(root string) *board {
@@ -203,7 +204,7 @@ func (b *board) onLoaded(msg boardLoadedMsg) {
 // poll reads what each session added since the last poll and returns the
 // alerts it raises, prefixed with the project. Sessions for which open is
 // true are shown in a view, which raises their alerts itself.
-func (b *board) poll(now time.Time, stall time.Duration, open func(path string) bool) []*alert {
+func (b *board) poll(now time.Time, stall time.Duration, lim Limits, open func(path string) bool) []*alert {
 	var out []*alert
 	for _, p := range b.sorted() {
 		r := b.rows[p]
@@ -221,6 +222,8 @@ func (b *board) poll(now time.Time, stall time.Duration, open func(path string) 
 		if stall > 0 {
 			as = append(as, r.watch.stalls(now, stall)...)
 		}
+		_, waiting := b.turns[r.info.ID]
+		as = append(as, r.watch.limits(r.f.Sess, now, lim, waiting)...)
 		if open(p) {
 			continue
 		}
@@ -274,6 +277,11 @@ func (b *board) arrange(now time.Time, stall time.Duration) {
 	b.order = b.order[:0]
 	for _, r := range b.rows {
 		r.status, r.detail = rowState(r.f.Sess, r.info.Path, r.last, now, stall)
+		// Claude Code records the turn as done only once the Stop hook
+		// stops waiting for a reply.
+		if t, ok := b.turns[r.info.ID]; ok && r.status != rowYourTurn {
+			r.status, r.detail = rowYourTurn, "turn ended "+agoAt(t.Ended, now)+" · R replies"
+		}
 		if rs := b.asks[r.info.ID]; len(rs) > 0 {
 			r.status, r.detail = rowAsking, askSummary(rs[0])
 			if len(rs) > 1 {
@@ -353,7 +361,13 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	if b.cursor < len(b.order) {
 		if rs := b.asks[b.order[b.cursor].info.ID]; len(rs) > 0 {
 			panel = strings.Split(renderRequest(rs[0], max(w-4, 10)), "\n")
-			panel = panel[:min(len(panel), max(bodyH/2-3, 1))]
+			// What Y would add stays however much of the request is cut.
+			var always []string
+			if s := alwaysSummary(rs[0]); s != "" {
+				always = strings.Split(sDim.Render(wrap("Y always allows: "+s, max(w-4, 10))), "\n")
+			}
+			panel = panel[:min(len(panel), max(bodyH/2-3-len(always), 1))]
+			panel = append(panel, always...)
 			title := "Request"
 			if len(rs) > 1 {
 				title += fmt.Sprintf(" 1 of %d", len(rs))
@@ -433,8 +447,13 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	}
 	sb.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
 	help := keyHelp("↑↓", "move", "enter", "open", "o", "sort", "esc", "sessions", "?", "help")
+	if b.cursor < len(b.order) {
+		if _, ok := b.turns[b.order[b.cursor].info.ID]; ok {
+			help = keyHelp("R", "reply", "↑↓", "move", "enter", "open", "?", "help")
+		}
+	}
 	if panel != nil {
-		help = keyHelp("A", "allow once", "D", "deny", "↑↓", "move", "enter", "open", "?", "help")
+		help = askKeys(b.asks[b.order[b.cursor].info.ID][0]) + "  " + keyHelp("↑↓", "move", "enter", "open", "?", "help")
 	}
 	sb.WriteString(fit(" "+help, w))
 	return sb.String()

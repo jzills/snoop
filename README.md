@@ -142,14 +142,29 @@ what they add.
 permission shows as `? asking` on the board, with the request in full under
 the list: the command, the edit's diff, or the tool's input. Press `A` to
 allow it once, or `D` to deny it, optionally with a reason that Claude sees.
+Press `Y` to allow it and stop Claude Code asking again, the same as the
+"don't ask again" choice in its own prompt: the board shows what that adds,
+such as the rule `Bash(npm test)` in the project's local settings.
 The same keys work in the session's own view, where its footer shows the
 request. Claude Code's own prompt still appears in the session's terminal,
 and whichever answer comes first wins.
 
 The hook waits for an answer only while a live board or session view is
 open, for at most 5 minutes (set with `snoop hooks install --ask-wait 10m`),
-and answering in the terminal ends the wait at once. There is no "always
-allow" here, so rules stay in Claude Code's own prompt.
+and answering in the terminal ends the wait at once.
+
+**Reply when it's your turn:** When a session's turn ends, its row shows
+`your turn`. Press `R` to type a reply and `enter` to send it, and the agent
+carries on as if you'd typed it in its terminal. The same key works in the
+session's own view, whose footer shows the agent's last message. In the
+Timeline and Tools tabs, the reply is about the selected call or message: it
+quotes it first, with a few lines of the call's result, so you can say "this
+failed, try X" without copying anything. With the
+hooks installed, a finished turn waits for a reply only while a live board or
+session view is open, for as long as a permission request does, and typing in
+the session's terminal ends the wait at once. A reply sent while the agent is
+working reaches it after its current tool call, and one sent with no turn
+waiting reaches it with your next prompt.
 
 **Find:** Pressing `f` in the picker finds sessions by a file they read or
 changed, a command they ran, or a prompt, subagents included. Every word must
@@ -196,19 +211,21 @@ snoop hooks status               # or uninstall
 The hooks run `snoop hook` after each tool call, when the agent tries to
 finish, and when you submit a prompt. The agent sees your comments at the
 first of these, so a working agent gets them mid-turn and an agent that has
-finished keeps going. The footer shows when they are delivered. Without the
+finished keeps going. Replies sent with `R` travel the same way. The footer
+shows when comments are delivered. Without the
 hooks, `S` copies the comments to the clipboard instead. A fourth hook runs
 when a session asks for permission, so the live board can
 [answer it](#many-sessions-at-once). If you installed the hooks before that
-hook existed, `snoop hooks status` says so, and running `snoop hooks install`
-again adds it.
+hook existed, or before replies, `snoop hooks status` says so, and running
+`snoop hooks install` again updates them.
 
 The hooks are the only change snoop makes to Claude Code's settings, and
 `snoop hooks uninstall` removes exactly those entries. Sent comments wait in a
 `snoop/inbox` folder in your state directory (`~/.local/state` on Linux) until
-a hook delivers them. Permission requests wait in `snoop/asks` beside it, and
-open snoops refresh a small `snoop/listening` file every 2 seconds, which is
-how the hook knows to wait. A session that was already running may need a restart
+a hook delivers them. Permission requests wait in `snoop/asks` beside it,
+finished turns waiting for a reply are marked in `snoop/turns`, and open
+snoops refresh a small `snoop/listening` file every 2 seconds, which is how
+the hooks know to wait. A session that was already running may need a restart
 before it uses the hooks.
 
 ## Summary across sessions
@@ -254,6 +271,8 @@ attention:
 | `⟳ compacted` | the context is compacted |
 | `ctx 90%` | the context window passes 90% |
 | `? Bash: npm test` | the session asks for permission (needs the hooks) |
+| `$ cost passed $5.00` | with `--cost-alert 5`, the session's cost passes another $5 |
+| `◌ turn running 15m00s` | with `--long-turn 15m`, a turn has run that long |
 
 Any key hides the alert, and pressing `!` jumps to it. Lines already in the
 transcript when it opens never raise alerts.
@@ -263,7 +282,12 @@ snoop --follow --bell                    # ring the bell on errors, turn ends an
 snoop --live --notify                    # a desktop notification when any session needs you
 snoop --follow --bell --alerts error,stall,turn,compact,ctx,ask
 snoop --stall 2m                         # 0 disables the waiting alert
+snoop --live --notify --cost-alert 5 --long-turn 15m   # catch a runaway session
 ```
+
+The cost and long-turn alerts are off until you set their limit. The cost
+alert counts from what the session had spent when snoop opened it, and while
+a session runs, its cost is an estimate from its tokens.
 
 The live board raises the same alerts for every session on it, prefixed with
 the project (`api: ✓ your turn`).
@@ -309,7 +333,8 @@ Press `?` anywhere for the keys of the current screen. The full list follows.
 | `1 2 3 4 5`, `[ ]` | switch tabs |
 | `esc` | clear the search or filter, then go back |
 | `!` | jump to the latest alert |
-| `A` / `D` | allow once / deny the session's permission request |
+| `A` / `Y` / `D` | allow once / always allow / deny the session's permission request |
+| `R` | reply to the session's agent, about the selected call or message in the Timeline and Tools |
 | `y` / `e` | copy the selection / export the view to Markdown |
 | `?` | every key for the current screen |
 | `q` | quit |
@@ -319,10 +344,13 @@ shows it in the timeline, and `←` and `→` collapse and expand (`←` on a ca
 moves to its group). Pressing `E` expands everything (press it again to
 reset), and a `/` search keeps only matching calls with their groups opened.
 
-In the Files tab, `T` switches between the list and a tree of folders. In
-the tree, `space` and `enter` open or close a folder, `←` and `→` close and
-open (`←` on a file moves to its folder), and `E` opens every folder (press
-it again to reset).
+In the Files and Diff tabs, `T` switches between the list and a tree of
+folders. In the tree, `space` and `enter` open or close a folder, `←` and `→`
+close and open (`←` on a file moves to its folder), and `E` on a folder opens
+it and every folder in it (press it again to close them). On a file, `E` does
+the same for the whole tree. In the Files tab, `c` comments on the change at
+the top of the detail pane, quoting it, `C` comments on the whole file, and
+`S` sends them with the Diff tab's comments.
 
 In the Diff tab, `b` switches between the uncommitted changes and the whole
 branch, and `B` picks the branch's base. Press `tab` to move between the

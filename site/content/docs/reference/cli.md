@@ -18,10 +18,10 @@ snoop hooks install|uninstall|status [--project] [--ask-wait duration]
 | `snoop --follow` | follow the newest session for this directory, and switch to new ones |
 | `snoop --live` | open the live board: every session written in the last 30 minutes |
 | `snoop export <session>` | write a session as Markdown to stdout, without thinking blocks |
-| `snoop hooks install` | add the hooks that deliver the Diff tab's comments and let snoop answer permission requests; `--project` uses `./.claude/settings.json`, and `--ask-wait` (default `5m`, from `1s` to `30m`) sets how long a request waits for snoop |
+| `snoop hooks install` | add the hooks that deliver the Diff tab's comments and replies, and let snoop answer permission requests; `--project` uses `./.claude/settings.json`, and `--ask-wait` (default `5m`, from `1s` to `30m`) sets how long a request, or a finished turn, waits for snoop |
 | `snoop hooks uninstall` | remove exactly those hooks |
-| `snoop hooks status` | report whether they're installed, exiting with 1 if not; an older install without the permission hook is reported as such |
-| `snoop hook` | run by the hooks: deliver the comments waiting for the session, or wait for snoop's answer to a permission request; you don't run it yourself |
+| `snoop hooks status` | report whether they're installed, exiting with 1 if not; an older install without the permission hook, or from before replies, is reported as such |
+| `snoop hook` | run by the hooks: deliver the comments and replies waiting for the session, or wait for snoop's answer to a permission request or a reply to a finished turn; you don't run it yourself |
 
 ## Flags
 
@@ -31,9 +31,11 @@ snoop hooks install|uninstall|status [--project] [--ask-wait duration]
 | `--live` | off | show the live board. Can't be combined with `--follow` or a session |
 | `--project DIR` | current directory | the project whose sessions `--follow` and `c` use |
 | `--stall DURATION` | `30s` | raise the waiting alert when a tool call has no result after this long. `0` disables it |
+| `--cost-alert DOLLARS` | `0` | raise the cost alert each time a session's cost passes another multiple of this, such as `5`. `0` disables it |
+| `--long-turn DURATION` | `0` | raise the long-turn alert when a turn has run this long, such as `15m`. `0` disables it |
 | `--bell` | off | ring the terminal bell on the alerts chosen with `--alerts` |
 | `--notify[=MODE]` | off | send desktop notifications on those alerts. `MODE` is `auto` (the default), `terminal` or `system` |
-| `--alerts LIST` | `error,turn,ask` | which alerts ring the bell or notify: any of `error`, `stall`, `turn`, `compact`, `ctx`, `ask` |
+| `--alerts LIST` | `error,turn,ask,cost,long` | which alerts ring the bell or notify: any of `error`, `stall`, `turn`, `compact`, `ctx`, `ask`, `cost`, `long` |
 | `--version` | | print the version and exit |
 
 The export command takes `-o FILE` to write to a file instead of stdout.
