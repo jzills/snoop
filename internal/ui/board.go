@@ -222,7 +222,8 @@ func (b *board) poll(now time.Time, stall time.Duration, lim Limits, open func(p
 		if stall > 0 {
 			as = append(as, r.watch.stalls(now, stall)...)
 		}
-		as = append(as, r.watch.limits(r.f.Sess, now, lim)...)
+		_, waiting := b.turns[r.info.ID]
+		as = append(as, r.watch.limits(r.f.Sess, now, lim, waiting)...)
 		if open(p) {
 			continue
 		}

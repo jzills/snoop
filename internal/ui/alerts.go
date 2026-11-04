@@ -92,14 +92,38 @@ type watch struct {
 	unseenErrs int
 	pending    map[*parse.Event]bool // live tool calls without a result; true once alerted
 	// A turn whose end was alerted while its Stop hook waited for a reply,
-	// before Claude Code recorded it as done.
-	endedEarly *parse.Turn
+	// and its last event then. Claude Code records the end only once the
+	// hook returns, which isn't alerted again unless the turn went on.
+	waitedTurn *parse.Turn
+	waitedLast *parse.Event
 
 	// The limits: set by their first check, so what the session had
 	// reached when it opened isn't alerted.
 	limitsSeen bool
 	costSteps  int         // multiples of the cost limit passed
 	longTurn   *parse.Turn // the turn alerted as long
+	longFrom   time.Time   // when the turn last went back to work after waiting for a reply
+}
+
+// markWaited notes that the session's turn has ended and its Stop hook
+// waits for a reply; false when there is no such turn, or it is recorded
+// as done already.
+func (w *watch) markWaited(s *parse.Session) bool {
+	if len(s.Turns) == 0 {
+		return false
+	}
+	t := s.Turns[len(s.Turns)-1]
+	if t.Done || len(t.Events) == 0 {
+		return false
+	}
+	w.waitedTurn, w.waitedLast = t, t.Events[len(t.Events)-1]
+	return true
+}
+
+// alertedWaiting reports whether t's end was alerted while it waited for a
+// reply, and nothing has happened in it since.
+func (w *watch) alertedWaiting(t *parse.Turn) bool {
+	return t == w.waitedTurn && len(t.Events) > 0 && t.Events[len(t.Events)-1] == w.waitedLast
 }
 
 func newWatch(root string) watch { return watch{root: root, pending: map[*parse.Event]bool{}} }
@@ -160,7 +184,7 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 	}
 	if n := len(s.Turns); n > 0 {
 		t := s.Turns[n-1]
-		if t.Done && (t != before.turn || !before.done) && t != w.endedEarly {
+		if t.Done && (t != before.turn || !before.done) && !w.alertedWaiting(t) {
 			note := "Your turn"
 			if d := t.Duration(); d > 0 {
 				note += " · finished after " + dur(d.Truncate(time.Second))
@@ -201,8 +225,11 @@ func (w *watch) stalls(now time.Time, stall time.Duration) []*alert {
 
 // limits raises an alert when the session's cost passes another multiple
 // of the cost limit, and one when its current turn has run longer than the
-// long-turn limit. The first check only notes where the session is.
-func (w *watch) limits(s *parse.Session, now time.Time, l Limits) []*alert {
+// long-turn limit. The first check only notes where the session is. A turn
+// waiting for a reply isn't running, and once a reply sets it going again,
+// it counts from then. Nor is a turn with nothing written for staleAfter and
+// no call running, whose session has likely been closed.
+func (w *watch) limits(s *parse.Session, now time.Time, l Limits, waiting bool) []*alert {
 	var out []*alert
 	first := !w.limitsSeen
 	w.limitsSeen = true
@@ -226,19 +253,38 @@ func (w *watch) limits(s *parse.Session, now time.Time, l Limits) []*alert {
 	if l.LongTurn > 0 && len(s.Turns) > 0 {
 		t := s.Turns[len(s.Turns)-1]
 		last := t.Events[len(t.Events)-1]
-		running := !t.Done && t != w.endedEarly && !t.Start.IsZero() &&
-			!(last.Kind == parse.KindSystem && strings.HasPrefix(last.Text, interrupted))
-		if running && t != w.longTurn && now.Sub(t.Start) >= l.LongTurn {
+		if waiting {
+			w.longFrom, w.longTurn = now, nil
+			return out
+		}
+		since := t.Start
+		if w.longFrom.After(since) {
+			since = w.longFrom
+		}
+		running := !t.Done && !w.alertedWaiting(t) && !t.Start.IsZero() &&
+			!(last.Kind == parse.KindSystem && strings.HasPrefix(last.Text, interrupted)) &&
+			(now.Sub(t.End) < staleAfter || callRunning(t))
+		if running && t != w.longTurn && now.Sub(since) >= l.LongTurn {
 			w.longTurn = t
 			if first {
 				return out
 			}
-			d := waited(now.Sub(t.Start))
+			d := waited(now.Sub(since))
 			out = append(out, &alert{kind: alertLong, text: glyphPending + " turn running " + d,
 				note: "Turn running for " + d, ev: t.Events[0], id: fmt.Sprintf("long-%d", t.Start.UnixNano())})
 		}
 	}
 	return out
+}
+
+// callRunning reports whether a call in t has no result yet.
+func callRunning(t *parse.Turn) bool {
+	for _, e := range t.Events {
+		if e.Tool != nil && !e.Tool.HasResult {
+			return true
+		}
+	}
+	return false
 }
 
 // raise shows the newest alert in the header.

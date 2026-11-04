@@ -18,37 +18,84 @@ import (
 // tool call, or with the next prompt typed in its terminal.
 
 type repliedMsg struct {
-	session string
-	waiting bool // the session's turn had ended and its hook was waiting
-	err     error
+	session   string
+	text      string
+	installed bool // the hooks that deliver it are installed
+	err       error
 }
 
-func reply(inbox, session, text string) tea.Cmd {
+// reply sends text to the session's inbox, or with no hooks to deliver it
+// from there, leaves it for onReplied to copy.
+func reply(inbox, session, text string, settings []string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := review.Reply(inbox, session, text, time.Now())
-		return repliedMsg{session: session, err: err}
+		m := repliedMsg{session: session, text: text, installed: review.Installed(settings...)}
+		if m.installed {
+			_, m.err = review.Reply(inbox, session, text, time.Now())
+		}
+		return m
 	}
+}
+
+// replySettings are the settings files that may hold the session's hooks:
+// the user's, and its project's.
+func (a *App) replySettings(session string) []string {
+	for _, v := range a.stack {
+		if v.sessionID() == session {
+			return v.settingsFiles()
+		}
+	}
+	fs := []string{review.UserSettings(a.opts.Root)}
+	if b := a.board; b != nil {
+		for _, r := range b.rows {
+			if r.info.ID == session && r.f.Sess.CWD != "" {
+				fs = append(fs, filepath.Join(r.f.Sess.CWD, ".claude", "settings.json"), filepath.Join(r.f.Sess.CWD, ".claude", "settings.local.json"))
+			}
+		}
+	}
+	return fs
 }
 
 // onReplied says where the reply went.
-func (a *App) onReplied(m repliedMsg) {
-	if m.err != nil {
+func (a *App) onReplied(m repliedMsg) tea.Cmd {
+	switch {
+	case m.err != nil:
 		a.err = "reply failed: " + m.err.Error()
-		return
+		return nil
+	case !m.installed:
+		a.note = sKey.Render(" Copied the reply to the clipboard.") +
+			sDim.Render(" To send replies straight to the agent, run snoop hooks install.")
+		return copyCmd(m.text)
 	}
 	if _, ok := a.turns[m.session]; ok {
 		a.note = sOK.Render(" "+glyphOK+" sent") + sDim.Render("; the agent has it now")
-		return
+		return nil
 	}
 	a.note = sOK.Render(" "+glyphOK+" sent") +
 		sDim.Render("; the agent gets it after its current tool call, or with your next prompt")
+	return nil
 }
 
 // onTurns keeps the turns waiting for a reply, and returns an alert for
 // each that just ended. Claude Code records a turn as done only once the
-// Stop hook returns, so for a waiting turn this is when it ends.
+// Stop hook returns, so for a waiting turn this is when it ends. Every
+// watch on a waiting session notes it, a view opened since included, so
+// none alerts the end again when it's recorded.
 func (a *App) onTurns(ts map[string]review.Turn) []*alert {
 	a.turns = ts
+	for id := range ts {
+		for _, v := range a.stack {
+			if v.label == "" && v.sessionID() == id {
+				v.markWaited(v.sess)
+			}
+		}
+		if b := a.board; b != nil {
+			for _, r := range b.rows {
+				if r.info.ID == id {
+					r.watch.markWaited(r.f.Sess)
+				}
+			}
+		}
+	}
 	seen := map[string]time.Time{}
 	var out []*alert
 	for id, t := range ts {
@@ -90,7 +137,6 @@ func (a *App) turnAlert(t review.Turn) *alert {
 		if last.Done {
 			return nil
 		}
-		v.endedEarly = last
 		al := &alert{kind: alertTurn, text: glyphOK + " your turn", note: note, ev: last.Events[len(last.Events)-1],
 			path: v.rootPath, title: noteTitle(filepath.Base(t.Cwd), "")}
 		v.own([]*alert{al})
@@ -106,7 +152,6 @@ func (a *App) turnAlert(t review.Turn) *alert {
 			if last.Done {
 				return nil
 			}
-			row.watch.endedEarly = last
 			al := &alert{kind: alertTurn, text: row.project() + ": " + glyphOK + " your turn", note: note,
 				path: row.f.Path, title: noteTitle(row.project(), row.info.Name())}
 			b.alert, b.alertShown = al, true

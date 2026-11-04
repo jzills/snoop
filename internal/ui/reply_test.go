@@ -34,6 +34,11 @@ func replyBoard(t *testing.T) (*App, string) {
 		os.WriteFile(p, []byte(strings.Join(ls, "\n")+"\n"), 0o644)
 		os.Chtimes(p, now.Add(-10*time.Second), now.Add(-10*time.Second))
 	}
+	bin := filepath.Join(dir, "snoop")
+	os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755)
+	if _, err := review.Install(review.UserSettings(root), `"`+bin+`" hook`, review.DefaultAskWait); err != nil {
+		t.Fatal(err)
+	}
 	a := New(Options{Root: root, AsksDir: filepath.Join(dir, "asks"), ListeningFile: filepath.Join(dir, "listening"),
 		InboxDir: filepath.Join(dir, "inbox"), TurnsDir: filepath.Join(dir, "turns")})
 	a.board = newBoard(root)
@@ -67,10 +72,10 @@ func inboxText(dir, session string) string {
 
 // typeReply presses R, types text and presses enter, running the command.
 func typeReply(a *App, text string) {
-	pressAsk(a, "R")
-	for _, k := range text {
-		pressAsk(a, string(k))
-	}
+	a.Update(key("R"))
+	// Update alone: running each key's command would wait out the cursor's
+	// blink.
+	typeKeys(a, text)
 	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		a.Update(cmd())
@@ -138,12 +143,35 @@ func TestReplyQueues(t *testing.T) {
 	}
 }
 
+// Without the hooks nothing would deliver a reply, so it's copied instead.
+func TestReplyWithoutHooks(t *testing.T) {
+	a, dir := replyBoard(t)
+	os.Remove(review.UserSettings(a.opts.Root))
+	selectRow(t, a, "done")
+	a.Update(key("R"))
+	typeKeys(a, "hello")
+	_, cmd := a.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m := cmd().(repliedMsg)
+	if m.installed || m.text != "hello" {
+		t.Fatalf("replied %+v", m)
+	}
+	if _, copy := a.Update(m); copy == nil {
+		t.Error("nothing copied")
+	}
+	if inboxText(dir, "done") != "" {
+		t.Error("queued a reply no hook would deliver")
+	}
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "Copied the reply to the clipboard") {
+		t.Errorf("footer:\n%s", out)
+	}
+}
+
 func TestReplyCancelled(t *testing.T) {
 	a, dir := replyBoard(t)
 	selectRow(t, a, "done")
 	typeReply(a, "   ")
-	pressAsk(a, "R")
-	pressAsk(a, "q") // typed, not quitting
+	a.Update(key("R"))
+	a.Update(key("q")) // typed, not quitting
 	a.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if a.ans.typing || inboxText(dir, "done") != "" {
 		t.Errorf("an empty or cancelled reply was sent: %q", inboxText(dir, "done"))
@@ -180,30 +208,62 @@ func TestReplyFooterInSessionView(t *testing.T) {
 }
 
 // Once a turn's end was alerted while its hook waited, its recording
-// later doesn't alert again.
+// later doesn't alert again, unless a reply set it going meanwhile.
 func TestTurnRecordedAfterTheWaitDoesntAlert(t *testing.T) {
 	w := newWatch("")
 	s := sessOf(bPrompt, bBash, bBashDone)
 	before := w.snap(s)
-	w.endedEarly = s.Turns[0]
+	if !w.markWaited(s) {
+		t.Fatal("no turn to mark")
+	}
 	s.Turns[0].Done = true
 	for _, al := range w.alerts(s, before) {
 		if al.kind == alertTurn {
 			t.Errorf("alerted again: %+v", al)
 		}
 	}
-	other := &parse.Turn{Done: true, Events: s.Turns[0].Events}
-	s.Turns = append(s.Turns, other)
+
+	w = newWatch("")
+	s = sessOf(bPrompt, bBash, bBashDone)
+	before = w.snap(s)
+	w.markWaited(s)
+	// A reply: the agent writes more in the same turn, then ends it.
+	s.Feed([]byte(`{"type":"assistant","uuid":"a8","timestamp":"2026-10-25T10:01:00Z","message":{"id":"m8","content":[{"type":"text","text":"pushed"}]}}`))
+	s.Feed([]byte(bTurnEnd))
 	found := false
 	for _, al := range w.alerts(s, before) {
 		found = found || al.kind == alertTurn
 	}
 	if !found {
-		t.Error("a later turn didn't alert")
+		t.Error("the end after a reply didn't alert")
 	}
 }
 
-// In the Timeline, a reply quotes the selected event first.
+// A view opened from the board after the turn's end was alerted notes the
+// wait too, so it doesn't alert the end again.
+func TestViewOpenedDuringTheWait(t *testing.T) {
+	a, dir := replyBoard(t)
+	waitTurn(t, dir, "ending", time.Now())
+	runAsks(a, time.Now())
+	p := ""
+	for _, r := range a.board.rows {
+		if r.info.ID == "ending" {
+			p = r.f.Path
+		}
+	}
+	openNow(a, openMsg{path: p})
+	t.Cleanup(func() {
+		for a.top() != nil {
+			a.pop()
+		}
+	})
+	runAsks(a, time.Now())
+	v := a.top()
+	if v.waitedTurn == nil || !v.alertedWaiting(v.sess.Turns[len(v.sess.Turns)-1]) {
+		t.Error("the view didn't note the wait")
+	}
+}
+
 func TestReplyAboutTheSelectedEvent(t *testing.T) {
 	a, v, inbox := diffApp(t, true)
 	a.opts.InboxDir = filepath.Dir(inbox)

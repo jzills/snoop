@@ -188,7 +188,7 @@ func (v *view) diffTreeRow(n *diffNode, sel bool, w int) string {
 	}
 	nComments := 0
 	for _, c := range v.rev.comments {
-		if strings.HasPrefix(c.Path, n.key) {
+		if strings.HasPrefix(c.Path, v.diffAbs(n.key)) {
 			nComments++
 		}
 	}

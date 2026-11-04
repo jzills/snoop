@@ -45,6 +45,7 @@ type reviewState struct {
 	typing   bool
 	editing  int // id of the comment being edited, or 0 for a new one
 	target   review.Comment
+	ref      string // the target's tool call, for a comment on a change
 
 	sending   bool
 	sentPath  string // the last send, until it is delivered
@@ -64,7 +65,8 @@ type reviewState struct {
 // so a send removes exactly the comments it sent.
 type pending struct {
 	review.Comment
-	id int
+	id  int
+	ref string // the tool call a comment on a change is about
 }
 
 // subChanges is the files a subagent changed, as of a transcript size.
@@ -488,13 +490,45 @@ func (v *view) commentAt(l review.Line) *pending {
 		return nil
 	}
 	for i := range v.rev.comments {
-		if v.rev.comments[i].Covers(f.Path, l) {
+		if v.rev.comments[i].Covers(v.diffAbs(f.Path), l) {
 			return &v.rev.comments[i]
 		}
 	}
 	return nil
 }
 
+// Comments keep absolute paths, as the Diff tab's paths are relative to the
+// repository and the Files tab's to the session's directory, which differ
+// when the session runs in a subdirectory.
+
+// diffAbs is the absolute path of a path in the diff.
+func (v *view) diffAbs(p string) string {
+	if v.rev.diff == nil || v.rev.diff.Root == "" || filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(v.rev.diff.Root, p)
+}
+
+// filesAbs is the absolute path of a path in the Files tab.
+func (v *view) filesAbs(p string) string {
+	if v.sess.CWD == "" || filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(v.sess.CWD, p)
+}
+
+// sentPath is how a comment names its file to the agent: relative to the
+// session's directory when inside it.
+func (v *view) sentPath(p string) string {
+	if v.sess.CWD != "" {
+		if rel, err := filepath.Rel(v.sess.CWD, p); err == nil && !strings.HasPrefix(rel, "..") {
+			return filepath.ToSlash(rel)
+		}
+	}
+	return p
+}
+
+// fileComment is the whole-file comment on path, an absolute path.
 func (v *view) fileComment(path string) *pending {
 	for i, c := range v.rev.comments {
 		if c.Path == path && len(c.Lines) == 0 && c.At == "" {
@@ -527,7 +561,7 @@ func containsInt(xs []int, x int) bool {
 // startComment opens the input for a new comment, or for editing c.
 func (v *view) startComment(target review.Comment, c *pending) tea.Cmd {
 	r := &v.rev
-	r.target, r.editing, r.typing = target, 0, true
+	r.target, r.ref, r.editing, r.typing = target, "", 0, true
 	r.input.SetValue("")
 	r.input.Placeholder = "comment on " + commentWhere(target)
 	if c != nil {
@@ -592,7 +626,7 @@ func (v *view) addComment(c review.Comment, text string) {
 	r := &v.rev
 	r.nextID++
 	c.Text = text
-	r.comments = append(r.comments, pending{Comment: c, id: r.nextID})
+	r.comments = append(r.comments, pending{Comment: c, id: r.nextID, ref: r.ref})
 }
 
 // updateDiff handles a key on the Diff tab; ok is false for keys it leaves
@@ -614,8 +648,8 @@ func (v *view) updateDiff(k tea.KeyMsg, w, bodyH int) (cmd tea.Cmd, ok bool) {
 		return v.sendComments(), true
 	case "C":
 		if f != nil {
-			c := v.fileComment(f.Path)
-			return v.startComment(review.Comment{Path: f.Path}, c), true
+			c := v.fileComment(v.diffAbs(f.Path))
+			return v.startComment(review.Comment{Path: v.diffAbs(f.Path)}, c), true
 		}
 		return nil, true
 	}
@@ -707,7 +741,7 @@ func (v *view) updateDiff(k tea.KeyMsg, w, bodyH int) (cmd tea.Cmd, ok bool) {
 		if len(lines) == 0 {
 			return nil, true
 		}
-		return v.startComment(review.Comment{Path: f.Path, Lines: lines}, nil), true
+		return v.startComment(review.Comment{Path: v.diffAbs(f.Path), Lines: lines}, nil), true
 	case "e":
 		if l := v.cursorLine(); l != nil {
 			if c := v.commentAt(*l); c != nil {
@@ -768,6 +802,7 @@ func (v *view) sendComments() tea.Cmd {
 	ids := make([]int, len(r.comments))
 	for i, c := range r.comments {
 		cs[i], ids[i] = c.Comment, c.id
+		cs[i].Path = v.sentPath(c.Path)
 	}
 	r.sending = true
 	text := review.Format(cs)
@@ -882,7 +917,7 @@ func (v *view) diffFileRow(f *review.File, lead, name string, sel bool, w int) s
 	}
 	n := 0
 	for _, c := range v.rev.comments {
-		if c.Path == f.Path {
+		if c.Path == v.diffAbs(f.Path) {
 			n++
 		}
 	}
@@ -950,7 +985,7 @@ func (v *view) diffPane(w, h int, full bool) string {
 	if f.Truncated {
 		flags = append(flags, fmt.Sprintf("showing the first %d lines", review.MaxLines))
 	}
-	if c := v.fileComment(f.Path); c != nil {
+	if c := v.fileComment(v.diffAbs(f.Path)); c != nil {
 		flags = append(flags, "● "+firstLine(c.Text))
 	}
 	out = append(out, head)

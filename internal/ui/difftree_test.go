@@ -101,7 +101,7 @@ func TestDiffTreeExpandAll(t *testing.T) {
 func TestDiffTreeRefreshAndComments(t *testing.T) {
 	a, v := diffTreeApp(t)
 	press(a, "T", "g", "j", "j", "j") // ui/
-	v.rev.comments = []pending{{Comment: review.Comment{Path: "internal/ui/app.go", Text: "why"}, id: 1}}
+	v.rev.comments = []pending{{Comment: review.Comment{Path: v.diffAbs("internal/ui/app.go"), Text: "why"}, id: 1}}
 	v.onDiff(diffMsg{seq: v.rev.seq, d: &review.Diff{Root: "/r", Files: v.rev.diff.Files}, ours: v.rev.ours})
 	if n := v.selectedDiffRow(); n == nil || n.key != "internal/ui/" {
 		t.Errorf("after a refresh, selected %+v", n)

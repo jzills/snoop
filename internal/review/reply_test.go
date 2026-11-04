@@ -101,6 +101,29 @@ func TestStopGivesWayToATypedPrompt(t *testing.T) {
 	}
 }
 
+// A prompt typed while the turn's last reply was written is already in the
+// transcript when the hook starts.
+func TestStopGivesWayToAPromptAlreadyQueued(t *testing.T) {
+	o, tr, now := replyOpts(t, time.Minute, nil)
+	f, _ := os.OpenFile(tr, os.O_APPEND|os.O_WRONLY, 0)
+	f.WriteString(`{"type":"queue-operation","operation":"enqueue","content":"first"}` + "\n" +
+		`{"type":"queue-operation","operation":"dequeue"}` + "\n" +
+		`{"type":"assistant","message":{"content":"done"}}` + "\n" +
+		`{"type":"queue-operation","operation":"enqueue","content":"next"}` + "\n")
+	f.Close()
+	var out bytes.Buffer
+	if err := Hook(strings.NewReader(stopInput(tr)), &out, o); err != nil || out.Len() != 0 {
+		t.Errorf("printed %q, %v", out.String(), err)
+	}
+	if !now.Equal(t0) {
+		t.Errorf("waited %v", now.Sub(t0))
+	}
+	// One taken off the queue doesn't count.
+	if waitingPrompt([]byte(`{"operation":"enqueue"}` + "\n" + `{"operation":"dequeue"}` + "\n")) {
+		t.Error("a dequeued prompt counts as waiting")
+	}
+}
+
 func TestStopGivesUp(t *testing.T) {
 	o, tr, now := replyOpts(t, 10*time.Second, nil)
 	var out bytes.Buffer
@@ -132,6 +155,7 @@ func TestStopDoesntWait(t *testing.T) {
 		"an older install":      func(o *HookOptions, _ string) { o.StopWait = 0 },
 		"a headless run":        func(_ *HookOptions, tr string) { os.WriteFile(tr, []byte(`{"entrypoint":"sdk-cli"}`+"\n"), 0o600) },
 		"no turns folder given": func(o *HookOptions, _ string) { o.Turns = "" },
+		"no transcript":         func(_ *HookOptions, tr string) { os.Remove(tr) },
 		"comments to deliver":   func(o *HookOptions, _ string) { Send(o.Inbox, "s1", "fix it", t0) },
 	}
 	for name, change := range cases {
@@ -192,7 +216,7 @@ func TestHeadless(t *testing.T) {
 	if !headless(write(big)) {
 		t.Error("a headless run ending with a big record isn't headless")
 	}
-	if headless(filepath.Join(dir, "missing")) || headless("") {
-		t.Error("a missing transcript counts as headless")
+	if !headless(filepath.Join(dir, "missing")) || !headless("") {
+		t.Error("a run with no transcript to read waits")
 	}
 }
