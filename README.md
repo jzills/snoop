@@ -341,10 +341,13 @@ shows it in the timeline, and `←` and `→` collapse and expand (`←` on a ca
 moves to its group). Pressing `E` expands everything (press it again to
 reset), and a `/` search keeps only matching calls with their groups opened.
 
-In the Files tab, `T` switches between the list and a tree of folders. In
-the tree, `space` and `enter` open or close a folder, `←` and `→` close and
-open (`←` on a file moves to its folder), and `E` opens every folder (press
-it again to reset).
+In the Files and Diff tabs, `T` switches between the list and a tree of
+folders. In the tree, `space` and `enter` open or close a folder, `←` and `→`
+close and open (`←` on a file moves to its folder), and `E` on a folder opens
+it and every folder in it (press it again to close them). On a file, `E` does
+the same for the whole tree. In the Files tab, `c` comments on the change at
+the top of the detail pane, quoting it, `C` comments on the whole file, and
+`S` sends them with the Diff tab's comments.
 
 In the Diff tab, `b` switches between the uncommitted changes and the whole
 branch, and `B` picks the branch's base. Press `tab` to move between the

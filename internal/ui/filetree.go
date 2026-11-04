@@ -30,6 +30,7 @@ func (n *fileNode) entry() *fileEntry {
 // prefs are choices that carry from one session view to the next.
 type prefs struct {
 	filesTree bool
+	diffTree  bool
 	diffScope int // scopeAuto until b is pressed
 }
 
@@ -169,9 +170,14 @@ func (v *view) toggleFilesTree() {
 	v.flattenFiles(sel)
 }
 
-// expandAllFiles opens every folder, or once all are open, goes back to
-// the default.
+// expandAllFiles opens the selected folder and every folder in it, or on
+// a file, every folder; once they are all open, it closes them.
 func (v *view) expandAllFiles() {
+	scope := v.fTree
+	sel := v.selectedFileRow()
+	if sel != nil && sel.file == nil {
+		scope = []*fileNode{sel}
+	}
 	var all []*fileNode
 	var walk func([]*fileNode)
 	walk = func(ns []*fileNode) {
@@ -182,25 +188,29 @@ func (v *view) expandAllFiles() {
 			}
 		}
 	}
-	walk(v.fTree)
+	walk(scope)
 	expand := false
 	for _, n := range all {
 		if !v.savedFileOpen(n) {
 			expand = true
 		}
 	}
-	sel := ""
-	if n := v.selectedFileRow(); n != nil {
-		sel = n.key
+	for _, n := range all {
+		v.fOpen[n.key] = expand
 	}
-	if expand {
-		for _, n := range all {
-			v.fOpen[n.key] = true
+	key := ""
+	if sel != nil {
+		key = sel.key
+		// A file hidden by closing them moves the cursor to its folder.
+		if !expand && sel.file != nil {
+			for _, n := range v.fTree {
+				if n.file == nil && strings.HasPrefix(key, n.key) {
+					key = n.key
+				}
+			}
 		}
-	} else {
-		clear(v.fOpen)
 	}
-	v.flattenFiles(sel)
+	v.flattenFiles(key)
 }
 
 // toFileParent selects the folder holding the selected row.
@@ -220,8 +230,14 @@ func (v *view) toFileParent() {
 // fileTreeRow draws a row of the tree: a folder with its chevron and
 // totals, or a file under it.
 func (v *view) fileTreeRow(n *fileNode, sel bool, w int) string {
+	comments := 0
+	for _, c := range v.rev.comments {
+		if c.Path == n.key || (n.file == nil && strings.HasPrefix(c.Path, n.key)) {
+			comments++
+		}
+	}
 	if !v.prefs.filesTree {
-		return fileRow(n.file, "", tildePath(n.name), sel, w)
+		return fileRow(n.file, "", tildePath(n.name), sel, comments, w)
 	}
 	lead := strings.Repeat("  ", n.depth)
 	if n.file == nil {
@@ -237,7 +253,7 @@ func (v *view) fileTreeRow(n *fileNode, sel bool, w int) string {
 	if n.depth == 0 {
 		name = tildePath(name)
 	}
-	return fileRow(n.entry(), lead, name, sel, w)
+	return fileRow(n.entry(), lead, name, sel, comments, w)
 }
 
 // renderFolderDetail summarises a folder: its totals, then its files.

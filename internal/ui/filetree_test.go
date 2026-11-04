@@ -115,13 +115,24 @@ func TestFilesTreeExpandCollapse(t *testing.T) {
 	if !strings.Contains(out, "/etc/hosts") && !strings.Contains(out, "hosts") {
 		t.Errorf("folder detail lacks its files:\n%s", out)
 	}
+	// On a folder, E opens or closes just that folder and those in it.
+	v.update(key("E"), 140, 30)
+	if got := rowNames(v); got != "internal/ui/ /etc/ docs/ main.go" {
+		t.Errorf("E on /etc/, all open, should close it: %q", got)
+	}
+	// On a file, E opens every folder, and then closes them all, moving
+	// to the top folder when the file is hidden.
+	v.update(key("G"), 140, 30)
 	v.update(key("E"), 140, 30)
 	if len(v.fRows) != 8 {
 		t.Errorf("E opened %q", rowNames(v))
 	}
 	v.update(key("E"), 140, 30)
-	if got := rowNames(v); got != "internal/ui/ app.go board.go /etc/ docs/ main.go" {
-		t.Errorf("second E should reset: %q", got)
+	if got := rowNames(v); got != "internal/ui/ /etc/ docs/ main.go" {
+		t.Errorf("second E should close every folder: %q", got)
+	}
+	if n := v.selectedFileRow(); n == nil || n.key != "main.go" {
+		t.Errorf("selected %+v", n)
 	}
 }
 

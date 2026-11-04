@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/jzills/snoop/internal/parse"
+	"github.com/jzills/snoop/internal/review"
 	"github.com/jzills/snoop/internal/store"
 )
 
@@ -265,6 +266,16 @@ func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) tea.Cmd {
 		}
 	case "tab":
 		v.focusDetail(w)
+	case "c":
+		if n != nil && !folder {
+			return v.commentOnChange(n.file)
+		}
+	case "C":
+		if n != nil && !folder {
+			return v.startComment(review.Comment{Path: n.file.path}, v.fileComment(n.file.path))
+		}
+	case "S":
+		return v.sendComments()
 	case "T":
 		v.toggleFilesTree()
 	case "E":
@@ -363,7 +374,9 @@ func (v *view) filesView(w, h int) string {
 
 // fileRow draws a file, or a folder's totals, under name. The lead (the
 // tree's indent and chevron) is kept whole, and a long name loses its start.
-func fileRow(f *fileEntry, lead, name string, sel bool, w int) string {
+// fileRow draws a file's or folder's row, with how many unsent comments
+// it holds.
+func fileRow(f *fileEntry, lead, name string, sel bool, comments, w int) string {
 	var bg lipgloss.TerminalColor = lipgloss.NoColor{}
 	if sel {
 		bg = cSelBg
@@ -386,6 +399,11 @@ func fileRow(f *fileEntry, lead, name string, sel bool, w int) string {
 		right += st(sErr).Render(fmt.Sprintf(" %2d%s ", f.errs, glyphErr))
 	} else {
 		right += st(sText).Render("     ")
+	}
+	if comments > 0 {
+		right += st(sKey).Render(fmt.Sprintf("●%d ", min(comments, 9)))
+	} else {
+		right += st(sText).Render("   ")
 	}
 	nameStyle := sText
 	if f.readOnly() {
@@ -486,4 +504,84 @@ func fileSummary(f *fileEntry) string {
 		summary += sDim.Render(" · ") + sErr.Render(fmt.Sprintf("%d %s", f.errs, plural(f.errs, "error")))
 	}
 	return summary
+}
+
+// maxQuoted is how many lines of a change a comment quotes.
+const maxQuoted = 30
+
+// currentChange is the change at the top of the file's detail pane, which
+// n and N move to; the first change while above them all.
+func (v *view) currentChange(f *fileEntry) (fileTouch, bool) {
+	var changes []fileTouch
+	for _, t := range f.touches {
+		if t.op != opRead {
+			changes = append(changes, t)
+		}
+	}
+	if len(changes) == 0 {
+		return fileTouch{}, false
+	}
+	i := 0
+	for j, m := range v.fMarks {
+		if m <= v.detail.YOffset && j < len(changes) {
+			i = j
+		}
+	}
+	return changes[i], true
+}
+
+// commentOnChange opens a comment on the file's current change, quoting
+// it; with no changes, on the whole file.
+func (v *view) commentOnChange(f *fileEntry) tea.Cmd {
+	t, ok := v.currentChange(f)
+	if !ok {
+		return v.startComment(review.Comment{Path: f.path}, v.fileComment(f.path))
+	}
+	c := review.Comment{Path: f.path, At: changeLabel(t), Lines: changeLines(t.ev.Tool)}
+	for i := range v.rev.comments {
+		if p := &v.rev.comments[i]; p.Path == c.Path && p.At == c.At {
+			return v.startComment(p.Comment, p)
+		}
+	}
+	return v.startComment(c, nil)
+}
+
+// changeLabel names a change: "the Edit at 14:03:12", with the subagent
+// that made it.
+func changeLabel(t fileTouch) string {
+	s := "the " + t.ev.Tool.Name
+	if !t.ev.Time.IsZero() {
+		s += " at " + t.ev.Time.Local().Format("15:04:05")
+	}
+	if t.agent != "" {
+		s += " by the subagent " + t.agent
+	}
+	return s
+}
+
+// changeLines quotes a change: an edit's old and new text, or what a write
+// wrote, up to maxQuoted lines.
+func changeLines(t *parse.ToolCall) []review.Line {
+	var out []review.Line
+	add := func(kind byte, text string) {
+		for _, l := range parse.Lines(text) {
+			out = append(out, review.Line{Kind: kind, Text: l})
+		}
+	}
+	switch t.Name {
+	case "Edit", "MultiEdit":
+		for _, e := range t.Edits() {
+			add('-', e.Old)
+			add('+', e.New)
+		}
+	case "Write":
+		add('+', t.InputString("content"))
+	case "NotebookEdit":
+		add('+', t.InputString("new_source"))
+	}
+	if len(out) > maxQuoted {
+		n := len(out) - maxQuoted
+		out = append(out[:maxQuoted], review.Line{Kind: ' ', Text: fmt.Sprintf("… %d more %s", n, plural(n, "line"))})
+	}
+	return out
 }

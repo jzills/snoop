@@ -33,9 +33,11 @@ type reviewState struct {
 	ours    map[string]bool
 	subs    map[string]subChanges // subagent transcripts, by path
 
-	cursor, offset int // file list
-	line, lOffset  int // row in the selected file's diff
-	anchor         int // first row of a range selection, or -1
+	cursor, offset int             // row of the file list
+	rows           []*diffNode     // the file list: files, and in the tree, folders
+	open           map[string]bool // folders opened or closed in the tree
+	line, lOffset  int             // row in the selected file's diff
+	anchor         int             // first row of a range selection, or -1
 
 	comments []pending
 	nextID   int
@@ -76,7 +78,7 @@ func newReviewState() reviewState {
 	ti.Prompt = "› "
 	ti.PromptStyle = sKey
 	ti.CharLimit = 4000
-	return reviewState{anchor: -1, input: ti}
+	return reviewState{anchor: -1, input: ti, open: map[string]bool{}}
 }
 
 type diffMsg struct {
@@ -294,7 +296,7 @@ func (v *view) onDiff(m diffMsg) {
 	oldRows := diffRows(oldFile)
 	r.err = m.err
 	if m.err != nil {
-		r.diff, v.focusR = nil, false
+		r.diff, r.rows, v.focusR = nil, nil, false
 		r.cursor, r.line, r.lOffset, r.anchor = 0, 0, 0, -1
 		return
 	}
@@ -306,13 +308,13 @@ func (v *view) onDiff(m diffMsg) {
 	sort.SliceStable(m.d.Files, func(i, j int) bool {
 		return r.ours[m.d.Files[i].Path] && !r.ours[m.d.Files[j].Path]
 	})
+	selKey := v.selectedDiffKey()
 	r.cursor = 0
-	same := false
-	for i, f := range m.d.Files {
-		if f.Path == sel {
-			r.cursor, same = i, true
-		}
+	if sel != "" {
+		selKey = sel
 	}
+	v.layoutDiff(selKey)
+	same := sel != "" && v.selectedDiffKey() == sel
 	rows := diffRows(v.diffFile())
 	switch {
 	case !same:
@@ -347,10 +349,10 @@ func (v *view) diffFiles() []*review.File {
 	return v.rev.diff.Files
 }
 
+// diffFile is the selected file, or nil when a folder or nothing is.
 func (v *view) diffFile() *review.File {
-	fs := v.diffFiles()
-	if v.rev.cursor < len(fs) {
-		return fs[v.rev.cursor]
+	if n := v.selectedDiffRow(); n != nil {
+		return n.file
 	}
 	return nil
 }
@@ -399,7 +401,7 @@ func (v *view) clampLine(i int) int {
 
 func (v *view) moveDiffFile(d int) {
 	r := &v.rev
-	n := len(v.diffFiles())
+	n := len(r.rows)
 	if n == 0 {
 		return
 	}
@@ -495,7 +497,7 @@ func (v *view) commentAt(l review.Line) *pending {
 
 func (v *view) fileComment(path string) *pending {
 	for i, c := range v.rev.comments {
-		if c.Path == path && len(c.Lines) == 0 {
+		if c.Path == path && len(c.Lines) == 0 && c.At == "" {
 			return &v.rev.comments[i]
 		}
 	}
@@ -537,6 +539,9 @@ func (v *view) startComment(target review.Comment, c *pending) tea.Cmd {
 }
 
 func commentWhere(c review.Comment) string {
+	if c.At != "" {
+		return c.At
+	}
 	if len(c.Lines) == 0 {
 		return "the whole file"
 	}
@@ -627,16 +632,41 @@ func (v *view) updateDiff(k tea.KeyMsg, w, bodyH int) (cmd tea.Cmd, ok bool) {
 			v.moveDiffFile(1)
 		case "pgup", "ctrl+b":
 			v.moveDiffFile(-bodyH)
-		case "pgdown", "ctrl+f", " ":
+		case "pgdown", "ctrl+f":
 			v.moveDiffFile(bodyH)
+		case " ":
+			if n := v.selectedDiffRow(); n != nil && n.file == nil {
+				v.setDiffOpen(n, !v.diffOpen(n))
+			} else {
+				v.moveDiffFile(bodyH)
+			}
 		case "g", "home":
-			v.moveDiffFile(-len(v.diffFiles()))
+			v.moveDiffFile(-len(r.rows))
 		case "G", "end":
-			v.moveDiffFile(len(v.diffFiles()))
+			v.moveDiffFile(len(r.rows))
+		case "T":
+			v.toggleDiffTree()
+		case "E":
+			if v.prefs.diffTree {
+				v.expandAllDiff()
+			}
 		case "enter", "tab", "l", "right":
-			if len(diffRows(f)) > 0 {
+			if n := v.selectedDiffRow(); n != nil && n.file == nil {
+				// A folder opens; enter toggles it.
+				if k.String() == "enter" || k.String() == "tab" {
+					v.setDiffOpen(n, !v.diffOpen(n))
+				} else if !v.diffOpen(n) {
+					v.setDiffOpen(n, true)
+				}
+			} else if len(diffRows(f)) > 0 {
 				v.focusR = true
 				r.line = v.clampLine(r.line)
+			}
+		case "h", "left":
+			if n := v.selectedDiffRow(); n != nil && n.file == nil && v.diffOpen(n) {
+				v.setDiffOpen(n, false)
+			} else {
+				v.toDiffParent()
 			}
 		case "e", "x":
 			// They edit and delete comments here, so they mustn't export
@@ -823,10 +853,10 @@ func (v *view) diffView(w, h int) (out string) {
 	if w >= wideLayout {
 		listW = w * 2 / 5
 	}
-	r.offset = scrollOffset(r.offset, r.cursor, len(files), h)
+	r.offset = scrollOffset(r.offset, r.cursor, len(r.rows), h)
 	lines := make([]string, 0, h)
-	for i := r.offset; i < len(files) && len(lines) < h; i++ {
-		lines = append(lines, v.diffFileRow(files[i], i == r.cursor, listW))
+	for i := r.offset; i < len(r.rows) && len(lines) < h; i++ {
+		lines = append(lines, v.diffTreeRow(r.rows[i], i == r.cursor, listW))
 	}
 	for len(lines) < h {
 		lines = append(lines, strings.Repeat(" ", listW))
@@ -838,7 +868,9 @@ func (v *view) diffView(w, h int) (out string) {
 	return lipgloss.JoinHorizontal(lipgloss.Top, list, v.diffPane(w-listW, h, false))
 }
 
-func (v *view) diffFileRow(f *review.File, sel bool, w int) string {
+// diffFileRow draws a file's row: lead is the tree's indent, and name what
+// the row calls the file.
+func (v *view) diffFileRow(f *review.File, lead, name string, sel bool, w int) string {
 	var bg lipgloss.TerminalColor = lipgloss.NoColor{}
 	if sel {
 		bg = cSelBg
@@ -874,8 +906,8 @@ func (v *view) diffFileRow(f *review.File, sel bool, w int) string {
 	if f.Uncommitted && !f.Untracked {
 		tag += " uncommitted"
 	}
-	nameW := w - 1 - lipgloss.Width(right) - len(tag)
-	line := mark + st(nameStyle).Render(fit(fitLeft(f.Path, nameW), nameW)) + st(sFaint).Render(tag) + right
+	nameW := max(w-1-lipgloss.Width(right)-len(tag)-lipgloss.Width(lead), 1)
+	line := mark + st(sFaint).Render(lead) + st(nameStyle).Render(fit(fitLeft(name, nameW), nameW)) + st(sFaint).Render(tag) + right
 	if pad := w - lipgloss.Width(line); pad > 0 {
 		line += st(sText).Render(strings.Repeat(" ", pad))
 	}
@@ -896,6 +928,13 @@ func (v *view) diffPane(w, h int, full bool) string {
 		border, innerW = lipgloss.NewStyle().PaddingLeft(1), max(w-1, 10)
 	}
 	f := v.diffFile()
+	if f == nil {
+		folder := ""
+		if n := v.selectedDiffRow(); n != nil {
+			folder = v.renderDiffFolder(n, innerW)
+		}
+		return border.Height(h).Render(folder)
+	}
 	var out []string
 	head := sBold.Render(fitLeft(f.Path, innerW))
 	var flags []string

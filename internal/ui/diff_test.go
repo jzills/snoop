@@ -298,6 +298,7 @@ func TestGOnFileWithoutLines(t *testing.T) {
 	press(a, "5", "tab")
 	v.rev.diff = &review.Diff{Root: "/r", Files: []*review.File{{Path: "img.png", Binary: true}}}
 	v.rev.cursor = 0
+	v.layoutDiff("")
 	press(a, "G", "end", "c", "e", "x", "K")
 	if v.focusR {
 		t.Error("focus stayed on a file without lines")
@@ -445,6 +446,7 @@ func TestNotesKeepCursorVisible(t *testing.T) {
 		v.rev.comments = append(v.rev.comments, pending{Comment: c, id: i + 1})
 	}
 	v.rev.cursor, v.rev.line = 0, 1
+	v.layoutDiff("")
 	for range h.Lines {
 		a.View()
 		press(a, "j")

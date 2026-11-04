@@ -7,9 +7,12 @@ import (
 
 // Comment is a review comment on some lines of a file, or on the whole
 // file when Lines is empty. It quotes the lines, so it still makes sense if
-// the file changes before the agent reads it.
+// the file changes before the agent reads it. A comment on a change the
+// session made says which in At, such as "the Edit at 14:03:12", and quotes
+// the change's lines, which have no line numbers.
 type Comment struct {
 	Path  string
+	At    string
 	Lines []Line
 	Text  string
 }
@@ -36,8 +39,12 @@ func num(l Line) int {
 	return l.New
 }
 
-// where is "path:40-42", "path:7 (removed)" or "path (whole file)".
+// where is "path:40-42", "path:7 (removed)", "path (whole file)" or
+// "path (the Edit at 14:03:12)".
 func (c Comment) where() string {
+	if c.At != "" {
+		return c.Path + " (" + c.At + ")"
+	}
 	if len(c.Lines) == 0 {
 		return c.Path + " (whole file)"
 	}
@@ -74,6 +81,13 @@ func Format(cs []Comment) string {
 	b.WriteString("Review comments from snoop:\n")
 	for _, c := range cs {
 		b.WriteString("\n" + c.where() + "\n")
+		if c.At != "" {
+			for _, l := range c.Lines {
+				fmt.Fprintf(&b, "    %c%s\n", l.Kind, l.Text)
+			}
+			b.WriteString(c.Text + "\n")
+			continue
+		}
 		w := 0
 		for _, l := range c.Lines {
 			w = max(w, len(fmt.Sprint(num(l))))
