@@ -131,7 +131,8 @@ type board struct {
 	alert      *alert
 	alertShown bool
 
-	asks map[string][]review.Request // the app's, by session
+	asks  map[string][]review.Request // the app's, by session
+	turns map[string]review.Turn      // the app's turns waiting for a reply, by session
 }
 
 func newBoard(root string) *board {
@@ -274,6 +275,11 @@ func (b *board) arrange(now time.Time, stall time.Duration) {
 	b.order = b.order[:0]
 	for _, r := range b.rows {
 		r.status, r.detail = rowState(r.f.Sess, r.info.Path, r.last, now, stall)
+		// Claude Code records the turn as done only once the Stop hook
+		// stops waiting for a reply.
+		if t, ok := b.turns[r.info.ID]; ok && r.status != rowYourTurn {
+			r.status, r.detail = rowYourTurn, "turn ended "+agoAt(t.Ended, now)+" · R replies"
+		}
 		if rs := b.asks[r.info.ID]; len(rs) > 0 {
 			r.status, r.detail = rowAsking, askSummary(rs[0])
 			if len(rs) > 1 {
@@ -433,6 +439,11 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	}
 	sb.WriteString(sFaint.Render(strings.Repeat("─", w)) + "\n")
 	help := keyHelp("↑↓", "move", "enter", "open", "o", "sort", "esc", "sessions", "?", "help")
+	if b.cursor < len(b.order) {
+		if _, ok := b.turns[b.order[b.cursor].info.ID]; ok {
+			help = keyHelp("R", "reply", "↑↓", "move", "enter", "open", "?", "help")
+		}
+	}
 	if panel != nil {
 		help = keyHelp("A", "allow once", "D", "deny", "↑↓", "move", "enter", "open", "?", "help")
 	}

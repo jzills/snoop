@@ -112,7 +112,7 @@ func main() {
 	}
 	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow, Live: *live,
 		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir(),
-		AsksDir: review.AsksDir(), ListeningFile: review.ListeningFile()}
+		AsksDir: review.AsksDir(), ListeningFile: review.ListeningFile(), InboxDir: review.InboxDir(), TurnsDir: review.TurnsDir()}
 	if notifyMode != "" {
 		s, err := notify.Choose(string(notifyMode), notify.Env{Getenv: os.Getenv, LookPath: exec.LookPath, GOOS: runtime.GOOS, Out: os.Stderr})
 		if err != nil {

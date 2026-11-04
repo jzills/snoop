@@ -28,6 +28,9 @@ type Options struct {
 	// Permission requests: where they wait, and the file that tells the
 	// hook snoop is listening. Either empty turns answering off.
 	AsksDir, ListeningFile string
+	// Replies: the inbox they go to, and where finished turns wait for
+	// one. An empty InboxDir turns replying off.
+	InboxDir, TurnsDir string
 
 	Stall    time.Duration   // alert when a live tool call has no result after this long
 	Bell     bool            // ring the terminal bell on alerts
@@ -57,7 +60,9 @@ type App struct {
 	asks        map[string][]review.Request
 	asksPolling bool
 	lastListen  time.Time
-	seenAsks    map[string]bool // requests already alerted, by ID
+	seenAsks    map[string]bool        // requests already alerted, by ID
+	turns       map[string]review.Turn // finished turns waiting for a reply, by session
+	seenTurns   map[string]time.Time   // when each session's alerted turn ended
 	ans         answerer
 	note        string // replaces the footer until the next key
 
@@ -174,6 +179,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.onAsks(msg)
 	case answeredMsg:
 		a.onAnswered(msg)
+		return a, nil
+	case repliedMsg:
+		a.onReplied(msg)
 		return a, nil
 	case showBoardMsg:
 		a.board = newBoard(a.opts.Root)
@@ -308,7 +316,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.note = ""
 		if a.ans.typing {
-			return a, a.ans.key(msg, a.opts.AsksDir)
+			return a, a.ans.key(msg, a.opts.AsksDir, a.opts.InboxDir)
 		}
 		v := a.top()
 		if v != nil && v.rev.leaveAsk {
@@ -373,6 +381,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return a, respond(a.opts.AsksDir, r, review.Answer{Behavior: "allow"})
 				}
 				return a, a.ans.startDeny(r)
+			}
+		}
+		if msg.String() == "R" && !typing && a.opts.InboxDir != "" {
+			if id := a.focusedSession(); id != "" {
+				return a, a.ans.startReply(id)
 			}
 		}
 		if v == nil && a.board != nil {
@@ -494,7 +507,7 @@ func (a *App) View() string {
 	case v != nil:
 		out = v.render(a.w, a.h)
 	case a.board != nil:
-		a.board.asks = a.asks
+		a.board.asks, a.board.turns = a.asks, a.turns
 		out = a.board.view(a.w, a.h, time.Now(), a.stallFor())
 	default:
 		out = a.picker.view(a.w, a.h)
@@ -512,6 +525,10 @@ func (a *App) View() string {
 		footer = a.note
 	case a.top() != nil && len(a.asks[a.top().sessionID()]) > 0 && !a.top().inputActive():
 		footer = askLine(a.asks[a.top().sessionID()])
+	case a.top() != nil && !a.top().inputActive():
+		if t, ok := a.turns[a.top().sessionID()]; ok {
+			footer = replyLine(t)
+		}
 	}
 	if footer != "" {
 		if i := strings.LastIndexByte(out, '\n'); i >= 0 {

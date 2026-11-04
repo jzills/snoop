@@ -68,6 +68,22 @@ pass `--ask-wait`, such as `snoop hooks install --ask-wait 10m`. With no
 snoop open, the hook returns at once. There is no "always allow" here, so
 permission rules stay in Claude Code's own prompt.
 
+## Reply when it's your turn
+
+When a session's turn ends, its row shows `your turn`. Press `R` to type a
+reply and `enter` to send it, or `esc` to cancel, and the agent carries on
+as if you'd typed it in its terminal. The same key works in the session's own
+view, whose footer shows the agent's last message.
+
+With snoop's hooks installed, a finished turn waits for a reply while a live
+board or session view is open, for as long as a permission request waits.
+Typing in the session's terminal ends the wait at once, so the terminal never
+waits for snoop, and a run with no terminal, such as `claude -p`, doesn't
+wait at all. A reply sent while the agent is working reaches it after its
+current tool call, and one sent with no turn waiting reaches it with your next
+prompt in its terminal. If you installed the hooks before replies existed,
+run `snoop hooks install` again.
+
 {{< callout type="info" >}}
 Sessions that can't show a prompt, such as background subagents in
 non-interactive mode, deny a request no hook answers. That's Claude Code's

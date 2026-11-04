@@ -22,8 +22,9 @@ import (
 const listenEvery = 2 * time.Second
 
 type asksMsg struct {
-	reqs []review.Request
-	err  error
+	reqs  []review.Request
+	turns map[string]review.Turn
+	err   error
 }
 
 // listening reports whether snoop can show requests: on the board or in a
@@ -47,23 +48,28 @@ func (a *App) askCmds(now time.Time) []tea.Cmd {
 	}
 	if !a.asksPolling {
 		a.asksPolling = true
-		dir := a.opts.AsksDir
+		dir, turnsDir := a.opts.AsksDir, a.opts.TurnsDir
 		cmds = append(cmds, func() tea.Msg {
 			rs, err := review.Pending(dir, now)
-			return asksMsg{rs, err}
+			var ts map[string]review.Turn
+			if turnsDir != "" {
+				ts, _ = review.WaitingTurns(turnsDir, now)
+			}
+			return asksMsg{rs, ts, err}
 		})
 	}
 	return cmds
 }
 
-// onAsks keeps the waiting requests by session, oldest first, and raises
-// an alert for each new one: in its session's view when it's open, else
-// on the board.
+// onAsks keeps the waiting requests by session, oldest first, and the
+// turns waiting for a reply, and raises an alert for each new one: in its
+// session's view when it's open, else on the board.
 func (a *App) onAsks(m asksMsg) tea.Cmd {
 	a.asksPolling = false
 	if m.err != nil {
 		return nil
 	}
+	turnAlerts := a.onTurns(m.turns)
 	a.asks = map[string][]review.Request{}
 	seen := map[string]bool{}
 	var out []*alert
@@ -75,7 +81,7 @@ func (a *App) onAsks(m asksMsg) tea.Cmd {
 		}
 	}
 	a.seenAsks = seen
-	return a.signal(out)
+	return a.signal(append(turnAlerts, out...))
 }
 
 // askAlert raises the alert for a new request and returns it.
@@ -142,11 +148,13 @@ func askSummary(r review.Request) string {
 	return oneLine(s)
 }
 
-// answerer sends answers, and holds the deny reason while it is typed.
+// answerer sends answers and replies, and holds the deny reason or the
+// reply while it is typed.
 type answerer struct {
-	input  textinput.Model
-	typing bool
-	target review.Request
+	input   textinput.Model
+	typing  bool
+	target  review.Request
+	replyTo string // the session a reply goes to; "" while a deny reason is typed
 }
 
 type answeredMsg struct {
@@ -163,25 +171,42 @@ func respond(dir string, r review.Request, a review.Answer) tea.Cmd {
 
 // startDeny asks for the reason, which Claude sees; it may be empty.
 func (an *answerer) startDeny(r review.Request) tea.Cmd {
-	if an.input.Prompt == "" {
-		an.input = textinput.New()
-		an.input.Prompt = "deny reason (optional) "
-		an.input.PromptStyle = sKey
-		an.input.Placeholder = "what Claude should do instead"
-	}
-	an.input.SetValue("")
-	an.typing, an.target = true, r
+	an.prompt("deny reason (optional) ", "what Claude should do instead")
+	an.typing, an.target, an.replyTo = true, r, ""
 	return an.input.Focus()
 }
 
-// key takes every key while the reason is typed: enter denies, esc
-// cancels.
-func (an *answerer) key(k tea.KeyMsg, dir string) tea.Cmd {
+// startReply asks for a message to the session's agent.
+func (an *answerer) startReply(session string) tea.Cmd {
+	an.prompt("reply ", "a message for the agent; enter sends it")
+	an.typing, an.replyTo = true, session
+	return an.input.Focus()
+}
+
+func (an *answerer) prompt(prompt, placeholder string) {
+	if an.input.Prompt == "" {
+		an.input = textinput.New()
+		an.input.PromptStyle = sKey
+	}
+	an.input.Prompt, an.input.Placeholder = prompt, placeholder
+	an.input.SetValue("")
+}
+
+// key takes every key while the reason or reply is typed: enter sends it
+// (an empty reply sends nothing), esc cancels.
+func (an *answerer) key(k tea.KeyMsg, asksDir, inboxDir string) tea.Cmd {
 	switch k.String() {
 	case "enter":
 		an.typing = false
 		an.input.Blur()
-		return respond(dir, an.target, review.Answer{Behavior: "deny", Message: strings.TrimSpace(an.input.Value())})
+		text := strings.TrimSpace(an.input.Value())
+		if an.replyTo != "" {
+			if text == "" {
+				return nil
+			}
+			return reply(inboxDir, an.replyTo, text)
+		}
+		return respond(asksDir, an.target, review.Answer{Behavior: "deny", Message: text})
 	case "esc":
 		an.typing = false
 		an.input.Blur()
@@ -192,21 +217,25 @@ func (an *answerer) key(k tea.KeyMsg, dir string) tea.Cmd {
 	return cmd
 }
 
-// askTarget is the oldest request of the session on screen: the open
-// session, or the board's selected row.
-func (a *App) askTarget() (review.Request, bool) {
-	id := ""
+// focusedSession is the session on screen: the open session, or the
+// board's selected row.
+func (a *App) focusedSession() string {
 	switch v := a.top(); {
 	case v != nil:
-		id = v.sessionID()
+		return v.sessionID()
 	case a.board != nil:
-		a.board.asks = a.asks
+		a.board.asks, a.board.turns = a.asks, a.turns
 		a.board.arrange(time.Now(), a.stallFor())
 		if a.board.cursor < len(a.board.order) {
-			id = a.board.order[a.board.cursor].info.ID
+			return a.board.order[a.board.cursor].info.ID
 		}
 	}
-	if rs := a.asks[id]; len(rs) > 0 {
+	return ""
+}
+
+// askTarget is the oldest request of the session on screen.
+func (a *App) askTarget() (review.Request, bool) {
+	if rs := a.asks[a.focusedSession()]; len(rs) > 0 {
 		return rs[0], true
 	}
 	return review.Request{}, false

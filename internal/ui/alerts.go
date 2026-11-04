@@ -80,6 +80,9 @@ type watch struct {
 	root       string // the session's transcript, whose subagents it checks
 	unseenErrs int
 	pending    map[*parse.Event]bool // live tool calls without a result; true once alerted
+	// A turn whose end was alerted while its Stop hook waited for a reply,
+	// before Claude Code recorded it as done.
+	endedEarly *parse.Turn
 }
 
 func newWatch(root string) watch { return watch{root: root, pending: map[*parse.Event]bool{}} }
@@ -140,7 +143,7 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 	}
 	if n := len(s.Turns); n > 0 {
 		t := s.Turns[n-1]
-		if t.Done && (t != before.turn || !before.done) {
+		if t.Done && (t != before.turn || !before.done) && t != w.endedEarly {
 			note := "Your turn"
 			if d := t.Duration(); d > 0 {
 				note += " · finished after " + dur(d.Truncate(time.Second))

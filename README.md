@@ -151,6 +151,16 @@ open, for at most 5 minutes (set with `snoop hooks install --ask-wait 10m`),
 and answering in the terminal ends the wait at once. There is no "always
 allow" here, so rules stay in Claude Code's own prompt.
 
+**Reply when it's your turn:** When a session's turn ends, its row shows
+`your turn`. Press `R` to type a reply and `enter` to send it, and the agent
+carries on as if you'd typed it in its terminal. The same key works in the
+session's own view, whose footer shows the agent's last message. With the
+hooks installed, a finished turn waits for a reply only while a live board or
+session view is open, for as long as a permission request does, and typing in
+the session's terminal ends the wait at once. A reply sent while the agent is
+working reaches it after its current tool call, and one sent with no turn
+waiting reaches it with your next prompt.
+
 **Find:** Pressing `f` in the picker finds sessions by a file they read or
 changed, a command they ran, or a prompt, subagents included. Every word must
 match the same file, command or prompt. Each result shows what matched, and
@@ -196,19 +206,21 @@ snoop hooks status               # or uninstall
 The hooks run `snoop hook` after each tool call, when the agent tries to
 finish, and when you submit a prompt. The agent sees your comments at the
 first of these, so a working agent gets them mid-turn and an agent that has
-finished keeps going. The footer shows when they are delivered. Without the
+finished keeps going. Replies sent with `R` travel the same way. The footer
+shows when comments are delivered. Without the
 hooks, `S` copies the comments to the clipboard instead. A fourth hook runs
 when a session asks for permission, so the live board can
 [answer it](#many-sessions-at-once). If you installed the hooks before that
-hook existed, `snoop hooks status` says so, and running `snoop hooks install`
-again adds it.
+hook existed, or before replies, `snoop hooks status` says so, and running
+`snoop hooks install` again updates them.
 
 The hooks are the only change snoop makes to Claude Code's settings, and
 `snoop hooks uninstall` removes exactly those entries. Sent comments wait in a
 `snoop/inbox` folder in your state directory (`~/.local/state` on Linux) until
-a hook delivers them. Permission requests wait in `snoop/asks` beside it, and
-open snoops refresh a small `snoop/listening` file every 2 seconds, which is
-how the hook knows to wait. A session that was already running may need a restart
+a hook delivers them. Permission requests wait in `snoop/asks` beside it,
+finished turns waiting for a reply are marked in `snoop/turns`, and open
+snoops refresh a small `snoop/listening` file every 2 seconds, which is how
+the hooks know to wait. A session that was already running may need a restart
 before it uses the hooks.
 
 ## Summary across sessions
@@ -310,6 +322,7 @@ Press `?` anywhere for the keys of the current screen. The full list follows.
 | `esc` | clear the search or filter, then go back |
 | `!` | jump to the latest alert |
 | `A` / `D` | allow once / deny the session's permission request |
+| `R` | reply to the session's agent |
 | `y` / `e` | copy the selection / export the view to Markdown |
 | `?` | every key for the current screen |
 | `q` | quit |
