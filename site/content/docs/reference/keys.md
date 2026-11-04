@@ -96,7 +96,10 @@ These work on every tab.
 | `/` | keep only files whose path matches |
 | `T` | switch between the list and a tree of folders |
 | `space`, `←` `→` | in the tree, close or open a folder (`←` on a file moves to its folder) |
-| `E` | in the tree, open every folder, or go back |
+| `E` | in the tree, open the folder and every folder in it, or close them; on a file, every folder |
+| `c` | comment on the change at the top of the right pane |
+| `C` | comment on the whole file |
+| `S` | send every comment to the agent |
 
 ## Diff
 
@@ -106,6 +109,9 @@ These work on every tab.
 | `B` | choose the base the branch is compared with |
 | `enter`, `tab`, `→` | move into the file's lines |
 | `tab`, `←`, `esc` | back to the files |
+| `T` | switch between the list and a tree of folders |
+| `space`, `←` `→` | in the tree, close or open a folder (`←` on a file moves to its folder) |
+| `E` | in the tree, open the folder and every folder in it, or close them; on a file, every folder |
 | `J` `K`, `n` `N` | next and previous hunk |
 | `c` | comment on the line, or on the selected range |
 | `v` | start or clear a range selection |

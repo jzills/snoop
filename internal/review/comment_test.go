@@ -41,3 +41,12 @@ func TestCovers(t *testing.T) {
 		t.Error("Covers")
 	}
 }
+
+func TestFormatChangeComment(t *testing.T) {
+	got := Format([]Comment{{Path: "a.go", At: "the Edit at 14:03:12", Text: "keep the old name",
+		Lines: []Line{{Kind: '-', Text: "func old() {"}, {Kind: '+', Text: "func renamed() {"}}}})
+	want := "Review comments from snoop:\n\na.go (the Edit at 14:03:12)\n    -func old() {\n    +func renamed() {\nkeep the old name\n"
+	if got != want {
+		t.Errorf("Format = %q", got)
+	}
+}

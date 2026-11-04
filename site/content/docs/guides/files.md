@@ -23,8 +23,9 @@ only one folder shares its row, as in `internal/ui/`. Folders with changed
 files start open, and folders whose files were only read start closed.
 
 In the tree, press `space` or `enter` on a folder to open or close it, or
-use `←` and `→`. Pressing `←` on a file moves to its folder. Press `E` to
-open every folder, and press it again to go back. While you search, every
+use `←` and `→`. Pressing `←` on a file moves to its folder. Press `E` on a
+folder to open it and every folder inside it, and press it again to close
+them. On a file, `E` does the same for every folder in the tree. While you search, every
 folder with a match is open. Selecting a folder lists its files in the
 right pane.
 
@@ -36,6 +37,16 @@ file's latest change in the timeline; for a change a subagent made, that is
 the Agent call.
 
 Pressing `y` copies all of the file's changes to the clipboard.
+
+## Comment on a change
+
+Press `c` to comment on the change at the top of the right pane, the one `n`
+and `N` move to, or `C` to comment on the whole file. The comment quotes the
+change and names it, such as `the Edit at 14:03:12`, rather than giving line
+numbers, which may have moved since. Press `c` on the same change again to
+edit its comment. The file list counts each file's comments, and `S` sends
+them along with any from the Diff tab, as described in
+[Review and comment](../review/).
 
 {{< callout type="info" >}}
 Changes made through Bash, such as `sed -i` or a code generator, aren't

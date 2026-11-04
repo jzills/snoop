@@ -688,6 +688,9 @@ func (v *view) tabs(w int) string {
 		if q := v.search.Value(); q != "" {
 			flags = append(flags, sKey.Render("“"+q+"”"))
 		}
+		if n := len(v.rev.comments); n > 0 {
+			flags = append(flags, sKey.Render(fmt.Sprintf("%d %s", n, plural(n, "comment"))))
+		}
 		flags = append(flags, sDim.Render(fmt.Sprintf("%d files", len(v.files))))
 		right = strings.Join(flags, "  ")
 	}
@@ -714,7 +717,7 @@ func (v *view) footer(w int) string {
 			return fit(" "+keyHelp("↑↓", "move", "enter", "compare", "esc", "cancel"), w)
 		}
 		if !v.focusR {
-			help = keyHelp("enter", "lines", "C", "comment on file", "S", "send", "?", "help")
+			help = keyHelp("enter", "lines", "C", "comment on file", "T", "tree", "S", "send", "?", "help")
 		}
 		return fit(" "+v.sendStatus()+help, w)
 	}
@@ -730,9 +733,9 @@ func (v *view) footer(w int) string {
 	case v.tab == tabTools:
 		help = keyHelp("space", "expand", "enter", "show in timeline", "?", "help")
 	case v.tab == tabFiles && v.prefs.filesTree:
-		help = keyHelp("space", "expand", "T", "flat list", "enter", "show in timeline", "?", "help")
+		help = v.sendStatus() + keyHelp("space", "expand", "T", "flat list", "c", "comment", "S", "send", "?", "help")
 	case v.tab == tabFiles:
-		help = keyHelp("n N", "next change", "T", "tree", "enter", "show in timeline", "?", "help")
+		help = v.sendStatus() + keyHelp("n N", "next change", "T", "tree", "c", "comment", "S", "send", "?", "help")
 	default:
 		help = keyHelp("enter", "detail", "/", "search", "f", "filter", "?", "help")
 	}
