@@ -46,8 +46,10 @@ type Request struct {
 	// What Claude Code's prompt would change to stop asking, such as a rule
 	// for the command; empty when it offers nothing.
 	Suggestions json.RawMessage `json:"permission_suggestions,omitempty"`
-	Asked       time.Time       `json:"asked"`
-	Deadline    time.Time       `json:"deadline"`
+	suggested   []Suggestion    // Suggestions read once, by Pending
+	read        bool
+	Asked       time.Time `json:"asked"`
+	Deadline    time.Time `json:"deadline"`
 }
 
 // Answer is how snoop answers a request: allow, or deny with an optional
@@ -78,6 +80,9 @@ type Suggestion struct {
 
 // SuggestionList reads a request's suggestions, skipping any it can't read.
 func (r Request) SuggestionList() []Suggestion {
+	if r.read {
+		return r.suggested
+	}
 	var raw []json.RawMessage
 	if json.Unmarshal(r.Suggestions, &raw) != nil {
 		return nil
@@ -163,6 +168,8 @@ func Pending(dir string, now time.Time) ([]Request, error) {
 				continue
 			}
 			r.ID = strings.TrimSuffix(n, askExt)
+			// Read once here, as snoop shows them on every frame.
+			r.suggested, r.read = r.SuggestionList(), true
 			out = append(out, r)
 		}
 	}
