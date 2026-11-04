@@ -378,10 +378,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.helpVP.GotoTop()
 			return a, nil
 		}
-		if k := msg.String(); (k == "A" || k == "D") && !typing {
+		if k := msg.String(); (k == "A" || k == "D" || k == "Y") && !typing {
 			if r, ok := a.askTarget(); ok {
-				if k == "A" {
+				switch k {
+				case "A":
 					return a, respond(a.opts.AsksDir, r, review.Answer{Behavior: "allow"})
+				case "Y":
+					if alwaysSummary(r) == "" {
+						a.note = sDim.Render(" Claude Code offers no way to stop asking for this request; A allows it once")
+						return a, nil
+					}
+					return a, respond(a.opts.AsksDir, r, review.Always(r))
 				}
 				return a, a.ans.startDeny(r)
 			}

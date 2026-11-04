@@ -24,6 +24,9 @@ type hookInput struct {
 	AgentType string          `json:"agent_type"`
 	Tool      string          `json:"tool_name"`
 	Input     json.RawMessage `json:"tool_input"`
+	// The permission changes Claude Code's own prompt offers as "don't ask
+	// again".
+	Suggestions json.RawMessage `json:"permission_suggestions"`
 }
 
 // DefaultAskWait is how long the hook waits for snoop to answer a
@@ -105,7 +108,7 @@ func ask(h hookInput, out io.Writer, o HookOptions) error {
 		wait = DefaultAskWait
 	}
 	r, err := Ask(o.Asks, Request{Session: h.SessionID, Cwd: h.Cwd, AgentID: h.AgentID, AgentType: h.AgentType,
-		Tool: h.Tool, Input: h.Input, Asked: now, Deadline: now.Add(wait)})
+		Tool: h.Tool, Input: h.Input, Suggestions: h.Suggestions, Asked: now, Deadline: now.Add(wait)})
 	if err != nil {
 		return err
 	}

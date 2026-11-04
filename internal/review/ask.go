@@ -43,15 +43,53 @@ type Request struct {
 	AgentType string          `json:"agent_type,omitempty"`
 	Tool      string          `json:"tool_name"`
 	Input     json.RawMessage `json:"tool_input"`
-	Asked     time.Time       `json:"asked"`
-	Deadline  time.Time       `json:"deadline"`
+	// What Claude Code's prompt would change to stop asking, such as a rule
+	// for the command; empty when it offers nothing.
+	Suggestions json.RawMessage `json:"permission_suggestions,omitempty"`
+	Asked       time.Time       `json:"asked"`
+	Deadline    time.Time       `json:"deadline"`
 }
 
 // Answer is how snoop answers a request: allow, or deny with an optional
-// message for the agent.
+// message for the agent. An allow that applies the request's suggestions
+// stops Claude Code asking again, as its own prompt's "don't ask again"
+// does.
 type Answer struct {
-	Behavior string `json:"behavior"`
-	Message  string `json:"message,omitempty"`
+	Behavior    string          `json:"behavior"`
+	Message     string          `json:"message,omitempty"`
+	Permissions json.RawMessage `json:"updatedPermissions,omitempty"`
+}
+
+// Always is the answer that allows a request and applies its suggestions.
+func Always(r Request) Answer { return Answer{Behavior: "allow", Permissions: r.Suggestions} }
+
+// Suggestion is one change a request's suggestions would make.
+type Suggestion struct {
+	Type        string `json:"type"` // addRules, setMode or addDirectories
+	Destination string `json:"destination"`
+	Rules       []struct {
+		ToolName    string `json:"toolName"`
+		RuleContent string `json:"ruleContent"`
+	} `json:"rules"`
+	Behavior    string   `json:"behavior"`
+	Mode        string   `json:"mode"`
+	Directories []string `json:"directories"`
+}
+
+// SuggestionList reads a request's suggestions, skipping any it can't read.
+func (r Request) SuggestionList() []Suggestion {
+	var raw []json.RawMessage
+	if json.Unmarshal(r.Suggestions, &raw) != nil {
+		return nil
+	}
+	var out []Suggestion
+	for _, b := range raw {
+		var s Suggestion
+		if json.Unmarshal(b, &s) == nil && s.Type != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // AsksDir is where requests wait.
