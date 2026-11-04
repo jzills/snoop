@@ -12,12 +12,18 @@ Each prompt row in the timeline shows that turn's tokens, its estimated cost
 (marked `≈`) and its duration. The Stats tab totals them for the session and
 breaks them down by prompt.
 
-{{< shot src="stats.png" alt="The Stats tab with duration, tokens, cost, context, tool mix, models and a per-prompt breakdown" caption="Under Turns, the Stats tab lists each prompt's duration, tokens, cost and context." >}}
+{{< shot src="stats.png" alt="The Stats tab with the cost, duration, tokens and context at the top, then each prompt's cost, the tools used, the tokens and the models" caption="The Stats tab opens with the session's totals, then lists each prompt's time, tokens, cost and context." >}}
 
-Cost per prompt is an estimate. Claude Code records only each model's total
-cost for the session, so snoop splits that total across prompts by their
-token use, weighted by each kind of token's price. The prompt costs add up
-to the recorded total. Sessions without a recorded cost show tokens only.
+Claude Code records a session's cost only when the session ends. While a
+session runs, snoop estimates its cost from each request's tokens at the
+model's API prices, and marks it `≈` and "estimated". The estimate leaves
+out requests made by subagents, so it can be lower than the cost Claude Code
+records at the end.
+
+Once the cost is recorded, it replaces the estimate. Claude Code records
+only each model's total, so snoop splits that across prompts by their token
+use, weighted by each kind of token's price, and the prompt costs add up to
+the recorded total. Models without a known price show tokens only.
 
 ## Context
 

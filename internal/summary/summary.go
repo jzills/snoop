@@ -18,7 +18,7 @@ import (
 )
 
 // Bump when Session changes shape, so stale cache entries are re-read.
-const cacheVersion = 2
+const cacheVersion = 3
 
 type Count struct {
 	N      int `json:"n"`
@@ -55,9 +55,11 @@ type Session struct {
 // Of summarises a parsed session.
 func Of(s *parse.Session) Session {
 	st := stats.Compute(s)
+	// A running session's cost is estimated from its tokens.
+	usd, _, hasCost := s.Cost()
 	out := Session{
 		Prompts: st.Prompts, ToolCalls: st.ToolCalls, Errors: st.Errors,
-		Tokens: s.Usage.Total(), Cost: s.CostUSD, HasCost: s.CostUSD > 0 || len(s.ModelCost) > 0,
+		Tokens: s.Usage.Total(), Cost: usd, HasCost: hasCost,
 		Tools: counts(st.Tools), Skills: counts(st.Skills), MCP: counts(st.MCP), Agents: counts(st.Agents),
 		Models: map[string]int{}, Days: map[string]Day{},
 	}
@@ -250,7 +252,7 @@ type Totals struct {
 	Errors    int
 	Tokens    int
 	Cost      float64
-	CostKnown int // sessions with a recorded cost
+	CostKnown int // sessions with a recorded or estimated cost
 
 	Tools, Skills, MCP, Agents, Models []Named
 	Days                               []DayTotal // the last `days` days, oldest first

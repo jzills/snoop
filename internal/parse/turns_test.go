@@ -145,9 +145,60 @@ func TestTurnCostSumsToTotal(t *testing.T) {
 	}
 }
 
-func TestTurnCostWithoutCostState(t *testing.T) {
+// Without a cost-state (the session is still running), cost is estimated
+// from each request's tokens at the model's prices.
+func TestTurnCostEstimatedWithoutCostState(t *testing.T) {
 	s := parseString(t, turnsFixture)
+	// Opus 5.5 per MTok: input $4, output $20, cache read $0.20, cache write
+	// $5. Turn 0: m1 (10 in, 5 out, 100 read, 20 write) and m2 (1 in, 2 out,
+	// 200 read).
+	want := []float64{(11*4 + 7*20 + 300*0.20 + 20*5) / 1e6, (4*4 + 4*20 + 31000*0.20) / 1e6}
+	for i, w := range want {
+		got, ok := s.TurnCost(s.Turns[i])
+		if !ok || math.Abs(got-w) > 1e-12 {
+			t.Errorf("turn %d cost = %v, %v; want %v", i, got, ok, w)
+		}
+	}
+	usd, estimated, ok := s.Cost()
+	if !ok || !estimated || math.Abs(usd-(want[0]+want[1])) > 1e-12 {
+		t.Errorf("Cost = %v, estimated %v, ok %v", usd, estimated, ok)
+	}
+	if m := s.ModelCostUSD("claude-opus-5-5"); math.Abs(m-usd) > 1e-12 {
+		t.Errorf("model cost = %v", m)
+	}
+}
+
+func TestCostRecordedWins(t *testing.T) {
+	s := parseString(t, turnsFixture+`{"type":"cost-state","totalCostUSD":2.5,"modelUsage":{"claude-opus-5-5":{"costUSD":2.5}}}`+"\n")
+	usd, estimated, ok := s.Cost()
+	if !ok || estimated || usd != 2.5 {
+		t.Errorf("Cost = %v, estimated %v, ok %v", usd, estimated, ok)
+	}
+	if m := s.ModelCostUSD("claude-opus-5-5"); m != 2.5 {
+		t.Errorf("model cost = %v", m)
+	}
+}
+
+func TestCostOneHourCacheWrites(t *testing.T) {
+	in := `{"type":"user","uuid":"u1","message":{"content":"a"}}
+{"type":"assistant","message":{"id":"m1","model":"claude-opus-5-5[1m]","content":[],"usage":{"cache_creation_input_tokens":1000,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":1000}}}}
+`
+	s := parseString(t, in)
+	// 1-hour writes cost twice the input price: $8 per MTok on Opus 5.5.
+	if got, _ := s.TurnCost(s.Turns[0]); math.Abs(got-0.008) > 1e-12 {
+		t.Errorf("cost = %v, want 0.008", got)
+	}
+}
+
+func TestCostUnknownModel(t *testing.T) {
+	in := `{"type":"user","uuid":"u1","message":{"content":"a"}}
+{"type":"assistant","message":{"id":"m1","model":"some-other-model","content":[],"usage":{"input_tokens":1000}}}
+`
+	s := parseString(t, in)
+	if _, _, ok := s.Cost(); ok {
+		t.Error("cost estimated for a model without prices")
+	}
 	if _, ok := s.TurnCost(s.Turns[0]); ok {
-		t.Error("cost reported without a cost-state record")
+		t.Error("turn cost estimated for a model without prices")
 	}
 }

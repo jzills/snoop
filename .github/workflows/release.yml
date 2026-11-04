@@ -48,6 +48,18 @@ jobs:
       - name: Render the Homebrew formula
         run: scripts/homebrew_formula.sh "${{ steps.version.outputs.value }}" > dist/snoop.rb
 
+      # The npm packages and PyPI wheels carry the binaries built above.
+      - name: Build the npm packages
+        run: scripts/npm_packages.sh "${{ steps.version.outputs.value }}"
+
+      - name: Build the PyPI wheels
+        run: python3 scripts/wheels.py "${{ steps.version.outputs.value }}"
+
+      # Installs each package the way users will and runs it, so a broken
+      # package stops the release before anything is published.
+      - name: Check the packages
+        run: scripts/check_packages.sh "${{ steps.version.outputs.value }}"
+
       - name: Upload release files
         uses: actions/upload-artifact@v7
         with:
@@ -57,6 +69,8 @@ jobs:
             dist/snoop_*.zip
             dist/SHA256SUMS
             dist/snoop.rb
+            dist/npm-packs/*.tgz
+            dist/wheels/*.whl
           if-no-files-found: error
 
   # The approval gate. Give the `release` environment a required reviewer
@@ -148,3 +162,68 @@ jobs:
           fi
           git commit -m "snoop ${{ needs.build.outputs.version }}"
           git push
+
+  # Publishes the six platform packages, then snoop-cli, which depends on
+  # them, on every release. The first release needs an NPM_TOKEN secret (a granular token that can publish);
+  # once each package lists this workflow as a trusted publisher on
+  # npmjs.com, delete the token and publishing uses OIDC. A version already
+  # on npm is skipped, so a rerun picks up where a failed one stopped.
+  npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: [build, github-release]
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - name: Download the packages
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - name: Update npm
+        run: npm install --global npm@11
+
+      - name: Publish
+        run: |
+          if [ -n "$NPM_TOKEN" ]; then
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > "$HOME/.npmrc"
+          fi
+          cd "$RUNNER_TEMP/release/npm-packs"
+          for tgz in jzills-snoop-cli-*.tgz snoop-cli-*.tgz; do
+            name="$(tar -xOzf "$tgz" package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).name')"
+            if npm view "${name}@${VERSION}" version >/dev/null 2>&1; then
+              echo "${name}@${VERSION} is already published"
+              continue
+            fi
+            npm publish "./$tgz" --provenance --access public
+          done
+
+  # Uploads the wheels with PyPI trusted publishing: add a (pending)
+  # publisher on pypi.org for project snoop-cli, this repository and
+  # release.yml. No token. Runs on every release.
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: [build, github-release]
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+    steps:
+      - name: Download the wheels
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ${{ runner.temp }}/release/wheels/
+          skip-existing: true

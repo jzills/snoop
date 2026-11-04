@@ -21,13 +21,27 @@ waterfall, an expanded subagent, the Files tab and Stats](demo/demo.gif)
 ```
 brew install jzills/tap/snoop                      # macOS and Linux
 curl -fsSL https://jzills.github.io/snoop/install.sh | sh
+npm install -g snoop-cli                           # or: pipx install snoop-cli
 go install github.com/jzills/snoop/cmd/snoop@latest
 ```
+
+On Windows, use npm, PyPI or the PowerShell script:
+
+```
+irm https://jzills.github.io/snoop/install.ps1 | iex
+```
+
+Every method installs the same `snoop` command. On npm and PyPI the package
+is named `snoop-cli`, since `snoop` was taken, and it carries the binary for
+your platform, so nothing is downloaded or built when it installs. With
+`uv`, run `uv tool install snoop-cli`.
 
 The install script picks the build for your machine, checks it against the
 release's `SHA256SUMS`, and installs it to `~/.local/bin` without sudo. To
 install somewhere else, set `SNOOP_INSTALL_DIR`, and to install a given
-release instead of the newest, set `SNOOP_VERSION`, such as `v0.1.0`.
+release instead of the newest, set `SNOOP_VERSION`, such as `v0.1.0`. The
+PowerShell script does the same on Windows, installing to
+`%LOCALAPPDATA%\Programs\snoop` and adding it to your `PATH`.
 
 You can also download a binary for Linux, macOS or Windows from the
 [latest release](https://github.com/jzills/snoop/releases/latest). Each
@@ -88,16 +102,20 @@ which `n` and `N` step through, and pressing `enter` shows the latest change
 in the timeline. Pressing `T` switches to a tree of folders, each with the
 totals of its files. Changes made through Bash aren't tracked.
 
-**Stats:** The Stats tab shows the duration, prompts, tool mix, token usage
-(input, output, cache and thinking), context (current, peak and compactions),
-the cost when Claude Code recorded it, and the skills, MCP servers, subagent
-types and models used. Its Turns breakdown lists each prompt's duration,
-tokens, estimated cost and context at the end of the turn.
+**Stats:** The Stats tab opens with the session's cost, duration, tokens (and
+how many came from cache) and context. Below them, Turns lists each prompt's
+time, tokens, cost and context, with a bar for its share of the cost and the
+costliest prompt highlighted. Tools lists the tools used most, with errors
+and average time, beside where the tokens went. Models lists each model with
+its requests and cost.
 
-Cost per prompt is an estimate. Claude Code records only each model's total
-cost for the session, so that total is split across prompts by token use,
-weighted by relative token price. The prompt costs add up to the recorded
-total. Sessions without a recorded cost show tokens only.
+Claude Code records a session's cost only when the session ends, so while it
+runs, snoop estimates the cost from each request's tokens at the model's API
+prices, and marks it `≈` and "estimated". Once the cost is recorded, snoop
+splits each model's total across the prompts by token use, weighted by each
+kind of token's price, so the prompt costs add up to the recorded total. The
+estimate leaves out subagents' requests, and models without a known price
+show tokens only.
 
 ## Many sessions at once
 
