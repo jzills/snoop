@@ -125,13 +125,13 @@ func TestBoardListsOnlyLiveSessions(t *testing.T) {
 func TestBoardAlertsOnNewLinesOnly(t *testing.T) {
 	b, proj := newTestBoard(t)
 	never := func(string) bool { return false }
-	if as := b.poll(time.Now(), 0, never); len(as) != 0 {
+	if as := b.poll(time.Now(), 0, Limits{}, never); len(as) != 0 {
 		t.Fatalf("alerts for lines already there: %+v", as)
 	}
 	f, _ := os.OpenFile(filepath.Join(proj, "busy.jsonl"), os.O_APPEND|os.O_WRONLY, 0)
 	f.WriteString(bBashDone + "\n" + bTurnEnd + "\n")
 	f.Close()
-	as := b.poll(time.Now(), 0, never)
+	as := b.poll(time.Now(), 0, Limits{}, never)
 	if len(as) != 1 || as[0].kind != alertTurn || !strings.HasPrefix(as[0].text, "api: ") {
 		t.Fatalf("alerts = %+v, want one project-prefixed turn alert", as)
 	}
@@ -140,7 +140,7 @@ func TestBoardAlertsOnNewLinesOnly(t *testing.T) {
 	f.WriteString(strings.ReplaceAll(bPrompt, "p1", "p3") + "\n" + strings.ReplaceAll(bTurnEnd, "d1", "d3") + "\n")
 	f.Close()
 	open := func(p string) bool { return strings.HasSuffix(p, "busy.jsonl") }
-	if as := b.poll(time.Now(), 0, open); len(as) != 0 {
+	if as := b.poll(time.Now(), 0, Limits{}, open); len(as) != 0 {
 		t.Errorf("open session alerted on the board: %+v", as)
 	}
 }
@@ -149,7 +149,7 @@ func TestBoardNoStallAlertForCallsPendingAtOpen(t *testing.T) {
 	b, _ := newTestBoard(t)
 	never := func(string) bool { return false }
 	// busy.jsonl's Bash call started at 10:00:05 on 2026-10-25, long ago.
-	as := b.poll(time.Now(), 30*time.Second, never)
+	as := b.poll(time.Now(), 30*time.Second, Limits{}, never)
 	if len(as) != 0 {
 		t.Fatalf("calls already pending when the board opened alerted: %+v", as)
 	}
