@@ -164,8 +164,7 @@ jobs:
           git push
 
   # Publishes the six platform packages, then snoop-cli, which depends on
-  # them. Turned on by the repository variable NPM_PUBLISH=true. The first
-  # release needs an NPM_TOKEN secret (a granular token that can publish);
+  # them, on every release. The first release needs an NPM_TOKEN secret (a granular token that can publish);
   # once each package lists this workflow as a trusted publisher on
   # npmjs.com, delete the token and publishing uses OIDC. A version already
   # on npm is skipped, so a rerun picks up where a failed one stopped.
@@ -173,7 +172,6 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
     needs: [build, github-release]
-    if: vars.NPM_PUBLISH == 'true'
     timeout-minutes: 15
     permissions:
       contents: read
@@ -209,12 +207,11 @@ jobs:
 
   # Uploads the wheels with PyPI trusted publishing: add a (pending)
   # publisher on pypi.org for project snoop-cli, this repository and
-  # release.yml, then set the repository variable PYPI_PUBLISH=true. No token.
+  # release.yml. No token. Runs on every release.
   pypi:
     name: Publish to PyPI
     runs-on: ubuntu-latest
     needs: [build, github-release]
-    if: vars.PYPI_PUBLISH == 'true'
     timeout-minutes: 10
     permissions:
       id-token: write
