@@ -79,7 +79,9 @@ func main() {
 	ring := flag.Bool("bell", false, "ring the terminal bell on alerts")
 	var notifyMode notifyFlag
 	flag.Var(&notifyMode, "notify", "send desktop notifications on alerts: auto (bare --notify), terminal or system")
-	alerts := flag.String("alerts", "error,turn,ask", "alerts that ring the bell or notify: "+strings.Join(ui.AlertKinds, ","))
+	costAlert := flag.Float64("cost-alert", 0, "alert each time a session's cost passes another multiple of this many dollars, such as 5 (0 disables)")
+	longTurn := flag.Duration("long-turn", 0, "alert when a turn has run this long, such as 15m (0 disables)")
+	alerts := flag.String("alerts", "error,turn,ask,cost,long", "alerts that ring the bell or notify: "+strings.Join(ui.AlertKinds, ","))
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: snoop [--follow | --live] [--project dir] [--bell] [--notify] [--version] [session-id|path]\n\n")
 		flag.PrintDefaults()
@@ -107,11 +109,14 @@ func main() {
 		cwd, _ = os.Getwd()
 	}
 	cwd, _ = filepath.Abs(cwd)
+	if *costAlert < 0 || *longTurn < 0 {
+		fail(fmt.Errorf("--cost-alert and --long-turn can't be negative"))
+	}
 	if *live && (*follow || flag.NArg() > 0) {
 		fail(fmt.Errorf("--live shows every session; it can't be combined with --follow or a session"))
 	}
 	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow, Live: *live,
-		Stall: *stall, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir(),
+		Stall: *stall, Limits: ui.Limits{Cost: *costAlert, LongTurn: *longTurn}, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir(),
 		AsksDir: review.AsksDir(), ListeningFile: review.ListeningFile(), InboxDir: review.InboxDir(), TurnsDir: review.TurnsDir()}
 	if notifyMode != "" {
 		s, err := notify.Choose(string(notifyMode), notify.Env{Getenv: os.Getenv, LookPath: exec.LookPath, GOOS: runtime.GOOS, Out: os.Stderr})

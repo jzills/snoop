@@ -266,6 +266,8 @@ attention:
 | `⟳ compacted` | the context is compacted |
 | `ctx 90%` | the context window passes 90% |
 | `? Bash: npm test` | the session asks for permission (needs the hooks) |
+| `$ cost passed $5.00` | with `--cost-alert 5`, the session's cost passes another $5 |
+| `◌ turn running 15m00s` | with `--long-turn 15m`, a turn has run that long |
 
 Any key hides the alert, and pressing `!` jumps to it. Lines already in the
 transcript when it opens never raise alerts.
@@ -275,7 +277,12 @@ snoop --follow --bell                    # ring the bell on errors, turn ends an
 snoop --live --notify                    # a desktop notification when any session needs you
 snoop --follow --bell --alerts error,stall,turn,compact,ctx,ask
 snoop --stall 2m                         # 0 disables the waiting alert
+snoop --live --notify --cost-alert 5 --long-turn 15m   # catch a runaway session
 ```
+
+The cost and long-turn alerts are off until you set their limit. The cost
+alert counts from what the session had spent when snoop opened it, and while
+a session runs, its cost is an estimate from its tokens.
 
 The live board raises the same alerts for every session on it, prefixed with
 the project (`api: ✓ your turn`).

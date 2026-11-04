@@ -89,6 +89,8 @@ var helpBoard = []helpSection{
 	}},
 	{"Alerts", [][2]string{
 		{"--bell", "ring the terminal bell on the alerts chosen with --alerts"},
+		{"--cost-alert 5", "alert each time a session's cost passes another $5 (off by default)"},
+		{"--long-turn 15m", "alert when a turn has run 15 minutes (off by default)"},
 		{"--notify", "send a desktop notification for them, naming the session: a Windows toast on WSL, the terminal's own in iTerm2, WezTerm, Ghostty and kitty or over SSH, osascript or notify-send elsewhere"},
 		{"", "none while snoop has focus; one per session and alert a minute; one between several snoops"},
 	}},

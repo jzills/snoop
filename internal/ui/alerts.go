@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jzills/snoop/internal/parse"
@@ -9,8 +10,9 @@ import (
 )
 
 // Alerts flag what happens while a session is watched live: tool errors,
-// tools waiting a long time, the end of a turn, compactions and a nearly
-// full context. Lines read when a session opens never raise alerts.
+// tools waiting a long time, the end of a turn, compactions, a nearly full
+// context, and, when you set a limit, cost and long turns. Lines read when
+// a session opens never raise alerts.
 
 const (
 	alertError   = "error"
@@ -19,10 +21,19 @@ const (
 	alertCompact = "compact"
 	alertContext = "ctx"
 	alertAsk     = "ask"
+	alertCost    = "cost"
+	alertLong    = "long"
 )
 
 // AlertKinds lists the alert names --alerts accepts.
-var AlertKinds = []string{alertError, alertStall, alertTurn, alertCompact, alertContext, alertAsk}
+var AlertKinds = []string{alertError, alertStall, alertTurn, alertCompact, alertContext, alertAsk, alertCost, alertLong}
+
+// Limits are the thresholds of the cost and long-turn alerts; zero turns
+// one off.
+type Limits struct {
+	Cost     float64       // alert each time a session's cost passes another multiple of this, in dollars
+	LongTurn time.Duration // alert when a turn has run this long
+}
 
 const ctxAlertPct = 90
 
@@ -59,7 +70,7 @@ func (a *alert) render() string {
 		return sErr.Render(a.text)
 	case alertTurn:
 		return sOK.Render(a.text)
-	case alertStall:
+	case alertStall, alertCost, alertLong:
 		return sAccent.Render(a.text)
 	case alertAsk:
 		return sAccent.Bold(true).Render(a.text)
@@ -83,6 +94,12 @@ type watch struct {
 	// A turn whose end was alerted while its Stop hook waited for a reply,
 	// before Claude Code recorded it as done.
 	endedEarly *parse.Turn
+
+	// The limits: set by their first check, so what the session had
+	// reached when it opened isn't alerted.
+	limitsSeen bool
+	costSteps  int         // multiples of the cost limit passed
+	longTurn   *parse.Turn // the turn alerted as long
 }
 
 func newWatch(root string) watch { return watch{root: root, pending: map[*parse.Event]bool{}} }
@@ -177,6 +194,48 @@ func (w *watch) stalls(now time.Time, stall time.Duration) []*alert {
 			w.pending[e] = true
 			what := fmt.Sprintf("waiting %s on %s · may be a permission prompt", waited(now.Sub(e.Time)), e.Tool.Name)
 			out = append(out, &alert{kind: alertStall, text: glyphPending + " " + what, note: "W" + what[1:], ev: e})
+		}
+	}
+	return out
+}
+
+// limits raises an alert when the session's cost passes another multiple
+// of the cost limit, and one when its current turn has run longer than the
+// long-turn limit. The first check only notes where the session is.
+func (w *watch) limits(s *parse.Session, now time.Time, l Limits) []*alert {
+	var out []*alert
+	first := !w.limitsSeen
+	w.limitsSeen = true
+	if l.Cost > 0 {
+		if usd, estimated, ok := s.Cost(); ok {
+			n := int(usd / l.Cost)
+			if !first && n > w.costSteps {
+				at := dollars(float64(n) * l.Cost)
+				if estimated {
+					at = "about " + at
+				}
+				a := &alert{kind: alertCost, text: "$ cost passed " + at, note: "Cost passed " + at, id: fmt.Sprintf("cost-%d", n)}
+				if k := len(s.Events); k > 0 {
+					a.ev = s.Events[k-1]
+				}
+				out = append(out, a)
+			}
+			w.costSteps = max(w.costSteps, n)
+		}
+	}
+	if l.LongTurn > 0 && len(s.Turns) > 0 {
+		t := s.Turns[len(s.Turns)-1]
+		last := t.Events[len(t.Events)-1]
+		running := !t.Done && t != w.endedEarly && !t.Start.IsZero() &&
+			!(last.Kind == parse.KindSystem && strings.HasPrefix(last.Text, interrupted))
+		if running && t != w.longTurn && now.Sub(t.Start) >= l.LongTurn {
+			w.longTurn = t
+			if first {
+				return out
+			}
+			d := waited(now.Sub(t.Start))
+			out = append(out, &alert{kind: alertLong, text: glyphPending + " turn running " + d,
+				note: "Turn running for " + d, ev: t.Events[0], id: fmt.Sprintf("long-%d", t.Start.UnixNano())})
 		}
 	}
 	return out

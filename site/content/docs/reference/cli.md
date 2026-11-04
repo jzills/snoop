@@ -31,9 +31,11 @@ snoop hooks install|uninstall|status [--project] [--ask-wait duration]
 | `--live` | off | show the live board. Can't be combined with `--follow` or a session |
 | `--project DIR` | current directory | the project whose sessions `--follow` and `c` use |
 | `--stall DURATION` | `30s` | raise the waiting alert when a tool call has no result after this long. `0` disables it |
+| `--cost-alert DOLLARS` | `0` | raise the cost alert each time a session's cost passes another multiple of this, such as `5`. `0` disables it |
+| `--long-turn DURATION` | `0` | raise the long-turn alert when a turn has run this long, such as `15m`. `0` disables it |
 | `--bell` | off | ring the terminal bell on the alerts chosen with `--alerts` |
 | `--notify[=MODE]` | off | send desktop notifications on those alerts. `MODE` is `auto` (the default), `terminal` or `system` |
-| `--alerts LIST` | `error,turn,ask` | which alerts ring the bell or notify: any of `error`, `stall`, `turn`, `compact`, `ctx`, `ask` |
+| `--alerts LIST` | `error,turn,ask,cost,long` | which alerts ring the bell or notify: any of `error`, `stall`, `turn`, `compact`, `ctx`, `ask`, `cost`, `long` |
 | `--version` | | print the version and exit |
 
 The export command takes `-o FILE` to write to a file instead of stdout.

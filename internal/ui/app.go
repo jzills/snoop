@@ -33,6 +33,7 @@ type Options struct {
 	InboxDir, TurnsDir string
 
 	Stall    time.Duration   // alert when a live tool call has no result after this long
+	Limits   Limits          // the cost and long-turn alerts
 	Bell     bool            // ring the terminal bell on alerts
 	Notifier notify.Sender   // send desktop notifications on alerts; nil for none
 	BellOn   map[string]bool // alert kinds that ring the bell or notify
@@ -159,12 +160,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.followNext = ""
 			cmds = append(cmds, func() tea.Msg { return openMsg{path: path} })
 		}
-		if a.opts.Stall > 0 {
-			for _, v := range a.stack {
-				as := v.stalls(time.Now(), a.opts.Stall)
-				v.raise(as)
-				cmds = append(cmds, a.signal(v.own(as)))
+		for _, v := range a.stack {
+			var as []*alert
+			if a.opts.Stall > 0 {
+				as = v.stalls(time.Now(), a.opts.Stall)
 			}
+			as = append(as, v.limits(v.sess, time.Now(), a.opts.Limits)...)
+			v.raise(as)
+			cmds = append(cmds, a.signal(v.own(as)))
 		}
 		cmds = append(cmds, a.askCmds(time.Now())...)
 		if b := a.board; b != nil {
@@ -172,7 +175,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if now.Sub(b.lastScan) >= boardScan {
 				cmds = append(cmds, b.scanCmd(now))
 			}
-			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.isOpen)))
+			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.opts.Limits, a.isOpen)))
 		}
 		return a, tea.Batch(cmds...)
 	case asksMsg:

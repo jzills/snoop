@@ -110,6 +110,14 @@ a session asks for permission (`Bash wants to run npm test`). Choose
 others with `--alerts`, for example `--alerts turn,stall,error` to include
 sessions waiting on a tool call.
 
+To catch a runaway session, set a cost or time limit. With
+`--cost-alert 5`, snoop alerts each time a session spends another $5, and
+with `--long-turn 15m`, it alerts when a turn has run for 15 minutes:
+
+```sh
+snoop --live --notify --cost-alert 5 --long-turn 15m
+```
+
 Nothing is sent while snoop's window has focus. At most one notification goes
 out per session and alert a minute, and several snoops watching the same
 session send one between them.

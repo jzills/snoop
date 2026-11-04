@@ -204,7 +204,7 @@ func (b *board) onLoaded(msg boardLoadedMsg) {
 // poll reads what each session added since the last poll and returns the
 // alerts it raises, prefixed with the project. Sessions for which open is
 // true are shown in a view, which raises their alerts itself.
-func (b *board) poll(now time.Time, stall time.Duration, open func(path string) bool) []*alert {
+func (b *board) poll(now time.Time, stall time.Duration, lim Limits, open func(path string) bool) []*alert {
 	var out []*alert
 	for _, p := range b.sorted() {
 		r := b.rows[p]
@@ -222,6 +222,7 @@ func (b *board) poll(now time.Time, stall time.Duration, open func(path string) 
 		if stall > 0 {
 			as = append(as, r.watch.stalls(now, stall)...)
 		}
+		as = append(as, r.watch.limits(r.f.Sess, now, lim)...)
 		if open(p) {
 			continue
 		}
