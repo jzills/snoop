@@ -23,6 +23,7 @@ var helpTabs = helpSection{"Tabs", [][2]string{
 var helpGeneral = helpSection{"General", [][2]string{
 	{"!", "jump to the latest alert (error, waiting tool, end of turn, compaction, context 90%, permission request)"},
 	{"A  D", "allow once / deny the session's permission request (needs snoop hooks install)"},
+	{"Y", "allow it and stop Claude Code asking again, as its own \"don't ask again\" does"},
 	{"R", "reply to the agent: at once when its turn has ended, else after its current tool call or with your next prompt (needs snoop hooks install)"},
 	{"y", "copy the selection: a command, diff, file content, message or result (Files: the file's changes)"},
 	{"e", "export the timeline as shown to Markdown in the current directory"},
@@ -75,12 +76,13 @@ var helpBoard = []helpSection{
 		{"enter  →", "open the session; esc comes back here"},
 		{"esc  w", "back to the session picker"},
 		{"A  D", "allow once / deny the selected session's permission request (needs snoop hooks install)"},
+		{"Y", "allow it and stop Claude Code asking again; the request shows what that adds"},
 		{"R", "reply to the selected session's agent (needs snoop hooks install)"},
 		{"o", "sort by the next column: state, project, session, context, cost, age"},
 		{"O", "reverse the order"},
 	}},
 	{"States", [][2]string{
-		{"? asking", "the session asks for permission to use a tool; A allows it once, D denies it"},
+		{"? asking", "the session asks for permission to use a tool; A allows it once, Y always, D denies it"},
 		{glyphPending + " waiting", "a tool call has had no result for --stall (30s): often a permission prompt"},
 		{glyphOK + " your turn", "the turn ended, or was interrupted; R replies"},
 		{"● working", "replying or running a tool or subagent"},

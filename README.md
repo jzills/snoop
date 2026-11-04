@@ -142,14 +142,16 @@ what they add.
 permission shows as `? asking` on the board, with the request in full under
 the list: the command, the edit's diff, or the tool's input. Press `A` to
 allow it once, or `D` to deny it, optionally with a reason that Claude sees.
+Press `Y` to allow it and stop Claude Code asking again, the same as the
+"don't ask again" choice in its own prompt: the board shows what that adds,
+such as the rule `Bash(npm test)` in the project's local settings.
 The same keys work in the session's own view, where its footer shows the
 request. Claude Code's own prompt still appears in the session's terminal,
 and whichever answer comes first wins.
 
 The hook waits for an answer only while a live board or session view is
 open, for at most 5 minutes (set with `snoop hooks install --ask-wait 10m`),
-and answering in the terminal ends the wait at once. There is no "always
-allow" here, so rules stay in Claude Code's own prompt.
+and answering in the terminal ends the wait at once.
 
 **Reply when it's your turn:** When a session's turn ends, its row shows
 `your turn`. Press `R` to type a reply and `enter` to send it, and the agent
@@ -328,7 +330,7 @@ Press `?` anywhere for the keys of the current screen. The full list follows.
 | `1 2 3 4 5`, `[ ]` | switch tabs |
 | `esc` | clear the search or filter, then go back |
 | `!` | jump to the latest alert |
-| `A` / `D` | allow once / deny the session's permission request |
+| `A` / `Y` / `D` | allow once / always allow / deny the session's permission request |
 | `R` | reply to the session's agent |
 | `y` / `e` | copy the selection / export the view to Markdown |
 | `?` | every key for the current screen |

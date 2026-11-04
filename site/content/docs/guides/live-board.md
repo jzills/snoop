@@ -50,7 +50,13 @@ edit's diff, or the tool's input, with the folder it runs in.
 {{< shot src="ask.png" width="960" height="460" alt="The live board with a session asking to run an npm command, and the request in full under the list" caption="The selected session asks to run its e2e tests, and the request is shown in full under the list." >}}
 
 Press `A` to allow it once, or `D` to deny it. After `D`, you can type a
-reason, which Claude sees, and press `enter`, or press `esc` to cancel. The
+reason, which Claude sees, and press `enter`, or press `esc` to cancel.
+Press `Y` to allow it and stop Claude Code asking again. That makes the same
+change as the "don't ask again" choice in Claude Code's own prompt, which the
+board shows under the request: usually a rule such as `Bash(npm test)` in the
+project's local settings, and for some requests a session-wide change, such
+as accepting all edits. When Claude Code offers no such change, `Y` does
+nothing. The
 same keys work in the session's own view, whose footer shows the request.
 When a session has several requests, such as from parallel subagents, the
 keys answer the oldest.
@@ -65,8 +71,7 @@ Claude Code's own prompt still appears in the session's terminal, and
 whichever answer comes first wins. The hook waits for snoop only while a
 live board or session view is open, for at most 5 minutes; to change that,
 pass `--ask-wait`, such as `snoop hooks install --ask-wait 10m`. With no
-snoop open, the hook returns at once. There is no "always allow" here, so
-permission rules stay in Claude Code's own prompt.
+snoop open, the hook returns at once.
 
 ## Reply when it's your turn
 

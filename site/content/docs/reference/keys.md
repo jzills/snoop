@@ -37,6 +37,7 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `g` `G` | first and last session |
 | `enter`, `→` | open the session; `esc` comes back |
 | `A` | allow the selected session's permission request once |
+| `Y` | allow it and stop Claude Code asking again, as its "don't ask again" does |
 | `D` | deny it, with an optional reason Claude sees |
 | `R` | reply to the selected session's agent |
 | `o` | sort by the next column: state, project, session, context, cost, age |
@@ -52,7 +53,7 @@ These work on every tab.
 | `1` `2` `3` `4` `5` | Timeline, Tools, Stats, Files, Diff |
 | `[` `]` | previous and next tab |
 | `!` | jump to the latest alert |
-| `A` `D` | allow once or deny the session's permission request |
+| `A` `Y` `D` | allow once, always allow, or deny the session's permission request |
 | `R` | reply to the session's agent |
 | `y` | copy the selection |
 | `e` | export the timeline as shown to Markdown |

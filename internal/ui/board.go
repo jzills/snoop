@@ -360,7 +360,13 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	if b.cursor < len(b.order) {
 		if rs := b.asks[b.order[b.cursor].info.ID]; len(rs) > 0 {
 			panel = strings.Split(renderRequest(rs[0], max(w-4, 10)), "\n")
-			panel = panel[:min(len(panel), max(bodyH/2-3, 1))]
+			// What Y would add stays however much of the request is cut.
+			var always []string
+			if s := alwaysSummary(rs[0]); s != "" {
+				always = strings.Split(sDim.Render(wrap("Y always allows: "+s, max(w-4, 10))), "\n")
+			}
+			panel = panel[:min(len(panel), max(bodyH/2-3-len(always), 1))]
+			panel = append(panel, always...)
 			title := "Request"
 			if len(rs) > 1 {
 				title += fmt.Sprintf(" 1 of %d", len(rs))
@@ -446,7 +452,7 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 		}
 	}
 	if panel != nil {
-		help = keyHelp("A", "allow once", "D", "deny", "↑↓", "move", "enter", "open", "?", "help")
+		help = askKeys(b.asks[b.order[b.cursor].info.ID][0]) + "  " + keyHelp("↑↓", "move", "enter", "open", "?", "help")
 	}
 	sb.WriteString(fit(" "+help, w))
 	return sb.String()

@@ -313,3 +313,63 @@ func TestAskNotifies(t *testing.T) {
 		t.Errorf("notes = %+v", s.notes)
 	}
 }
+
+const npmRule = `[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":"npm test"}],"behavior":"allow","destination":"localSettings"}]`
+
+func TestAlwaysAllow(t *testing.T) {
+	a, dir := boardApp(t)
+	r, _ := review.Ask(filepath.Join(dir, "asks"), review.Request{Session: "done", Tool: "Bash", Input: json.RawMessage(`{"command":"npm test"}`),
+		Suggestions: json.RawMessage(npmRule), Asked: time.Now(), Deadline: time.Now().Add(time.Minute)})
+	runAsks(a, time.Now())
+	out := ansi.Strip(a.View())
+	for _, want := range []string{"Y always allows: allow Bash(npm test) in this project's local settings", "Y always"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("board lacks %q:\n%s", want, out)
+		}
+	}
+	pressAsk(a, "Y")
+	var got struct {
+		Behavior    string
+		Permissions json.RawMessage `json:"updatedPermissions"`
+	}
+	json.Unmarshal([]byte(answerFile(dir, r)), &got)
+	if got.Behavior != "allow" || string(got.Permissions) != npmRule {
+		t.Errorf("answer = %q", answerFile(dir, r))
+	}
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "always allowed Bash: npm test: allow Bash(npm test)") {
+		t.Errorf("footer:\n%s", out)
+	}
+}
+
+// With no suggestions, Claude Code's prompt offers no "don't ask again"
+// either, so Y answers nothing.
+func TestAlwaysAllowWithoutSuggestions(t *testing.T) {
+	a, dir := boardApp(t)
+	r := askFor(t, dir, "done", "npm test", time.Now())
+	runAsks(a, time.Now())
+	if out := ansi.Strip(a.View()); strings.Contains(out, "Y always") {
+		t.Errorf("offered always:\n%s", out)
+	}
+	pressAsk(a, "Y")
+	if got := answerFile(dir, r); got != "" {
+		t.Errorf("answered %q", got)
+	}
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "no way to stop asking") {
+		t.Errorf("footer:\n%s", out)
+	}
+}
+
+func TestAlwaysSummary(t *testing.T) {
+	cases := map[string]string{
+		npmRule: "allow Bash(npm test) in this project's local settings",
+		`[{"type":"addDirectories","directories":["/w/build"],"destination":"session"},{"type":"setMode","mode":"acceptEdits","destination":"session"}]`: "allow access to /w/build for this session; switch to accept all edits for this session",
+		`[{"type":"addRules","rules":[{"toolName":"WebFetch"}],"behavior":"allow","destination":"userSettings"}]`:                                        "allow WebFetch in your user settings",
+		`[{"type":"somethingNew"}]`: "",
+		`not json`:                  "",
+	}
+	for in, want := range cases {
+		if got := alwaysSummary(review.Request{Suggestions: json.RawMessage(in)}); got != want {
+			t.Errorf("%s: %q, want %q", in, got, want)
+		}
+	}
+}

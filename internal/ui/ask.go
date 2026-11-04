@@ -158,15 +158,61 @@ type answerer struct {
 }
 
 type answeredMsg struct {
-	allow bool
-	r     review.Request
-	err   error
+	allow, always bool
+	r             review.Request
+	err           error
 }
 
 func respond(dir string, r review.Request, a review.Answer) tea.Cmd {
 	return func() tea.Msg {
-		return answeredMsg{allow: a.Behavior == "allow", r: r, err: review.Respond(dir, r, a)}
+		return answeredMsg{allow: a.Behavior == "allow", always: len(a.Permissions) > 0, r: r, err: review.Respond(dir, r, a)}
 	}
+}
+
+// alwaysSummary says what always allowing a request changes, as Claude
+// Code's "don't ask again" would; "" when it offers nothing.
+func alwaysSummary(r review.Request) string {
+	where := map[string]string{
+		"localSettings":   " in this project's local settings",
+		"projectSettings": " in this project's settings",
+		"userSettings":    " in your user settings",
+		"session":         " for this session",
+	}
+	modes := map[string]string{"acceptEdits": "accept all edits", "plan": "plan mode", "bypassPermissions": "bypass permissions"}
+	var parts []string
+	for _, s := range r.SuggestionList() {
+		switch s.Type {
+		case "addRules":
+			var rules []string
+			for _, rl := range s.Rules {
+				if rl.RuleContent == "" {
+					rules = append(rules, rl.ToolName)
+				} else {
+					rules = append(rules, rl.ToolName+"("+rl.RuleContent+")")
+				}
+			}
+			if len(rules) > 0 {
+				verb := s.Behavior
+				if verb == "" {
+					verb = "allow"
+				}
+				parts = append(parts, verb+" "+strings.Join(rules, ", ")+where[s.Destination])
+			}
+		case "setMode":
+			m := modes[s.Mode]
+			if m == "" {
+				m = s.Mode + " mode"
+			}
+			parts = append(parts, "switch to "+m+where[s.Destination])
+		case "addDirectories":
+			var ds []string
+			for _, d := range s.Directories {
+				ds = append(ds, tildePath(d))
+			}
+			parts = append(parts, "allow access to "+strings.Join(ds, ", ")+where[s.Destination])
+		}
+	}
+	return strings.Join(parts, "; ")
 }
 
 // startDeny asks for the reason, which Claude sees; it may be empty.
@@ -244,6 +290,8 @@ func (a *App) askTarget() (review.Request, bool) {
 // onAnswered drops the answered request and says how it went.
 func (a *App) onAnswered(m answeredMsg) {
 	switch {
+	case m.err == nil && m.always:
+		a.note = sOK.Render(" "+glyphOK+" always allowed "+askSummary(m.r)) + sDim.Render(": "+alwaysSummary(m.r))
 	case m.err == nil && m.allow:
 		a.note = sOK.Render(" " + glyphOK + " allowed " + askSummary(m.r))
 	case m.err == nil:
@@ -269,8 +317,16 @@ func askLine(rs []review.Request) string {
 	if len(rs) > 1 {
 		more = fmt.Sprintf("  (1 of %d)", len(rs))
 	}
-	return sAccent.Bold(true).Render(" ? "+askSummary(rs[0])) + sDim.Render(more) + "   " +
-		keyHelp("A", "allow once", "D", "deny")
+	return sAccent.Bold(true).Render(" ? "+askSummary(rs[0])) + sDim.Render(more) + "   " + askKeys(rs[0])
+}
+
+// askKeys are the keys that answer a request; always allowing only when
+// Claude Code offers a way to stop asking.
+func askKeys(r review.Request) string {
+	if alwaysSummary(r) != "" {
+		return keyHelp("A", "allow once", "Y", "always", "D", "deny")
+	}
+	return keyHelp("A", "allow once", "D", "deny")
 }
 
 // renderRequest shows what a request would do in full, so it can be
