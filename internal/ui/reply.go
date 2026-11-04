@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/review"
@@ -213,7 +214,7 @@ func quoteEvent(e *parse.Event) (label, about string) {
 		if t.Summary != "" {
 			label += ": " + t.Summary
 		}
-		label = trimTo(oneLine(label), 40)
+		label = ansi.Truncate(oneLine(label), 40, "…")
 		about = "About the " + t.Name + " call" + at
 		if t.Summary != "" {
 			about += " (" + oneLine(t.Summary) + ")"
@@ -239,12 +240,4 @@ func quoteEvent(e *parse.Event) (label, about string) {
 		about = "About my prompt" + at + ":\n" + quote(e.Text)
 	}
 	return label, about
-}
-
-// trimTo cuts s to n cells, marking the cut.
-func trimTo(s string, n int) string {
-	if r := []rune(s); len(r) > n {
-		return string(r[:n-1]) + "…"
-	}
-	return s
 }

@@ -45,55 +45,49 @@ func pathParts(p string) []string {
 	return parts
 }
 
-// buildFileTree arranges files into folders. A folder holding only one
-// folder is merged with it, so deep paths take one row. Folders come
-// before files; within each, changed ones come first, then by name.
+// buildFileTree arranges files into folders, with each folder's totals.
+// Folders come before files; within each, changed ones come first, then by
+// name.
 func buildFileTree(files []*fileEntry) []*fileNode {
-	root := &fileNode{}
-	for _, f := range files {
-		parts := pathParts(f.path)
-		n, key := root, ""
-		for _, dir := range parts[:len(parts)-1] {
-			key += dir + "/"
-			var next *fileNode
-			for _, c := range n.children {
-				if c.file == nil && c.key == key {
-					next = c
-					break
-				}
-			}
-			if next == nil {
-				next = &fileNode{key: key, name: dir + "/"}
-				n.children = append(n.children, next)
-			}
-			n = next
-		}
-		n.children = append(n.children, &fileNode{key: f.path, name: parts[len(parts)-1], file: f})
+	paths := make([]string, len(files))
+	for i, f := range files {
+		paths[i] = f.path
 	}
-	finishTree(root, -1)
-	return root.children
+	var conv func([]*pathGroup) []*fileNode
+	conv = func(gs []*pathGroup) []*fileNode {
+		out := make([]*fileNode, len(gs))
+		for i, g := range gs {
+			n := &fileNode{key: g.key, name: g.name, depth: g.depth}
+			if g.item >= 0 {
+				n.file = files[g.item]
+			} else {
+				n.children = conv(g.children)
+				finishFolder(n)
+			}
+			out[i] = n
+		}
+		sortFileNodes(out)
+		return out
+	}
+	return conv(groupPaths(paths))
 }
 
-// finishTree merges single-folder chains, adds up each folder's totals,
-// sets depths and sorts.
-func finishTree(n *fileNode, depth int) {
-	for n.file == nil && depth >= 0 && len(n.children) == 1 && n.children[0].file == nil {
-		c := n.children[0]
-		n.key, n.name, n.children = c.key, n.name+c.name, c.children
-	}
-	n.depth = depth
+// finishFolder adds up a folder's totals from its children.
+func finishFolder(n *fileNode) {
+	s := &n.sum
 	for _, c := range n.children {
-		finishTree(c, depth+1)
 		e := c.entry()
-		s := &n.sum
 		s.reads, s.edits, s.writes, s.errs = s.reads+e.reads, s.edits+e.edits, s.writes+e.writes, s.errs+e.errs
 		s.added, s.removed = s.added+e.added, s.removed+e.removed
 		if e.last.After(s.last) {
 			s.last = e.last
 		}
 	}
-	sort.SliceStable(n.children, func(i, j int) bool {
-		a, b := n.children[i], n.children[j]
+}
+
+func sortFileNodes(ns []*fileNode) {
+	sort.SliceStable(ns, func(i, j int) bool {
+		a, b := ns[i], ns[j]
 		if (a.file == nil) != (b.file == nil) {
 			return a.file == nil
 		}
@@ -103,6 +97,11 @@ func finishTree(n *fileNode, depth int) {
 		return a.name < b.name
 	})
 }
+
+func (n *fileNode) nodeKey() string   { return n.key }
+func (n *fileNode) nodeDepth() int    { return n.depth }
+func (n *fileNode) isFolder() bool    { return n.file == nil }
+func (n *fileNode) kids() []*fileNode { return n.children }
 
 // fileOpen reports whether a folder shows its contents. Folders with
 // changes start open and folders only read start closed; while searching
@@ -170,62 +169,15 @@ func (v *view) toggleFilesTree() {
 	v.flattenFiles(sel)
 }
 
-// expandAllFiles opens the selected folder and every folder in it, or on
-// a file, every folder; once they are all open, it closes them.
+// expandAllFiles is E: see expandFrom.
 func (v *view) expandAllFiles() {
-	scope := v.fTree
 	sel := v.selectedFileRow()
-	if sel != nil && sel.file == nil {
-		scope = []*fileNode{sel}
-	}
-	var all []*fileNode
-	var walk func([]*fileNode)
-	walk = func(ns []*fileNode) {
-		for _, n := range ns {
-			if n.file == nil {
-				all = append(all, n)
-				walk(n.children)
-			}
-		}
-	}
-	walk(scope)
-	expand := false
-	for _, n := range all {
-		if !v.savedFileOpen(n) {
-			expand = true
-		}
-	}
-	for _, n := range all {
-		v.fOpen[n.key] = expand
-	}
-	key := ""
-	if sel != nil {
-		key = sel.key
-		// A file hidden by closing them moves the cursor to its folder.
-		if !expand && sel.file != nil {
-			for _, n := range v.fTree {
-				if n.file == nil && strings.HasPrefix(key, n.key) {
-					key = n.key
-				}
-			}
-		}
-	}
+	key := expandFrom(v.fTree, sel, sel != nil, v.savedFileOpen, func(k string, open bool) { v.fOpen[k] = open })
 	v.flattenFiles(key)
 }
 
 // toFileParent selects the folder holding the selected row.
-func (v *view) toFileParent() {
-	n := v.selectedFileRow()
-	if n == nil {
-		return
-	}
-	for i := v.fCursor - 1; i >= 0; i-- {
-		if v.fRows[i].depth < n.depth {
-			v.fCursor = i
-			return
-		}
-	}
-}
+func (v *view) toFileParent() { v.fCursor = parentRow(v.fRows, v.fCursor) }
 
 // fileTreeRow draws a row of the tree: a folder with its chevron and
 // totals, or a file under it.
