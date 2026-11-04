@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/review"
 )
 
@@ -155,6 +156,7 @@ type answerer struct {
 	typing  bool
 	target  review.Request
 	replyTo string // the session a reply goes to; "" while a deny reason is typed
+	about   string // what the reply quotes first, or ""
 }
 
 type answeredMsg struct {
@@ -222,10 +224,15 @@ func (an *answerer) startDeny(r review.Request) tea.Cmd {
 	return an.input.Focus()
 }
 
-// startReply asks for a message to the session's agent.
-func (an *answerer) startReply(session string) tea.Cmd {
+// startReply asks for a message to the session's agent, about the event e
+// when it isn't nil: the reply quotes it first.
+func (an *answerer) startReply(session string, e *parse.Event) tea.Cmd {
+	label, about := quoteEvent(e)
 	an.prompt("reply ", "a message for the agent; enter sends it")
-	an.typing, an.replyTo = true, session
+	if label != "" {
+		an.prompt("reply about "+label+" ", "a message for the agent; enter sends it")
+	}
+	an.typing, an.replyTo, an.about = true, session, about
 	return an.input.Focus()
 }
 
@@ -249,6 +256,9 @@ func (an *answerer) key(k tea.KeyMsg, asksDir, inboxDir string) tea.Cmd {
 		if an.replyTo != "" {
 			if text == "" {
 				return nil
+			}
+			if an.about != "" {
+				text = an.about + "\n\n" + text
 			}
 			return reply(inboxDir, an.replyTo, text)
 		}

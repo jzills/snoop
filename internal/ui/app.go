@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jzills/snoop/internal/notify"
+	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/review"
 	"github.com/jzills/snoop/internal/tail"
 )
@@ -395,7 +396,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.String() == "R" && !typing && a.opts.InboxDir != "" {
 			if id := a.focusedSession(); id != "" {
-				return a, a.ans.startReply(id)
+				var about *parse.Event
+				if v := a.top(); v != nil {
+					about = v.replyAbout()
+				}
+				return a, a.ans.startReply(id, about)
 			}
 		}
 		if v == nil && a.board != nil {

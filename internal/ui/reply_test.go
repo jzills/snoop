@@ -202,3 +202,83 @@ func TestTurnRecordedAfterTheWaitDoesntAlert(t *testing.T) {
 		t.Error("a later turn didn't alert")
 	}
 }
+
+// In the Timeline, a reply quotes the selected event first.
+func TestReplyAboutTheSelectedEvent(t *testing.T) {
+	a, v, inbox := diffApp(t, true)
+	a.opts.InboxDir = filepath.Dir(inbox)
+	a.View()
+	if e := v.selected(); e == nil || e.Tool == nil || e.Tool.Name != "Edit" {
+		t.Fatalf("selected %+v", v.selected())
+	}
+	press(a, "R")
+	if out := ansi.Strip(a.View()); !strings.Contains(out, "reply about Edit") {
+		t.Errorf("no reply input naming the call:\n%s", out)
+	}
+	typeKeys(a, "why 2?")
+	press(a, "enter")
+	got := inboxText(filepath.Dir(filepath.Dir(inbox)), "sess-1")
+	if !strings.Contains(got, "Message from the user, sent from snoop:\n\nAbout the Edit call at ") ||
+		!strings.HasSuffix(got, "which returned:\n    ok\n\nwhy 2?\n") {
+		t.Errorf("sent %q", got)
+	}
+}
+
+// In Tools, a reply is about the selected call; on a group row it's a
+// plain reply.
+func TestReplyAboutAToolCall(t *testing.T) {
+	a, v, inbox := diffApp(t, true)
+	a.opts.InboxDir = filepath.Dir(inbox)
+	press(a, "2")
+	a.View()
+	press(a, "R")
+	if a.ans.about != "" {
+		t.Errorf("a group row quoted %q", a.ans.about)
+	}
+	press(a, "esc")
+	// Open groups down to the first call.
+	for i := 0; i < 10 && v.replyAbout() == nil; i++ {
+		if g := v.selectedGroup(); g != nil && g.ev == nil && !v.isOpen(g) {
+			press(a, " ")
+		} else {
+			press(a, "j")
+		}
+		a.View()
+	}
+	if e := v.replyAbout(); e == nil || e.Tool == nil {
+		t.Fatalf("no call row in %d rows", len(v.gRows))
+	}
+	press(a, "R")
+	if !strings.HasPrefix(a.ans.about, "About the Edit call") {
+		t.Errorf("about = %q", a.ans.about)
+	}
+}
+
+func TestQuoteEvent(t *testing.T) {
+	long := strings.Repeat("x\n", 12)
+	cases := []struct {
+		e            *parse.Event
+		label, about string
+	}{
+		{&parse.Event{Kind: parse.KindTool, Tool: &parse.ToolCall{Name: "Bash", Summary: "npm test", HasResult: true, IsError: true, Result: "FAIL a\nFAIL b"}},
+			"Bash: npm test", "About the Bash call (npm test), which failed:\n    FAIL a\n    FAIL b"},
+		{&parse.Event{Kind: parse.KindTool, Tool: &parse.ToolCall{Name: "Bash", Summary: "sleep 9"}},
+			"Bash: sleep 9", "About the Bash call (sleep 9), still running."},
+		{&parse.Event{Kind: parse.KindText, Text: long},
+			"your message", "About your message:\n" + strings.Repeat("    x\n", 8) + "    … 4 more lines"},
+		{&parse.Event{Kind: parse.KindUser, Text: "fix it"}, "my prompt", "About my prompt:\n    fix it"},
+		{&parse.Event{Kind: parse.KindSystem, Text: "x"}, "", ""},
+		{nil, "", ""},
+	}
+	for _, c := range cases {
+		if l, ab := quoteEvent(c.e); l != c.label || ab != c.about {
+			t.Errorf("quoteEvent(%+v) = %q, %q", c.e, l, ab)
+		}
+	}
+}
+
+func typeKeys(a *App, s string) {
+	for _, k := range s {
+		a.Update(key(string(k)))
+	}
+}

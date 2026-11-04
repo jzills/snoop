@@ -156,7 +156,10 @@ and answering in the terminal ends the wait at once.
 **Reply when it's your turn:** When a session's turn ends, its row shows
 `your turn`. Press `R` to type a reply and `enter` to send it, and the agent
 carries on as if you'd typed it in its terminal. The same key works in the
-session's own view, whose footer shows the agent's last message. With the
+session's own view, whose footer shows the agent's last message. In the
+Timeline and Tools tabs, the reply is about the selected call or message: it
+quotes it first, with a few lines of the call's result, so you can say "this
+failed, try X" without copying anything. With the
 hooks installed, a finished turn waits for a reply only while a live board or
 session view is open, for as long as a permission request does, and typing in
 the session's terminal ends the wait at once. A reply sent while the agent is
@@ -331,7 +334,7 @@ Press `?` anywhere for the keys of the current screen. The full list follows.
 | `esc` | clear the search or filter, then go back |
 | `!` | jump to the latest alert |
 | `A` / `Y` / `D` | allow once / always allow / deny the session's permission request |
-| `R` | reply to the session's agent |
+| `R` | reply to the session's agent, about the selected call or message in the Timeline and Tools |
 | `y` / `e` | copy the selection / export the view to Markdown |
 | `?` | every key for the current screen |
 | `q` | quit |

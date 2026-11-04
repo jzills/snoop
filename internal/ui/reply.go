@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/review"
 )
 
@@ -117,4 +120,86 @@ func (a *App) turnAlert(t review.Turn) *alert {
 func replyLine(t review.Turn) string {
 	// The key first, so a long message is what gets cut off.
 	return sOK.Render(" "+glyphOK+" your turn") + "   " + keyHelp("R", "reply") + sDim.Render("   "+oneLine(t.Last))
+}
+
+// maxQuote is how many lines of a result or message a reply quotes.
+const maxQuote = 8
+
+// replyAbout is the event a reply from this view is about: the selected
+// call or message in the Timeline, or the selected call in Tools.
+func (v *view) replyAbout() *parse.Event {
+	switch v.tab {
+	case tabTimeline:
+		return v.selected()
+	case tabTools:
+		if g := v.selectedGroup(); g != nil {
+			return g.ev
+		}
+	}
+	return nil
+}
+
+// quoteEvent is what a reply about e says first, and a short label for it;
+// both "" for an event a reply can't be about.
+func quoteEvent(e *parse.Event) (label, about string) {
+	if e == nil {
+		return "", ""
+	}
+	at := ""
+	if !e.Time.IsZero() {
+		at = " at " + e.Time.Local().Format("15:04:05")
+	}
+	quote := func(s string) string {
+		var b strings.Builder
+		ls := parse.Lines(strings.TrimRight(s, "\n"))
+		for i, l := range ls {
+			if i == maxQuote {
+				fmt.Fprintf(&b, "    … %d more %s\n", len(ls)-maxQuote, plural(len(ls)-maxQuote, "line"))
+				break
+			}
+			b.WriteString("    " + l + "\n")
+		}
+		return strings.TrimRight(b.String(), "\n")
+	}
+	switch e.Kind {
+	case parse.KindTool:
+		t := e.Tool
+		label = t.Name
+		if t.Summary != "" {
+			label += ": " + t.Summary
+		}
+		label = trimTo(oneLine(label), 40)
+		about = "About the " + t.Name + " call" + at
+		if t.Summary != "" {
+			about += " (" + oneLine(t.Summary) + ")"
+		}
+		switch {
+		case !t.HasResult:
+			about += ", still running."
+		case t.IsError:
+			about += ", which failed:\n" + quote(t.Result)
+		case strings.TrimSpace(t.Result) != "":
+			about += ", which returned:\n" + quote(t.Result)
+		default:
+			about += "."
+		}
+	case parse.KindText:
+		label = "your message" + at
+		about = "About your message" + at + ":\n" + quote(e.Text)
+	case parse.KindThinking:
+		label = "your thinking" + at
+		about = "About your thinking" + at + ":\n" + quote(e.Text)
+	case parse.KindUser:
+		label = "my prompt" + at
+		about = "About my prompt" + at + ":\n" + quote(e.Text)
+	}
+	return label, about
+}
+
+// trimTo cuts s to n cells, marking the cut.
+func trimTo(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n-1]) + "…"
+	}
+	return s
 }

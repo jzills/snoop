@@ -25,6 +25,7 @@ var helpGeneral = helpSection{"General", [][2]string{
 	{"A  D", "allow once / deny the session's permission request (needs snoop hooks install)"},
 	{"Y", "allow it and stop Claude Code asking again, as its own \"don't ask again\" does"},
 	{"R", "reply to the agent: at once when its turn has ended, else after its current tool call or with your next prompt (needs snoop hooks install)"},
+	{"", "in the Timeline and Tools, the reply is about the selected call or message, and quotes it"},
 	{"y", "copy the selection: a command, diff, file content, message or result (Files: the file's changes)"},
 	{"e", "export the timeline as shown to Markdown in the current directory"},
 	{"esc", "clear search and filter, then go back"},
