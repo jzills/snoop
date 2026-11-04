@@ -166,7 +166,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.opts.Stall > 0 {
 				as = v.stalls(time.Now(), a.opts.Stall)
 			}
-			as = append(as, v.limits(v.sess, time.Now(), a.opts.Limits)...)
+			// A subagent's transcript never records its turns as done.
+			if v.label == "" {
+				_, waiting := a.turns[v.sessionID()]
+				as = append(as, v.limits(v.sess, time.Now(), a.opts.Limits, waiting)...)
+			}
 			v.raise(as)
 			cmds = append(cmds, a.signal(v.own(as)))
 		}
@@ -176,6 +180,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if now.Sub(b.lastScan) >= boardScan {
 				cmds = append(cmds, b.scanCmd(now))
 			}
+			b.turns = a.turns
 			cmds = append(cmds, a.signal(b.poll(now, a.opts.Stall, a.opts.Limits, a.isOpen)))
 		}
 		return a, tea.Batch(cmds...)
@@ -185,8 +190,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.onAnswered(msg)
 		return a, nil
 	case repliedMsg:
-		a.onReplied(msg)
-		return a, nil
+		return a, a.onReplied(msg)
 	case showBoardMsg:
 		a.board = newBoard(a.opts.Root)
 		return a, a.board.scanCmd(time.Now())
@@ -320,7 +324,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		a.note = ""
 		if a.ans.typing {
-			return a, a.ans.key(msg, a.opts.AsksDir, a.opts.InboxDir)
+			var settings []string
+			if a.ans.replyTo != "" {
+				settings = a.replySettings(a.ans.replyTo)
+			}
+			return a, a.ans.key(msg, a.opts.AsksDir, a.opts.InboxDir, settings)
 		}
 		v := a.top()
 		if v != nil && v.rev.leaveAsk {

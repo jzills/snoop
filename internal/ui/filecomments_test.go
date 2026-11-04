@@ -5,10 +5,12 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/jzills/snoop/internal/parse"
+	"github.com/jzills/snoop/internal/review"
 )
 
 // In the Files tab, c comments on the change at the top of the detail
@@ -71,5 +73,63 @@ func TestChangeLinesAreCapped(t *testing.T) {
 	ls := changeLines(&parse.ToolCall{Name: "Write", Input: in})
 	if len(ls) != maxQuoted+1 || ls[maxQuoted].Text != "… 20 more lines" {
 		t.Errorf("%d lines, last %+v", len(ls), ls[len(ls)-1])
+	}
+}
+
+// A session run in a subdirectory: the Diff tab's paths are relative to
+// the repository and the Files tab's to the session's directory, and a
+// comment from either is the same file's.
+func TestCommentPathsAgreeAcrossTabs(t *testing.T) {
+	v := newTestView(t)
+	v.sess.CWD = "/repo/app"
+	v.rev.diff = &review.Diff{Root: "/repo"}
+	if a, b := v.diffAbs("app/main.go"), v.filesAbs("main.go"); a != b {
+		t.Fatalf("diff %q, files %q", a, b)
+	}
+	v.addComment(review.Comment{Path: v.diffAbs("app/main.go")}, "from Diff")
+	if v.fileComment(v.filesAbs("main.go")) == nil {
+		t.Error("the Files tab doesn't see the Diff tab's comment")
+	}
+	if got := v.sentPath(v.diffAbs("app/main.go")); got != "main.go" {
+		t.Errorf("sent as %q", got)
+	}
+	if got := v.sentPath("/elsewhere/x.go"); got != "/elsewhere/x.go" {
+		t.Errorf("a file outside the session's directory sent as %q", got)
+	}
+}
+
+// Two edits in the same second have the same label but are different
+// changes, each with its own comment.
+func TestCommentsOnChangesInOneSecond(t *testing.T) {
+	v := newTestView(t)
+	at := time.Date(2026, 10, 24, 10, 0, 1, 0, time.UTC)
+	edit := func(id, old, nw string) fileTouch {
+		in, _ := json.Marshal(map[string]string{"file_path": "/w/a.go", "old_string": old, "new_string": nw})
+		return fileTouch{op: opEdit, ev: &parse.Event{Kind: parse.KindTool, Time: at, Tool: &parse.ToolCall{ID: id, Name: "Edit", Input: in}}}
+	}
+	f := &fileEntry{path: "a.go", touches: []fileTouch{edit("t1", "a", "b"), edit("t2", "c", "d")}}
+	v.detail.Height = 5
+	v.detail.SetContent(strings.Repeat("x\n", 40))
+	v.fMarks = []int{3, 10}
+	comment := func(text string) {
+		v.commentOnChange(f)
+		v.rev.input.SetValue(text)
+		v.typeComment(key("enter"))
+	}
+	comment("first")
+	v.detail.SetYOffset(10)
+	v.commentOnChange(f)
+	if got := v.rev.input.Value(); got != "" {
+		t.Fatalf("the second change opened %q", got)
+	}
+	v.typeComment(key("esc"))
+	comment("second")
+	if len(v.rev.comments) != 2 || v.rev.comments[0].Lines[1].Text != "b" || v.rev.comments[1].Lines[1].Text != "d" {
+		t.Errorf("comments = %+v", v.rev.comments)
+	}
+	v.detail.SetYOffset(0)
+	v.commentOnChange(f)
+	if got := v.rev.input.Value(); got != "first" {
+		t.Errorf("back on the first change: %q", got)
 	}
 }

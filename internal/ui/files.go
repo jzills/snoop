@@ -272,7 +272,8 @@ func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) tea.Cmd {
 		}
 	case "C":
 		if n != nil && !folder {
-			return v.startComment(review.Comment{Path: n.file.path}, v.fileComment(n.file.path))
+			p := v.filesAbs(n.file.path)
+			return v.startComment(review.Comment{Path: p}, v.fileComment(p))
 		}
 	case "S":
 		return v.sendComments()
@@ -535,15 +536,21 @@ func (v *view) currentChange(f *fileEntry) (fileTouch, bool) {
 func (v *view) commentOnChange(f *fileEntry) tea.Cmd {
 	t, ok := v.currentChange(f)
 	if !ok {
-		return v.startComment(review.Comment{Path: f.path}, v.fileComment(f.path))
+		return v.startComment(review.Comment{Path: v.filesAbs(f.path)}, v.fileComment(v.filesAbs(f.path)))
 	}
-	c := review.Comment{Path: f.path, At: changeLabel(t), Lines: changeLines(t.ev.Tool)}
+	c := review.Comment{Path: v.filesAbs(f.path), At: changeLabel(t), Lines: changeLines(t.ev.Tool)}
+	// By the call, not the label: two edits in one second share a label.
+	var cmd tea.Cmd
 	for i := range v.rev.comments {
-		if p := &v.rev.comments[i]; p.Path == c.Path && p.At == c.At {
-			return v.startComment(p.Comment, p)
+		if p := &v.rev.comments[i]; p.ref == t.ev.Tool.ID {
+			cmd = v.startComment(p.Comment, p)
 		}
 	}
-	return v.startComment(c, nil)
+	if cmd == nil {
+		cmd = v.startComment(c, nil)
+	}
+	v.rev.ref = t.ev.Tool.ID
+	return cmd
 }
 
 // changeLabel names a change: "the Edit at 14:03:12", with the subagent

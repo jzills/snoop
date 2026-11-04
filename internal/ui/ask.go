@@ -247,7 +247,7 @@ func (an *answerer) prompt(prompt, placeholder string) {
 
 // key takes every key while the reason or reply is typed: enter sends it
 // (an empty reply sends nothing), esc cancels.
-func (an *answerer) key(k tea.KeyMsg, asksDir, inboxDir string) tea.Cmd {
+func (an *answerer) key(k tea.KeyMsg, asksDir, inboxDir string, settings []string) tea.Cmd {
 	switch k.String() {
 	case "enter":
 		an.typing = false
@@ -260,7 +260,7 @@ func (an *answerer) key(k tea.KeyMsg, asksDir, inboxDir string) tea.Cmd {
 			if an.about != "" {
 				text = an.about + "\n\n" + text
 			}
-			return reply(inboxDir, an.replyTo, text)
+			return reply(inboxDir, an.replyTo, text, settings)
 		}
 		return respond(asksDir, an.target, review.Answer{Behavior: "deny", Message: text})
 	case "esc":

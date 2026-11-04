@@ -232,7 +232,7 @@ func (v *view) toFileParent() {
 func (v *view) fileTreeRow(n *fileNode, sel bool, w int) string {
 	comments := 0
 	for _, c := range v.rev.comments {
-		if c.Path == n.key || (n.file == nil && strings.HasPrefix(c.Path, n.key)) {
+		if p := v.filesAbs(n.key); c.Path == p || (n.file == nil && strings.HasPrefix(c.Path, p)) {
 			comments++
 		}
 	}

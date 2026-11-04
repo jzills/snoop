@@ -141,14 +141,15 @@ const headTail = 64 << 10
 
 // headless reports whether a transcript is from a run with no terminal
 // (claude -p, or the Agent SDK), which nobody could type a reply into and
-// which a waiting hook would only delay.
+// which a waiting hook would only delay. A run with no transcript to read
+// counts too: snoop can't show it, so nobody could reply.
 func headless(path string) bool {
 	if path == "" {
-		return false
+		return true
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return false
+		return true
 	}
 	defer f.Close()
 	// The newest record that says, from the end; a turn can end with one
@@ -179,22 +180,47 @@ func entrypoint(b []byte) (sdk, ok bool) {
 
 // queueWatch notices a prompt queued in the transcript after it started.
 type queueWatch struct {
-	path string
-	off  int64
-	rest []byte // a line not yet ended
+	path    string
+	off     int64
+	rest    []byte // a line not yet ended
+	waiting bool   // a prompt was queued before the watch started
 }
 
+// newQueueWatch starts watching at the transcript's end. A prompt already
+// waiting there, typed while the turn's last reply was written, counts as
+// queued at once.
 func newQueueWatch(path string) *queueWatch {
 	w := &queueWatch{path: path}
-	if info, err := os.Stat(path); err == nil {
-		w.off = info.Size()
+	f, err := os.Open(path)
+	if err != nil {
+		return w
 	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return w
+	}
+	w.off = info.Size()
+	b := make([]byte, min(info.Size(), headTail))
+	n, _ := f.ReadAt(b, info.Size()-int64(len(b)))
+	w.waiting = waitingPrompt(b[:n])
 	return w
+}
+
+// waitingPrompt reports whether the last prompt queued in b, a run of
+// transcript lines, hasn't been taken off the queue.
+func waitingPrompt(b []byte) bool {
+	enq := bytes.LastIndex(b, []byte(`"operation":"enqueue"`))
+	deq := bytes.LastIndex(b, []byte(`"operation":"dequeue"`))
+	return enq >= 0 && enq > deq
 }
 
 // queued reads what was written since the last call and reports whether
 // it queued a prompt.
 func (w *queueWatch) queued() bool {
+	if w.waiting {
+		return true
+	}
 	if w.path == "" {
 		return false
 	}
