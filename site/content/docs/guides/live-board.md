@@ -78,7 +78,10 @@ snoop open, the hook returns at once.
 When a session's turn ends, its row shows `your turn`. Press `R` to type a
 reply and `enter` to send it, or `esc` to cancel, and the agent carries on
 as if you'd typed it in its terminal. The same key works in the session's own
-view, whose footer shows the agent's last message.
+view, whose footer shows the agent's last message. In the Timeline and Tools
+tabs, the reply is about the selected call or message. It quotes that first,
+such as `About the Bash call at 14:03:12 (npm test), which failed:` with the
+first lines of the result, and then your text.
 
 With snoop's hooks installed, a finished turn waits for a reply while a live
 board or session view is open, for as long as a permission request waits.

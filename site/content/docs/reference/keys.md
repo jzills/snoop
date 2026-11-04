@@ -54,7 +54,7 @@ These work on every tab.
 | `[` `]` | previous and next tab |
 | `!` | jump to the latest alert |
 | `A` `Y` `D` | allow once, always allow, or deny the session's permission request |
-| `R` | reply to the session's agent |
+| `R` | reply to the session's agent; in the Timeline and Tools, about the selected call or message, which the reply quotes |
 | `y` | copy the selection |
 | `e` | export the timeline as shown to Markdown |
 
