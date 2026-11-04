@@ -38,6 +38,7 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `enter`, `→` | open the session; `esc` comes back |
 | `A` | allow the selected session's permission request once |
 | `D` | deny it, with an optional reason Claude sees |
+| `R` | reply to the selected session's agent |
 | `o` | sort by the next column: state, project, session, context, cost, age |
 | `O` | reverse the order |
 | `esc`, `w` | back to the session picker |
@@ -52,6 +53,7 @@ These work on every tab.
 | `[` `]` | previous and next tab |
 | `!` | jump to the latest alert |
 | `A` `D` | allow once or deny the session's permission request |
+| `R` | reply to the session's agent |
 | `y` | copy the selection |
 | `e` | export the timeline as shown to Markdown |
 

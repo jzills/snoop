@@ -23,9 +23,10 @@ instead. It never writes to these files.
 | `<cache>/snoop/summaries.json` | the summary and find index, one entry per transcript, rebuilt when a transcript changes |
 | `<cache>/snoop/notified/` | one small file per notification sent, so several snoops send it only once; each is removed after an hour |
 | `./<id>-<date>-<time>.md` | timelines you export with `e` |
-| `<state>/snoop/inbox/<session>/` | comments sent from the Diff tab, one file per send, removed once a hook delivers them |
+| `<state>/snoop/inbox/<session>/` | comments sent from the Diff tab and replies, one file per send, removed once a hook delivers them |
 | `<state>/snoop/asks/<session>/` | permission requests waiting for an answer, one file per request, and snoop's answers; removed once answered or given up on |
-| `<state>/snoop/listening` | rewritten every 2 seconds while a live board or session view is open, so the permission hook knows to wait |
+| `<state>/snoop/turns/<session>/` | one file while a session's finished turn waits for a reply, removed when it stops waiting |
+| `<state>/snoop/listening` | rewritten every 2 seconds while a live board or session view is open, so the hooks know to wait |
 | `.git/config` of the session's repository | `branch.<name>.snoopBase`, only when you choose a base with `B` in the Diff tab |
 | `~/.claude/settings.json` | snoop's four hook entries, only when you run `snoop hooks install`; `snoop hooks uninstall` removes them |
 
