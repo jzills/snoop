@@ -24,20 +24,19 @@ publishes.
    `jzills/homebrew-tap` only. Without it the release still publishes and the
    tap step is skipped with a warning.
 
-6. **npm** (optional): an npm account that owns the `jzills` scope. Set the
-   repository variable `NPM_PUBLISH` to `true`, and for the first release add
-   an `NPM_TOKEN` secret, a granular token that can publish. After that
+6. **npm:** an npm account that owns the `jzills` scope. For the first
+   release, add an `NPM_TOKEN` secret, a granular token that can publish. After that
    release, open each of the seven packages on npmjs.com (`snoop-cli` and
    `@jzills/snoop-cli-<platform>-<arch>`), add this repository's
    `release.yml` as its trusted publisher, and delete the token; publishing
    then uses OIDC.
-7. **PyPI** (optional): on pypi.org, add a pending trusted publisher for the
-   project `snoop-cli`, owner `jzills`, repository `snoop`, workflow
-   `release.yml` (no environment), then set the repository variable
-   `PYPI_PUBLISH` to `true`. No token is needed.
+7. **PyPI:** on pypi.org, add a pending trusted publisher for the project
+   `snoop-cli`, owner `jzills`, repository `snoop`, workflow `release.yml`
+   (no environment). No token is needed.
 
-Each of the last two is skipped while its variable or secret is missing,
-and the others still publish.
+Every release publishes to npm and PyPI, so a missing credential fails that
+job. The GitHub Release and the other jobs still publish, and a rerun of the
+failed job skips versions already uploaded.
 
 ## Each release
 
