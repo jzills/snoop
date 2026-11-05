@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // openNow opens a session and waits for it to load, as the program would.
@@ -107,4 +108,43 @@ func TestFootersFit(t *testing.T) {
 	check("stats")
 	a.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	check("picker")
+}
+
+// The help is a box over the screen, which stays in view around it.
+func TestHelpDrawsOverTheScreen(t *testing.T) {
+	a := newTestApp(t, 120, 40)
+	before := strings.Split(ansi.Strip(a.View()), "\n")
+	a.Update(key("?"))
+	out := ansi.Strip(a.View())
+	lines := strings.Split(out, "\n")
+	if len(lines) != 40 {
+		t.Fatalf("%d lines, want 40", len(lines))
+	}
+	for _, want := range []string{"Keys", "╭", "╰"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("help lacks %q:\n%s", want, out)
+		}
+	}
+	// The top bar is above the box, as it was.
+	if lines[0] != before[0] {
+		t.Errorf("the top line changed:\n%q\n%q", lines[0], before[0])
+	}
+	for i, l := range lines {
+		if w := ansi.StringWidth(l); w > 120 {
+			t.Errorf("line %d is %d wide", i, w)
+		}
+	}
+}
+
+func TestOverlay(t *testing.T) {
+	bg := "abcdefghij\nabcdefghij\nabcdefghij\nab"
+	got := overlay(bg, "XY\nZW", 10, 4)
+	want := "abcdefghij\nabcdXYghij\nabcdZWghij\nab"
+	if got != want {
+		t.Errorf("overlay =\n%s\nwant\n%s", got, want)
+	}
+	// A background line shorter than the box's column is padded.
+	if got := overlay("a\nb\nc", "XY", 6, 3); got != "a\nb XY\nc" {
+		t.Errorf("short line: %q", got)
+	}
 }
