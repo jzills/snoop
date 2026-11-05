@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // The ? overlay lists every key for the current screen. Footers show only
@@ -277,8 +278,9 @@ func renderHelp(title string, sections []helpSection, w int) string {
 	return b.String()
 }
 
-// helpView draws the overlay as a centred, scrollable box.
-func (a *App) helpView() string {
+// helpBox is the help as a scrollable box, which View draws over the
+// screen.
+func (a *App) helpBox() string {
 	title, sections := a.helpContent()
 	boxW := min(a.w-4, 84)
 	innerW := boxW - 4
@@ -295,5 +297,38 @@ func (a *App) helpView() string {
 	box := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(cAccent).
 		Padding(0, 1).Width(boxW).
 		Render(a.helpVP.View() + "\n\n" + footer)
-	return lipgloss.Place(a.w, a.h, lipgloss.Center, lipgloss.Center, box)
+	return box
+}
+
+// dimmed is a screen in the faint color, so a box drawn over it stands out
+// while what's behind stays in view.
+func dimmed(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		lines[i] = sFaint.Render(ansi.Strip(l))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// overlay draws box centered over bg, a w by h screen.
+func overlay(bg, box string, w, h int) string {
+	lines := strings.Split(bg, "\n")
+	for len(lines) < h {
+		lines = append(lines, "")
+	}
+	boxLines := strings.Split(box, "\n")
+	boxW := lipgloss.Width(box)
+	x, y := max((w-boxW)/2, 0), max((h-len(boxLines))/2, 0)
+	for i, b := range boxLines {
+		if y+i >= len(lines) {
+			break
+		}
+		l := lines[y+i]
+		left := ansi.Truncate(l, x, "")
+		if pad := x - ansi.StringWidth(left); pad > 0 {
+			left += strings.Repeat(" ", pad)
+		}
+		lines[y+i] = left + b + ansi.TruncateLeft(l, x+boxW, "")
+	}
+	return strings.Join(lines[:h], "\n")
 }
