@@ -300,16 +300,6 @@ func (a *App) helpBox() string {
 	return box
 }
 
-// dimmed is a screen in the faint color, so a box drawn over it stands out
-// while what's behind stays in view.
-func dimmed(s string) string {
-	lines := strings.Split(s, "\n")
-	for i, l := range lines {
-		lines[i] = sFaint.Render(ansi.Strip(l))
-	}
-	return strings.Join(lines, "\n")
-}
-
 // overlay draws box centered over bg, a w by h screen.
 func overlay(bg, box string, w, h int) string {
 	lines := strings.Split(bg, "\n")

@@ -125,9 +125,9 @@ func TestHelpDrawsOverTheScreen(t *testing.T) {
 			t.Errorf("help lacks %q:\n%s", want, out)
 		}
 	}
-	// The top bar is above the box, as it was.
-	if lines[0] != before[0] {
-		t.Errorf("the top line changed:\n%q\n%q", lines[0], before[0])
+	// The top bar is above the box exactly as the screen draws it.
+	if raw := strings.Split(a.View(), "\n"); raw[0] != strings.Split(a.screen(), "\n")[0] || ansi.Strip(raw[0]) != before[0] {
+		t.Errorf("the top line changed:\n%q\n%q", raw[0], before[0])
 	}
 	for i, l := range lines {
 		if w := ansi.StringWidth(l); w > 120 {
