@@ -523,8 +523,14 @@ func (a *App) View() string {
 		return ""
 	}
 	if a.showHelp {
-		return a.helpView()
+		return overlay(faint(a.screen()), a.helpBox(), a.w, a.h)
 	}
+	return a.screen()
+}
+
+// screen is what snoop shows: the open session, the live board or the
+// picker, with the footer.
+func (a *App) screen() string {
 	var out string
 	switch v := a.top(); {
 	case v != nil:
