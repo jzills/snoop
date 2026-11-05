@@ -3,7 +3,8 @@ title: Keyboard shortcuts
 weight: 2
 ---
 
-Press `?` on any screen for that screen's keys. This page lists them all.
+Press `?` on any screen for that screen's keys.
+This page lists them all.
 
 ## Everywhere
 
@@ -28,6 +29,8 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `O` | reverse the order |
 | `s` | switch between the list and the summary |
 | `w` | open the live board |
+
+Search results stay best match first until you choose a column with `o`.
 
 ## Live board
 
@@ -94,9 +97,10 @@ These work on every tab.
 | `enter` | show the file's latest change in the timeline |
 | `n` `N` | next and previous change |
 | `/` | keep only files whose path matches |
-| `T` | switch between the list and a tree of folders |
+| `T` | switch between the tree of folders and a flat list |
 | `space`, `←` `→` | in the tree, close or open a folder (`←` on a file moves to its folder) |
 | `E` | in the tree, open the folder and every folder in it, or close them; on a file, every folder |
+| `z` | show the right pane on the whole screen, or the list again |
 | `c` | comment on the change at the top of the right pane |
 | `C` | comment on the whole file |
 | `S` | send every comment to the agent |
@@ -109,9 +113,10 @@ These work on every tab.
 | `B` | choose the base the branch is compared with |
 | `enter`, `tab`, `→` | move into the file's lines |
 | `tab`, `←`, `esc` | back to the files |
-| `T` | switch between the list and a tree of folders |
+| `T` | switch between the tree of folders and a flat list |
 | `space`, `←` `→` | in the tree, close or open a folder (`←` on a file moves to its folder) |
 | `E` | in the tree, open the folder and every folder in it, or close them; on a file, every folder |
+| `z` | show the diff on the whole screen, or the files again |
 | `J` `K`, `n` `N` | next and previous hunk |
 | `c` | comment on the line, or on the selected range |
 | `v` | start or clear a range selection |

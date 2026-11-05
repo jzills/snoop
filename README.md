@@ -1,384 +1,153 @@
-<h1>
+<div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="site/static/mark-dark.svg">
-    <img src="site/static/mark-light.svg" alt="" height="28">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/jzills/snoop/main/site/static/mark-dark.svg">
+    <img src="https://raw.githubusercontent.com/jzills/snoop/main/site/static/mark-light.svg" alt="" height="56">
   </picture>
-  snoop
-</h1>
+</div>
 
-This is a fast terminal viewer for Claude Code session transcripts
-(`~/.claude/projects/**/*.jsonl`). You can keep it open in a second terminal
-next to `claude` to watch a session live, or browse past sessions to see what
-each prompt cost, how full the context is, which files changed, what the
-subagents did and where the time went. The documentation is at
-https://jzills.github.io/snoop/.
+<div align="center">
 
-![snoop: the summary across sessions, a session's timeline with a turn's
-waterfall, an expanded subagent, the Files tab and Stats](demo/demo.gif)
+# snoop
+
+</div>
+
+<div align="center">
+
+[![npm version](https://img.shields.io/npm/v/snoop-cli?style=flat-square&color=3fb950&labelColor=21262d)](https://www.npmjs.com/package/snoop-cli)
+[![PyPI version](https://img.shields.io/pypi/v/snoop-cli?style=flat-square&color=3fb950&labelColor=21262d)](https://pypi.org/project/snoop-cli/)
+[![License](https://img.shields.io/github/license/jzills/snoop?style=flat-square&color=3fb950&labelColor=21262d)](https://github.com/jzills/snoop/blob/main/LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/jzills/snoop/ci.yml?branch=main&style=flat-square&color=3fb950&labelColor=21262d&label=CI)](https://github.com/jzills/snoop/actions/workflows/ci.yml)
+
+[Documentation](https://jzills.github.io/snoop/docs/) · [Install](https://jzills.github.io/snoop/docs/install/) · [Guides](https://jzills.github.io/snoop/docs/guides/) · [Keys](https://jzills.github.io/snoop/docs/reference/keys/)
+
+</div>
+
+A terminal viewer that keeps an eye on your Claude Code agents.
+Watch every running session from one board, answer their permission prompts, comment on their diffs, and see what each prompt cost, without switching terminals.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jzills/snoop/main/demo/demo.gif" alt="snoop showing the summary across sessions, a session's timeline with a turn's waterfall, an expanded subagent, the Files tab and Stats" width="800"/>
+</p>
 
 ## Install
 
+It runs on macOS, Linux and Windows, and every install method delivers the same prebuilt binary.
+
+With [Homebrew](https://brew.sh), on macOS or Linux:
+
+```sh
+brew install jzills/tap/snoop
 ```
-brew install jzills/tap/snoop                      # macOS and Linux
+
+Or the install script, which checks the build against the release's checksums and installs it without `sudo`:
+
+```sh
 curl -fsSL https://jzills.github.io/snoop/install.sh | sh
-npm install -g snoop-cli                           # or: pipx install snoop-cli
-go install github.com/jzills/snoop/cmd/snoop@latest
+```
+
+Or from npm or PyPI, where the package is `snoop-cli` and the command is `snoop`:
+
+```sh
+npm install -g snoop-cli
+pipx install snoop-cli
 ```
 
 On Windows, use npm, PyPI or the PowerShell script:
 
-```
+```powershell
 irm https://jzills.github.io/snoop/install.ps1 | iex
 ```
 
-Every method installs the same `snoop` command. On npm and PyPI the package
-is named `snoop-cli`, since `snoop` was taken, and it carries the binary for
-your platform, so nothing is downloaded or built when it installs. With
-`uv`, run `uv tool install snoop-cli`.
+See the [install guide](https://jzills.github.io/snoop/docs/install/) for more.
 
-The install script picks the build for your machine, checks it against the
-release's `SHA256SUMS`, and installs it to `~/.local/bin` without sudo. To
-install somewhere else, set `SNOOP_INSTALL_DIR`, and to install a given
-release instead of the newest, set `SNOOP_VERSION`, such as `v0.1.0`. The
-PowerShell script does the same on Windows, installing to
-`%LOCALAPPDATA%\Programs\snoop` and adding it to your `PATH`.
+## Follow a session
 
-You can also download a binary for Linux, macOS or Windows from the
-[latest release](https://github.com/jzills/snoop/releases/latest). Each
-archive holds the `snoop` executable, the license and this README.
+Keep it open in a second terminal next to `claude`, and every prompt, reply, thinking block and tool call appears as it happens.
+The right pane shows the selected item in full: the command, the diff, the subagent's prompt and result.
 
-Testing covers Claude Code 2.1.280 through 2.1.310. The transcript format is
-undocumented and changes between versions. Records that snoop doesn't
-recognize are ignored, so a new version may show less rather than break.
-Please open an issue if something goes missing.
-
-## Use
-
-```
-snoop                  # pick a session (all projects)
-snoop --follow         # follow the newest session for this directory, live;
-                       # switches automatically when a new session starts
-snoop --live           # every session at work right now, across projects
-snoop 64f3ec44         # open by session id prefix (or a .jsonl path)
-snoop --project DIR    # treat DIR as the current project
-snoop hooks install    # let the Diff tab send comments to the agent
-snoop --version
+```sh
+snoop --follow    # the newest session in this directory, live
+snoop             # pick any past session
 ```
 
-## What you see
+Each prompt shows its tokens, estimated cost and duration, and the header shows how full the context window is.
+Selecting a prompt shows where its turn's time went, in a waterfall where parallel calls overlap.
+Press `x` on an Agent call to expand its subagent's work inline, live while it runs.
 
-**Timeline:** The timeline shows every prompt, reply, thinking block and tool
-call, one per line, with a blank line before each prompt so every turn
-stands apart. A row in the same minute as the one above shows only its
-seconds (`:42`). Tool rows show their duration and status (`✓` done, `✗`
-error, `◌` running). Built-in tools (`▸`), skills (`✦`), MCP calls (`⇄`,
-shown as `server·tool`) and subagents (`⤷`) each have their own color. The
-right pane shows the selected item in full: Bash commands, Edit diffs, Write
-content, agent prompts and results.
+See the [following guide](https://jzills.github.io/snoop/docs/guides/following/) for more.
 
-Each prompt row shows that turn's tokens, estimated cost (`≈`) and duration,
-and compactions appear as `⟳ compacted (auto) 253k → 68k`. The header shows
-how full the context window is (`ctx 142k/200k ▰▰▰▰▰▰▰▱▱▱ 71%`), turning to
-the accent color at 70% and red at 90%. Selecting a prompt shows where its
-turn's time went: totals, the five slowest tool calls, and a waterfall that
-places each call by its start and end, so parallel calls overlap.
+## Watch every agent at once
 
-Pressing `x` on an Agent call expands its subagent inline, indented under a
-`│` rule and kept live while it runs. Pressing `X` expands every subagent,
-nested ones too. Search and filters reach into subagents, and a collapsed call
-whose subagent has matches is kept and marked `●`.
+The live board lists every session at work across your projects, with the ones waiting on you first.
 
-**Tools:** The Tools tab groups every tool call by kind (built-in, skills,
-MCP, subagents), then by name (tool, skill, MCP `server·tool`, subagent type),
-then lists the individual calls, with counts, errors and average latency.
-Selecting a group summarizes it in the right pane, and pressing `enter` on a
-call jumps to it in the timeline.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jzills/snoop/main/site/static/shots/ask.png" alt="The live board with one session asking to run a command, one whose turn ended and one working" width="800"/>
+</p>
 
-**Files:** The Files tab lists every file the session and its subagents read,
-edited or wrote, with read, edit and write counts and the lines added and
-removed. Changed files come first, then files only read, each most recent
-first. The right pane shows a file's history with every change as a diff,
-which `n` and `N` step through, and pressing `enter` shows the latest change
-in the timeline. Pressing `T` switches to a tree of folders, each with the
-totals of its files. Changes made through Bash aren't tracked.
+```sh
+snoop --live --notify    # every running session, with desktop notifications
+```
 
-**Stats:** The Stats tab opens with the session's cost, duration, tokens (and
-how many came from cache) and context. Below them, Turns lists each prompt's
-time, tokens, cost and context, with a bar for its share of the cost and the
-costliest prompt highlighted. Tools lists the tools used most, with errors
-and average time, beside where the tokens went. Models lists each model with
-its requests and cost.
+When a session asks for permission, the request appears in full under the list.
+Press `A` to allow it once, `Y` to always allow it, or `D` to deny it with a reason Claude sees.
+When a session's turn ends, press `R` to reply, and the agent carries on as if you'd typed it in its terminal.
 
-Claude Code records a session's cost only when the session ends, so while it
-runs, snoop estimates the cost from each request's tokens at the model's API
-prices, and marks it `≈` and "estimated". Once the cost is recorded, snoop
-splits each model's total across the prompts by token use, weighted by each
-kind of token's price, so the prompt costs add up to the recorded total. The
-estimate leaves out subagents' requests, and models without a known price
-show tokens only.
-
-## Many sessions at once
-
-**Live board:** The live board, opened with `snoop --live` or by pressing `w`
-in the picker, lists every session written in the last 30 minutes, across
-projects, most urgent first.
-
-| State | Meaning |
-| --- | --- |
-| `? asking` | the session asks for permission to use a tool, which you can answer here |
-| `◌ waiting` | a tool call has had no result for `--stall` (30s), usually a permission prompt |
-| `✓ your turn` | the turn ended, or you interrupted it |
-| `● working` | replying, or running a tool or subagent (shown underneath) |
-| `· idle` | no prompts yet, or nothing written for 10 minutes |
-
-The board's header counts the sessions waiting on you (`1 waiting on you`).
-Each row shows the project, the session, how full its context is, its cost
-and when it last wrote. Press `enter` to open a session and `esc` to come
-back, or `o` and `O` to sort by another column. Only sessions on the board are read, and after the first read, only
-what they add.
-
-**Answer permission prompts:** With snoop's hooks installed (see
-[Review and comment](#review-and-comment)), a session that asks for
-permission shows as `? asking` on the board, with the request in full under
-the list: the command, the edit's diff, or the tool's input. Press `A` to
-allow it once, or `D` to deny it, optionally with a reason that Claude sees.
-Press `Y` to allow it and stop Claude Code asking again, the same as the
-"don't ask again" choice in its own prompt: the board shows what that adds,
-such as the rule `Bash(npm test)` in the project's local settings.
-The same keys work in the session's own view, where its footer shows the
-request. Claude Code's own prompt still appears in the session's terminal,
-and whichever answer comes first wins.
-
-The hook waits for an answer only while a live board or session view is
-open, for at most 5 minutes (set with `snoop hooks install --ask-wait 10m`),
-and answering in the terminal ends the wait at once.
-
-**Reply when it's your turn:** When a session's turn ends, its row shows
-`your turn`. Press `R` to type a reply and `enter` to send it, and the agent
-carries on as if you'd typed it in its terminal. The same key works in the
-session's own view, whose footer shows the agent's last message. In the
-Timeline and Tools tabs, the reply is about the selected call or message: it
-quotes it first, with a few lines of the call's result, so you can say "this
-failed, try X" without copying anything. With the
-hooks installed, a finished turn waits for a reply only while a live board or
-session view is open, for as long as a permission request does, and typing in
-the session's terminal ends the wait at once. A reply sent while the agent is
-working reaches it after its current tool call, and one sent with no turn
-waiting reaches it with your next prompt.
-
-**Find:** Pressing `f` in the picker finds sessions by a file they read or
-changed, a command they ran, or a prompt, subagents included. Every word must
-match the same file, command or prompt. Each result shows what matched, and
-opening it searches its timeline for the same words. Sessions are indexed by
-the same background scan as the summary and cached with it.
+See the [live board guide](https://jzills.github.io/snoop/docs/guides/live-board/) for more.
 
 ## Review and comment
 
-The Diff tab (`5`) shows the session's changes in one of two scopes, and `b`
-switches between them. **Uncommitted** is `git diff HEAD`, with untracked
-files shown as added. **Branch** is everything the branch changed since it
-left its base, committed or not, which is what a pull request would show plus
-the work in progress, so you can review an agent's whole branch without
-opening a PR. Files with changes since the last commit are tagged
-`uncommitted`. The tab opens in Branch when the branch has commits of its own.
+The Diff tab shows what a session changed, either since the last commit or across its whole branch.
+Leave comments on a line, a range or a file, and press `S` to send them all to the agent, which picks them up mid-turn or keeps going after it finished.
 
-Unless you choose one, snoop compares with the closest of `develop`, `main`,
-`master` and `trunk`, preferring `origin/` copies, since a local one may be
-out of date. The line at the top of the tab names the base. Press `B` to pick
-another base, which is saved for the branch in its git config
-(`branch.<name>.snoopBase`), or set `git config snoop.base` for a whole
-repository.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/jzills/snoop/main/site/static/shots/diff.png" alt="The Diff tab with a comment under one line of a file's diff" width="800"/>
+</p>
 
-Files the session changed come first, and files changed by you or another
-agent are dimmed. The tab refreshes as the session edits files or runs a
-command, and `r` reads the diff again.
+Replies, comments and answers to permission prompts reach the agent through Claude Code hooks, which you add once:
 
-Press `tab` to move into a file's lines, then `c` to comment on a line. Press
-`v` and move to select a range first, or press `C` to comment on the whole
-file. Press `e` or `x` to edit or delete the comment under the cursor.
-Comments wait until you press `S`, which sends them all at once. Each comment
-names the file and lines and quotes the code, so the agent doesn't have to
-reread the file.
-
-Sending needs Claude Code hooks, which you add once:
-
-```
-snoop hooks install              # in ~/.claude/settings.json
-snoop hooks install --project    # in ./.claude/settings.json instead
-snoop hooks status               # or uninstall
+```sh
+snoop hooks install
 ```
 
-The hooks run `snoop hook` after each tool call, when the agent tries to
-finish, and when you submit a prompt. The agent sees your comments at the
-first of these, so a working agent gets them mid-turn and an agent that has
-finished keeps going. Replies sent with `R` travel the same way. The footer
-shows when comments are delivered. Without the
-hooks, `S` copies the comments to the clipboard instead. A fourth hook runs
-when a session asks for permission, so the live board can
-[answer it](#many-sessions-at-once). If you installed the hooks before that
-hook existed, or before replies, `snoop hooks status` says so, and running
-`snoop hooks install` again updates them.
+See the [review guide](https://jzills.github.io/snoop/docs/guides/review/) for more.
 
-The hooks are the only change snoop makes to Claude Code's settings, and
-`snoop hooks uninstall` removes exactly those entries. Sent comments wait in a
-`snoop/inbox` folder in your state directory (`~/.local/state` on Linux) until
-a hook delivers them. Permission requests wait in `snoop/asks` beside it,
-finished turns waiting for a reply are marked in `snoop/turns`, and open
-snoops refresh a small `snoop/listening` file every 2 seconds, which is how
-the hooks know to wait. A session that was already running may need a restart
-before it uses the hooks.
+## Cost, files and time
 
-## Summary across sessions
+The Stats tab breaks a session down by prompt, tool and model, and the Files tab lists every file it read or changed, each with its history as diffs.
+In the session picker, press `s` for totals across sessions and a daily cost chart, or `f` to find sessions by a file they changed, a command they ran or a prompt.
 
-Pressing `s` in the session picker switches to a summary of the sessions
-listed, so it follows `c` and the search. It shows sessions, prompts, tool
-calls and the error rate, cost and tokens, a daily cost chart for the last 30
-days, and the top tools, skills, MCP servers, subagent types and models with
-their error rates. Every transcript is parsed in the background
-(`scanning 12/48` in the header), and the results are cached in
-`~/.cache/snoop/summaries.json` (the user cache directory), so later opens are
-instant. Unreadable transcripts are counted and skipped.
-
-## Copy and export
-
-Pressing `y` copies the selection to the clipboard over OSC 52, which works
-over SSH, and in tmux with `set-clipboard on`. It copies the command for
-Bash, the diff for edits, the content for Write, the full text of messages,
-and the result for other tools. In the Files tab, it copies all of the file's
-changes.
-
-Pressing `e` exports the timeline as shown (search, filter, thinking and
-expanded subagents included) to `./<session-id-8>-<YYYYMMDD-HHMM>.md`.
-Prompts become headings, tool calls become collapsible `<details>` blocks,
-and subagent events are quoted under their call. You can also export from the
-shell:
-
-```
-snoop export 64f3ec44              # whole session to stdout, without thinking
-snoop export 64f3ec44 -o notes.md
-```
+See the [cost and context guide](https://jzills.github.io/snoop/docs/guides/cost-and-context/) for more.
 
 ## Alerts
 
-While a session is receiving new lines, the header flags what needs your
-attention:
+While a session runs, the header flags a failed tool call, a stalled one, a finished turn, a compaction, a nearly full context or a permission request.
+With `--notify`, the same alerts arrive as desktop notifications through your terminal or the system, over SSH and in WSL too.
+With `--cost-alert 5` and `--long-turn 15m`, a runaway session gets flagged as well.
 
-| Alert | Raised when |
-| --- | --- |
-| `✗ error` | a tool call fails; the header counts unseen errors |
-| `◌ waiting 30s on Bash` | a tool call has no result after `--stall` (default 30s), which may be a permission prompt, since those aren't recorded until answered |
-| `✓ your turn` | Claude finishes |
-| `⟳ compacted` | the context is compacted |
-| `ctx 90%` | the context window passes 90% |
-| `? Bash: npm test` | the session asks for permission (needs the hooks) |
-| `$ cost passed $5.00` | with `--cost-alert 5`, the session's cost passes another $5 |
-| `◌ turn running 15m00s` | with `--long-turn 15m`, a turn has run that long |
+See the [alerts reference](https://jzills.github.io/snoop/docs/reference/alerts/) for more.
 
-Any key hides the alert, and pressing `!` jumps to it. Lines already in the
-transcript when it opens never raise alerts.
+## Copy and export
 
-```
-snoop --follow --bell                    # ring the bell on errors, turn ends and permission requests
-snoop --live --notify                    # a desktop notification when any session needs you
-snoop --follow --bell --alerts error,stall,turn,compact,ctx,ask
-snoop --stall 2m                         # 0 disables the waiting alert
-snoop --live --notify --cost-alert 5 --long-turn 15m   # catch a runaway session
-```
+Press `y` to copy the selected command, diff or message, over SSH too, or `e` to export the timeline to Markdown.
+From the shell, `snoop export <session>` writes the whole session to stdout.
 
-The cost and long-turn alerts are off until you set their limit. The cost
-alert counts from what the session had spent when snoop opened it, and while
-a session runs, its cost is an estimate from its tokens.
-
-The live board raises the same alerts for every session on it, prefixed with
-the project (`api: ✓ your turn`).
-
-With `--notify`, snoop sends a desktop notification naming the session and
-what happened (`api · Fix the flaky test` / `Your turn · finished after
-2m10s`), so you can work elsewhere and come back when a session needs you. It
-picks one way to deliver them:
-
-| Where snoop runs | Notification |
-| --- | --- |
-| iTerm2, WezTerm, Ghostty, kitty | the terminal's own (clicking it focuses the tab) |
-| over SSH | the terminal's own, so it shows on your machine, not the server |
-| WSL | a Windows toast, through `powershell.exe` |
-| macOS, other terminals | `osascript` |
-| Linux desktop | `notify-send` |
-| anywhere else | the terminal's own escape sequence (OSC 777) |
-
-To override the choice, use `--notify=terminal` or `--notify=system`. In
-tmux, let the terminal's own notifications through with
-`set -g allow-passthrough on`.
-
-Nothing is sent while snoop's window has focus (in terminals that report
-focus). At most one notification goes out per session and alert a minute, and
-several snoops watching the same session send one between them.
-
-## Keys
-
-Press `?` anywhere for the keys of the current screen. The full list follows.
-
-| Key | Action |
-| --- | --- |
-| `↑↓` / `j k`, wheel | move (the wheel over the right pane scrolls it) |
-| `enter` / `tab` | focus the detail pane (zoom it on narrow terminals) |
-| `J K` / `ctrl+d ctrl+u` | scroll the detail pane |
-| `/` | search text, commands, paths and results (all words must match) |
-| `f` / `F` | cycle the filter: all, chat, tools, skills, mcp, agents, errors |
-| `t` | show thinking blocks |
-| `n` / `N` | next / previous prompt |
-| `x` / `X` | expand a subagent inline / expand or collapse all |
-| `a` | open the subagent transcript for an Agent call (`esc` returns) |
-| `g G` | top / bottom (bottom re-enables following) |
-| `1 2 3 4 5`, `[ ]` | switch tabs |
-| `esc` | clear the search or filter, then go back |
-| `!` | jump to the latest alert |
-| `A` / `Y` / `D` | allow once / always allow / deny the session's permission request |
-| `R` | reply to the session's agent, about the selected call or message in the Timeline and Tools |
-| `y` / `e` | copy the selection / export the view to Markdown |
-| `?` | every key for the current screen |
-| `q` | quit |
-
-In the Tools tab, `space` expands or collapses a group, `enter` on a call
-shows it in the timeline, and `←` and `→` collapse and expand (`←` on a call
-moves to its group). Pressing `E` expands everything (press it again to
-reset), and a `/` search keeps only matching calls with their groups opened.
-
-In the Files and Diff tabs, `T` switches between the list and a tree of
-folders. In the tree, `space` and `enter` open or close a folder, `←` and `→`
-close and open (`←` on a file moves to its folder), and `E` on a folder opens
-it and every folder in it (press it again to close them). On a file, `E` does
-the same for the whole tree. In the Files tab, `c` comments on the change at
-the top of the detail pane, quoting it, `C` comments on the whole file, and
-`S` sends them with the Diff tab's comments.
-
-In the Diff tab, `b` switches between the uncommitted changes and the whole
-branch, and `B` picks the branch's base. Press `tab` to move between the
-files and their lines, and `J` and `K` to jump between hunks. The keys `c`,
-`v`, `C`, `e`, `x` and `S` work as described in
-[Review and comment](#review-and-comment).
-
-In the picker, `/` starts a fuzzy search and `f` finds across sessions, and
-`esc` clears either. Pressing `c` toggles this project only, `s` switches to
-the summary, and `w` opens the live board. On the picker and the live board,
-`o` sorts by the next column and `O` reverses the order. Search results stay
-best match first until you choose a column.
+See the [export guide](https://jzills.github.io/snoop/docs/guides/export/) for more.
 
 ## Notes
 
-- The transcript format is undocumented and changes between Claude Code
-  versions. Unknown records are ignored, and bulky internal records
-  (`api-request*`, `attachment`, `file-history-*`) are skipped without being
-  decoded, so a 75 MB transcript loads in about 150 ms.
-- It respects `CLAUDE_CONFIG_DIR`.
-- Running `go run ./cmd/probe` parses every local transcript and reports
-  timings.
-- The demo GIF is rendered from `demo/demo.tape` against fictional sessions
-  by `demo/render.sh`, which needs [vhs](https://github.com/charmbracelet/vhs).
+- It reads the transcripts Claude Code already writes and sends nothing anywhere.
+  The only change it makes to Claude Code's settings is the hooks, which `snoop hooks uninstall` removes.
+- The transcript format is undocumented, and testing covers Claude Code 2.1.280 through 2.1.310.
+  Unknown records are ignored, so a new version may show less rather than break, and an [issue](https://github.com/jzills/snoop/issues) helps when something goes missing.
+- A 75 MB transcript opens in about 150 ms.
+- This independent project isn't affiliated with or endorsed by Anthropic.
+  Claude and Claude Code are trademarks of Anthropic.
 
-This independent project isn't affiliated with or endorsed by Anthropic.
-Claude and Claude Code are trademarks of Anthropic.
+## Contributing
+
+Run `go run ./cmd/probe` to parse every local transcript and report timings.
+The demo GIF and the site's screenshots are rendered from fictional sessions by `demo/render.sh` and `demo/shots.sh`, which need [vhs](https://github.com/charmbracelet/vhs).
 
 ## License
 
-[MIT](LICENSE)
+Released under the [MIT License](https://github.com/jzills/snoop/blob/main/LICENSE).

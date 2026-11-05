@@ -3,8 +3,7 @@ title: What snoop reads and writes
 weight: 4
 ---
 
-Everything snoop does happens on your machine, and it makes no network
-requests.
+Everything snoop does happens on your machine, and it makes no network requests.
 
 ## Reads
 
@@ -13,8 +12,8 @@ requests.
 | `~/.claude/projects/<project>/<session>.jsonl` | session transcripts |
 | `~/.claude/projects/<project>/<session>/subagents/` | subagent transcripts and their metadata |
 
-When `CLAUDE_CONFIG_DIR` is set, snoop reads `$CLAUDE_CONFIG_DIR/projects`
-instead. It never writes to these files.
+When `CLAUDE_CONFIG_DIR` is set, snoop reads `$CLAUDE_CONFIG_DIR/projects` instead.
+It never writes to these files.
 
 ## Writes
 
@@ -38,10 +37,8 @@ Here `<cache>` is your user cache directory:
 | macOS | `~/Library/Caches` |
 | Windows | `%LocalAppData%` |
 
-Here `<state>` is `$XDG_STATE_HOME` or `~/.local/state` on Linux,
-`~/Library/Application Support` on macOS and `%AppData%` on Windows.
+Here `<state>` is `$XDG_STATE_HOME` or `~/.local/state` on Linux, `~/Library/Application Support` on macOS and `%AppData%` on Windows.
 
-The Diff tab also runs `git` in the session's working directory, read-only and
-without taking the index lock.
+The Diff tab also runs `git` in the session's working directory, read-only and without taking the index lock.
 
 Deleting the cache is safe; snoop rebuilds it on the next scan.

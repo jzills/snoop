@@ -65,6 +65,7 @@ type view struct {
 	typing bool
 	focusR bool // detail pane has focus
 	zoom   bool // narrow terminals: detail fills the body
+	full   bool // Files and Diff: the right pane fills the body (z)
 	detail viewport.Model
 	page   viewport.Model // Tools and Stats tabs
 
@@ -149,7 +150,7 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	ti.Placeholder = "search text, commands, paths, results"
 	v := &view{
 		path: path, rootPath: rootPath, label: label, sess: s,
-		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, fOpen: map[string]bool{}, prefs: &prefs{}, agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(rootPath), rev: newReviewState(),
+		hay: map[*parse.Event]hayEntry{}, search: ti, follow: true, gOpen: map[string]bool{}, fOpen: map[string]bool{}, prefs: newPrefs(), agents: map[string]agentEntry{}, subs: map[string]*store.Follower{}, expanded: map[string]bool{}, watch: newWatch(rootPath), rev: newReviewState(),
 		detail: viewport.New(0, 0), page: viewport.New(0, 0),
 	}
 	v.tl, _ = tail.Open(path, off, followNew)
@@ -157,6 +158,14 @@ func openView(path, rootPath, label string, followNew bool) (*view, error) {
 	v.refresh()
 	v.cursor = max(len(v.shown)-1, 0)
 	return v, nil
+}
+
+// fullLabel is what z does next in the Files and Diff footers.
+func (v *view) fullLabel() string {
+	if v.full {
+		return "back to list"
+	}
+	return "full screen"
 }
 
 // own marks alerts as this session's, for notifications.
@@ -392,7 +401,7 @@ func (v *view) update(msg tea.Msg, w, h int) tea.Cmd {
 			case "G":
 				v.detail.GotoBottom()
 				return nil
-			case "a", "o", "/", "f", "t", "n", "N", "E", "T", "x", "X":
+			case "a", "o", "/", "f", "t", "n", "N", "E", "T", "x", "X", "z":
 				// handled below
 			default:
 				var cmd tea.Cmd
@@ -712,12 +721,16 @@ func (v *view) footer(w int) string {
 		return fit(v.rev.input.View(), w)
 	}
 	if v.tab == tabDiff {
-		help := keyHelp("tab", "lines", "c", "comment", "S", "send", "?", "help")
+		help := keyHelp("tab", "lines", "c", "comment", "S", "send", "z", v.fullLabel(), "?", "help")
 		if v.rev.picking {
 			return fit(" "+keyHelp("↑↓", "move", "enter", "compare", "esc", "cancel"), w)
 		}
 		if !v.focusR {
-			help = keyHelp("enter", "lines", "C", "comment on file", "T", "tree", "S", "send", "?", "help")
+			list := "tree"
+			if v.prefs.diffTree {
+				list = "flat list"
+			}
+			help = keyHelp("enter", "lines", "C", "comment on file", "T", list, "S", "send", "z", v.fullLabel(), "?", "help")
 		}
 		return fit(" "+v.sendStatus()+help, w)
 	}
@@ -733,9 +746,9 @@ func (v *view) footer(w int) string {
 	case v.tab == tabTools:
 		help = keyHelp("space", "expand", "enter", "show in timeline", "?", "help")
 	case v.tab == tabFiles && v.prefs.filesTree:
-		help = v.sendStatus() + keyHelp("space", "expand", "T", "flat list", "c", "comment", "S", "send", "?", "help")
+		help = v.sendStatus() + keyHelp("space", "expand", "T", "flat list", "c", "comment", "S", "send", "z", v.fullLabel(), "?", "help")
 	case v.tab == tabFiles:
-		help = v.sendStatus() + keyHelp("n N", "next change", "T", "tree", "c", "comment", "S", "send", "?", "help")
+		help = v.sendStatus() + keyHelp("n N", "next change", "T", "tree", "c", "comment", "S", "send", "z", v.fullLabel(), "?", "help")
 	default:
 		help = keyHelp("enter", "detail", "/", "search", "f", "filter", "?", "help")
 	}

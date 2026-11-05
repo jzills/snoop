@@ -20,7 +20,7 @@ Add these when the change touches the site or user-facing text:
 
 ```sh
 (cd site && hugo --gc --minify -d /tmp/out)  # no errors or warnings
-python3 .claude/hooks/prose_lint.py README.md site/layouts/home.html $(find site/content -name '*.md')
+python3 .claude/hooks/prose_lint.py README.md site/layouts/home.html $(find site/content -name '*.md') release-notes/*.md
 ```
 
 When a change touches parsing or loading, check that opening a session didn't

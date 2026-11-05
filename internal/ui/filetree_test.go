@@ -70,46 +70,47 @@ func rowNames(v *view) string {
 
 func TestFilesTreeToggle(t *testing.T) {
 	v := openTreeView(t)
-	if got := rowNames(v); got != "internal/ui/app.go internal/ui/board.go main.go docs/notes.md /etc/hosts" {
-		t.Fatalf("flat rows = %q", got)
-	}
-	v.update(key("down"), 140, 30) // internal/ui/board.go
-	v.update(key("T"), 140, 30)
-	// Changed folders start open, read-only ones closed.
-	if got := rowNames(v); got != "internal/ui/ app.go board.go /etc/ docs/ main.go" {
+	// The tree is the default, with every folder open.
+	if got := rowNames(v); got != "internal/ui/ app.go board.go /etc/ hosts docs/ notes.md main.go" {
 		t.Fatalf("tree rows = %q", got)
 	}
-	if f := v.selectedFile(); f == nil || f.path != "internal/ui/board.go" {
-		t.Errorf("selection moved to %+v", v.selectedFileRow())
-	}
+	v.update(key("down"), 140, 30)
+	v.update(key("down"), 140, 30) // internal/ui/board.go
 	out := ansi.Strip(v.render(140, 30))
-	for _, want := range []string{"▿ internal/ui/", "▹ docs/", "T flat list"} {
+	for _, want := range []string{"▿ internal/ui/", "▿ docs/", "T flat list"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("tree lacks %q:\n%s", want, out)
 		}
 	}
 	v.update(key("T"), 140, 30)
-	if f := v.selectedFile(); f == nil || f.path != "internal/ui/board.go" || len(v.fRows) != 5 {
-		t.Errorf("back to flat: %q, selected %+v", rowNames(v), f)
+	if got := rowNames(v); got != "internal/ui/app.go internal/ui/board.go main.go docs/notes.md /etc/hosts" {
+		t.Fatalf("flat rows = %q", got)
+	}
+	if f := v.selectedFile(); f == nil || f.path != "internal/ui/board.go" {
+		t.Errorf("selection moved to %+v", v.selectedFileRow())
+	}
+	v.update(key("T"), 140, 30)
+	if f := v.selectedFile(); f == nil || f.path != "internal/ui/board.go" || len(v.fRows) != 8 {
+		t.Errorf("back to the tree: %q, selected %+v", rowNames(v), f)
 	}
 }
 
 func TestFilesTreeExpandCollapse(t *testing.T) {
 	v := openTreeView(t)
-	v.update(key("T"), 140, 30)
 	v.update(key("down"), 140, 30) // app.go
 	v.update(key("left"), 140, 30) // to its folder
 	if n := v.selectedFileRow(); n.key != "internal/ui/" {
 		t.Fatalf("left selected %q", n.key)
 	}
 	v.update(key("left"), 140, 30) // closes it
-	if got := rowNames(v); got != "internal/ui/ /etc/ docs/ main.go" {
+	if got := rowNames(v); got != "internal/ui/ /etc/ hosts docs/ notes.md main.go" {
 		t.Errorf("after closing = %q", got)
 	}
 	v.update(key("down"), 140, 30) // /etc/
 	v.update(key(" "), 140, 30)
-	if got := rowNames(v); got != "internal/ui/ /etc/ hosts docs/ main.go" {
-		t.Errorf("after space = %q", got)
+	v.update(key(" "), 140, 30)
+	if got := rowNames(v); got != "internal/ui/ /etc/ hosts docs/ notes.md main.go" {
+		t.Errorf("after space twice = %q", got)
 	}
 	out := ansi.Strip(v.render(140, 30))
 	if !strings.Contains(out, "/etc/hosts") && !strings.Contains(out, "hosts") {
@@ -117,7 +118,7 @@ func TestFilesTreeExpandCollapse(t *testing.T) {
 	}
 	// On a folder, E opens or closes just that folder and those in it.
 	v.update(key("E"), 140, 30)
-	if got := rowNames(v); got != "internal/ui/ /etc/ docs/ main.go" {
+	if got := rowNames(v); got != "internal/ui/ /etc/ docs/ notes.md main.go" {
 		t.Errorf("E on /etc/, all open, should close it: %q", got)
 	}
 	// On a file, E opens every folder, and then closes them all, moving
@@ -138,7 +139,6 @@ func TestFilesTreeExpandCollapse(t *testing.T) {
 
 func TestFilesTreeSearchOpensFolders(t *testing.T) {
 	v := openTreeView(t)
-	v.update(key("T"), 140, 30)
 	v.search.SetValue("notes")
 	v.refresh()
 	v.render(140, 30)
@@ -147,7 +147,7 @@ func TestFilesTreeSearchOpensFolders(t *testing.T) {
 	}
 }
 
-func TestFilesTreeCarriesToTheNextSession(t *testing.T) {
+func TestFilesListCarriesToTheNextSession(t *testing.T) {
 	a := New(Options{})
 	v := openTreeView(t)
 	a.push(v)
@@ -155,8 +155,8 @@ func TestFilesTreeCarriesToTheNextSession(t *testing.T) {
 	w := openTreeView(t)
 	a.push(w)
 	w.render(140, 30)
-	if !w.prefs.filesTree || rowNames(w) != "internal/ui/ app.go board.go /etc/ docs/ main.go" {
-		t.Errorf("the next session view should open in the tree: %q", rowNames(w))
+	if w.prefs.filesTree || rowNames(w) != "internal/ui/app.go internal/ui/board.go main.go docs/notes.md /etc/hosts" {
+		t.Errorf("the next session view should open in the flat list: %q", rowNames(w))
 	}
 }
 
@@ -187,5 +187,32 @@ func TestTildePath(t *testing.T) {
 	}
 	if got := tildePath("/etc/hosts"); got != "/etc/hosts" {
 		t.Errorf("tildePath changed /etc/hosts to %q", got)
+	}
+}
+
+// z shows the detail pane on the whole screen; the keys still change the
+// file and comment on it.
+func TestFilesFullScreen(t *testing.T) {
+	a := New(Options{})
+	v := openTreeView(t)
+	a.push(v)
+	v.update(key("down"), 140, 30) // app.go
+	v.update(key("z"), 140, 30)
+	out := ansi.Strip(v.render(140, 30))
+	if !v.full || strings.Contains(out, "Bash aren't tracked") || !strings.Contains(out, "z back to list") {
+		t.Fatalf("full screen:\n%s", out)
+	}
+	v.update(key("down"), 140, 30)
+	if f := v.selectedFile(); f == nil || f.path != "internal/ui/board.go" {
+		t.Errorf("down selected %+v", v.selectedFileRow())
+	}
+	v.update(key("C"), 140, 30)
+	if !v.rev.typing {
+		t.Errorf("C should start a comment in full screen")
+	}
+	v.update(key("esc"), 140, 30)
+	v.update(key("z"), 140, 30)
+	if v.full || !strings.Contains(ansi.Strip(v.render(140, 30)), "Bash aren't tracked") {
+		t.Errorf("z should bring back the list")
 	}
 }

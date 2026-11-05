@@ -25,8 +25,9 @@ the full documentation.
 - **Checks:** before calling anything done, run the checks in the `check`
   skill. A hook runs `gofmt -w` on every Go file you edit.
 - **Writing:** user-facing text follows the `writing-docs` skill: complete
-  American English sentences, none starting with a command, key or "snoop".
-  A hook checks the README and the site on every edit.
+  American English sentences, one per line, none starting with a command, key
+  or "snoop". The README is a pitch and the site is the reference. A hook
+  checks the README, the site and the release notes on every edit.
 - **Site:** see the `site` skill for the design conventions, previewing and
   re-rendering screenshots.
 - **Speed:** opening and following a session must not get slower. Parse only
