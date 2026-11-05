@@ -3,7 +3,8 @@ title: Keyboard shortcuts
 weight: 2
 ---
 
-Press `?` on any screen for that screen's keys. This page lists them all.
+Press `?` on any screen for that screen's keys.
+This page lists them all.
 
 ## Everywhere
 
@@ -28,6 +29,8 @@ Press `?` on any screen for that screen's keys. This page lists them all.
 | `O` | reverse the order |
 | `s` | switch between the list and the summary |
 | `w` | open the live board |
+
+Search results stay best match first until you choose a column with `o`.
 
 ## Live board
 
