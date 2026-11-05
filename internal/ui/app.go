@@ -523,7 +523,7 @@ func (a *App) View() string {
 		return ""
 	}
 	if a.showHelp {
-		return overlay(dimmed(a.screen()), a.helpBox(), a.w, a.h)
+		return overlay(a.screen(), a.helpBox(), a.w, a.h)
 	}
 	return a.screen()
 }
