@@ -13,10 +13,12 @@ on:
     branches: [main]
     paths:
       - "site/**"
+      - "release-notes/**"
       - ".github/workflows/pages.yml"
   pull_request:
     paths:
       - "site/**"
+      - "release-notes/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
