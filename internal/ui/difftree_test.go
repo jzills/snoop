@@ -37,7 +37,7 @@ func diffNames(v *view) string {
 
 func TestDiffTree(t *testing.T) {
 	a, v := diffTreeApp(t)
-	press(a, "T", "g")
+	press(a, "g")
 	// Folders first, the session's own before others; "internal/" holds
 	// two folders, so it isn't merged.
 	if got := diffNames(v); got != "internal/ review/ hook.go ui/ app.go board.go docs/ notes.md main.go" {
@@ -78,7 +78,7 @@ func TestDiffTree(t *testing.T) {
 
 func TestDiffTreeExpandAll(t *testing.T) {
 	a, v := diffTreeApp(t)
-	press(a, "T", "g", "E") // on internal/, all open: closes it and its folders
+	press(a, "g", "E") // on internal/, all open: closes it and its folders
 	if got := diffNames(v); got != "internal/ docs/ notes.md main.go" {
 		t.Errorf("E on internal/ = %q", got)
 	}
@@ -100,7 +100,7 @@ func TestDiffTreeExpandAll(t *testing.T) {
 // A refresh keeps the selected folder, and comments count on folders.
 func TestDiffTreeRefreshAndComments(t *testing.T) {
 	a, v := diffTreeApp(t)
-	press(a, "T", "g", "j", "j", "j") // ui/
+	press(a, "g", "j", "j", "j") // ui/
 	v.rev.comments = []pending{{Comment: review.Comment{Path: v.diffAbs("internal/ui/app.go"), Text: "why"}, id: 1}}
 	v.onDiff(diffMsg{seq: v.rev.seq, d: &review.Diff{Root: "/r", Files: v.rev.diff.Files}, ours: v.rev.ours})
 	if n := v.selectedDiffRow(); n == nil || n.key != "internal/ui/" {
@@ -108,5 +108,23 @@ func TestDiffTreeRefreshAndComments(t *testing.T) {
 	}
 	if out := ansi.Strip(a.View()); !strings.Contains(out, "●1") {
 		t.Errorf("no comment count:\n%s", out)
+	}
+}
+
+// z shows the diff on the whole screen, keeping the footer and comments.
+func TestDiffFullScreen(t *testing.T) {
+	a, v := diffTreeApp(t)
+	press(a, "g", "j", "j", "z") // hook.go, full screen
+	out := ansi.Strip(a.View())
+	if !v.full || strings.Contains(out, "board.go") || !strings.Contains(out, "internal/review/hook.go") || !strings.Contains(out, "? help") {
+		t.Fatalf("full screen:\n%s", out)
+	}
+	press(a, "tab", "c")
+	if !v.rev.typing {
+		t.Errorf("c should start a comment in full screen")
+	}
+	press(a, "esc", "tab", "z")
+	if v.full || !strings.Contains(ansi.Strip(a.View()), "board.go") {
+		t.Errorf("z should bring back the files")
 	}
 }

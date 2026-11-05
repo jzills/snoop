@@ -16,11 +16,12 @@ first. Press `/` to keep only files whose path matches.
 
 ## The tree
 
-Press `T` to show the files in a tree of folders, and press it again to go
-back to the list. The choice carries over to the next session you open.
+The files are shown in a tree of folders. Press `T` to show them as a flat
+list, and press it again to go back to the tree. The choice carries over to
+the next session you open.
 Each folder shows the totals of the files under it, and a folder that holds
-only one folder shares its row, as in `internal/ui/`. Folders with changed
-files start open, and folders whose files were only read start closed.
+only one folder shares its row, as in `internal/ui/`. Every folder starts
+open.
 
 In the tree, press `space` or `enter` on a folder to open or close it, or
 use `←` and `→`. Pressing `←` on a file moves to its folder. Press `E` on a
@@ -28,6 +29,10 @@ folder to open it and every folder inside it, and press it again to close
 them. On a file, `E` does the same for every folder in the tree. While you search, every
 folder with a match is open. Selecting a folder lists its files in the
 right pane.
+
+Press `z` to show the right pane on the whole screen, and press it again to
+bring back the list. The footer stays, and the keys work as before: `↑` and
+`↓` change the file, and `c` and `C` comment on it.
 
 ## A file's history
 

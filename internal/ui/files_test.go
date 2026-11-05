@@ -89,6 +89,7 @@ func TestFilesTabIncludesSubagents(t *testing.T) {
 	}
 	defer v.close()
 	v.update(key("4"), 140, 30)
+	v.update(key("T"), 140, 30) // the flat list
 	out := ansi.Strip(v.render(140, 30))
 	for _, want := range []string{"Files", "3 files", "a.go", "⤷ helper", "Bash aren't tracked"} {
 		if !strings.Contains(out, want) {

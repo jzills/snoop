@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// The Files tab shows its files as a flat list or, after T, as a tree of
-// folders. Either way the list is rows of fileNodes: in the flat list one
+// The Files tab shows its files as a tree of folders or, after T, as a
+// flat list. Either way the list is rows of fileNodes: in the flat list one
 // per file, in the tree the open folders' contents too.
 
 type fileNode struct {
@@ -32,6 +32,14 @@ type prefs struct {
 	filesTree bool
 	diffTree  bool
 	diffScope int // scopeAuto until b is pressed
+}
+
+// defaultPrefs shows Files and Diff as trees.
+func defaultPrefs() prefs { return prefs{filesTree: true, diffTree: true} }
+
+func newPrefs() *prefs {
+	p := defaultPrefs()
+	return &p
 }
 
 // pathParts splits a path into folders and the file name. An absolute
@@ -103,18 +111,16 @@ func (n *fileNode) nodeDepth() int    { return n.depth }
 func (n *fileNode) isFolder() bool    { return n.file == nil }
 func (n *fileNode) kids() []*fileNode { return n.children }
 
-// fileOpen reports whether a folder shows its contents. Folders with
-// changes start open and folders only read start closed; while searching
-// everything is open, so matches are visible.
+// fileOpen reports whether a folder shows its contents. Every folder
+// starts open, and while searching everything is open, so matches are
+// visible.
 func (v *view) fileOpen(n *fileNode) bool {
 	return v.search.Value() != "" || v.savedFileOpen(n)
 }
 
 func (v *view) savedFileOpen(n *fileNode) bool {
-	if open, ok := v.fOpen[n.key]; ok {
-		return open
-	}
-	return !n.sum.readOnly()
+	open, ok := v.fOpen[n.key]
+	return !ok || open
 }
 
 // flattenFiles lays out the rows, keeping the row with selKey selected
