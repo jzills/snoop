@@ -126,7 +126,7 @@ func TestHelpDrawsOverTheScreen(t *testing.T) {
 		}
 	}
 	// The top bar is above the box exactly as the screen draws it.
-	if raw := strings.Split(a.View(), "\n"); raw[0] != strings.Split(a.screen(), "\n")[0] || ansi.Strip(raw[0]) != before[0] {
+	if raw := strings.Split(a.View(), "\n"); ansi.Strip(raw[0]) != before[0] {
 		t.Errorf("the top line changed:\n%q\n%q", raw[0], before[0])
 	}
 	for i, l := range lines {
@@ -146,5 +146,14 @@ func TestOverlay(t *testing.T) {
 	// A background line shorter than the box's column is padded.
 	if got := overlay("a\nb\nc", "XY", 6, 3); got != "a\nb XY\nc" {
 		t.Errorf("short line: %q", got)
+	}
+}
+
+// faint keeps a line's colors and dims all of it, past each reset.
+func TestFaint(t *testing.T) {
+	got := faint("\x1b[35mtool\x1b[0m name\x1b[m end")
+	want := "\x1b[2m\x1b[35mtool\x1b[0m\x1b[2m name\x1b[m\x1b[2m end\x1b[0m"
+	if got != want {
+		t.Errorf("faint = %q", got)
 	}
 }

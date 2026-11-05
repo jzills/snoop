@@ -300,6 +300,20 @@ func (a *App) helpBox() string {
 	return box
 }
 
+// faint dims a screen in its own colors, with the terminal's faint
+// attribute, so a box drawn over it stands out. Styled text ends in a
+// reset, which also clears faint, so faint follows every reset.
+func faint(s string) string {
+	const on = "\x1b[2m"
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		l = strings.ReplaceAll(l, "\x1b[0m", "\x1b[0m"+on)
+		l = strings.ReplaceAll(l, "\x1b[m", "\x1b[m"+on)
+		lines[i] = on + l + "\x1b[0m"
+	}
+	return strings.Join(lines, "\n")
+}
+
 // overlay draws box centered over bg, a w by h screen.
 func overlay(bg, box string, w, h int) string {
 	lines := strings.Split(bg, "\n")
