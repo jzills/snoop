@@ -5,9 +5,7 @@ weight: 1
 ---
 
 This documentation covers snoop, a terminal viewer for Claude Code sessions.
-You can keep it open beside `claude` to watch a session as it works, or open
-any past session to see what each prompt cost, how full the context got,
-which files changed, what the subagents did and where the time went.
+You can keep it open beside `claude` to watch a session as it works, or open any past session to see what each prompt cost, how full the context got, which files changed, what the subagents did and where the time went.
 
 It reads the transcripts Claude Code already writes to `~/.claude/projects`.
 There is nothing to configure, and nothing is sent anywhere.
@@ -21,9 +19,9 @@ curl -fsSL https://jzills.github.io/snoop/install.sh | sh
 snoop
 ```
 
-The first screen lists your sessions, newest first. Press `enter` to open one.
-The [Quickstart](quickstart/) walks through the rest in five minutes, and
-[Install](install/) covers Homebrew, Go and downloading a binary.
+The first screen lists your sessions, newest first.
+Press `enter` to open one.
+The [Quickstart](quickstart/) walks through the rest in five minutes, and [Install](install/) covers Homebrew, Go and downloading a binary.
 
 ## Learn more
 
@@ -36,14 +34,11 @@ The [Quickstart](quickstart/) walks through the rest in five minutes, and
 
 ## How it works
 
-Claude Code writes each session to a JSONL transcript under
-`~/.claude/projects/<project>/`, one record per line, and subagents to
-transcripts of their own beside it. When you open a session, snoop parses
-its file, and after that it reads only the lines added since. A 75 MB
-transcript opens in about 150 ms.
+Claude Code writes each session to a JSONL transcript under `~/.claude/projects/<project>/`, one record per line, and subagents to transcripts of their own beside it.
+When you open a session, snoop parses its file, and after that it reads only the lines added since.
+A 75 MB transcript opens in about 150 ms.
 
-The transcript format is undocumented and changes between Claude Code
-versions. Records that snoop doesn't recognize are ignored, so a new version
-may show less rather than break. Testing covers Claude Code 2.1.280 through
-2.1.310. If something goes missing, please
-[open an issue](https://github.com/jzills/snoop/issues).
+The transcript format is undocumented and changes between Claude Code versions.
+Records that snoop doesn't recognize are ignored, so a new version may show less rather than break.
+Testing covers Claude Code 2.1.280 through 2.1.310.
+If something goes missing, please [open an issue](https://github.com/jzills/snoop/issues).

@@ -9,8 +9,13 @@ The rules (see .claude/skills/writing-docs/SKILL.md):
 - No sentence starts with a code span: a command, flag, key or path.
 - No sentence starts with "snoop".
 - American spelling.
+- One sentence per line in the README and the site, with no hard wrap.
+- README code blocks are 80 columns or narrower.
+- Release notes are one line per paragraph and per bullet, with no headings,
+  and each bullet is a bold label and one sentence.
 
-It reads the README, the site's content and its landing page. Code blocks,
+It reads the README, the site's content, its landing page and the release
+notes. Code blocks,
 tables, headings and front matter are skipped; captions and card subtitles
 in shortcodes are checked as sentences. Whether a sentence is complete can't
 be checked mechanically, so the skill covers that.
@@ -27,7 +32,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 def applies(rel):
     return (rel == "README.md"
             or (rel.startswith("site/content/") and rel.endswith(".md"))
-            or rel == "site/layouts/home.html")
+            or rel == "site/layouts/home.html"
+            or (rel.startswith("release-notes/") and rel.endswith(".md")))
 
 BRITISH = {
     "colour": "color", "colours": "colors", "coloured": "colored",
@@ -118,8 +124,71 @@ def sentences(paragraph):
     return parts
 
 
-def check(rel, text):
+def prose_lines(text):
+    """Yields (line number, line, in code block) for each line past the front
+    matter, with raw HTML blocks left out."""
+    fence, front, raw = False, False, False
+    for i, line in enumerate(text.split("\n"), 1):
+        s = line.strip()
+        if i == 1 and s == "---":
+            front = True
+            continue
+        if front:
+            front = s != "---"
+            continue
+        if s.startswith("```"):
+            fence = not fence
+            continue
+        if not fence and s.startswith("<") and not raw:
+            raw = True
+        elif not s:
+            raw = False
+        if not raw:
+            yield i, line, fence
+
+
+def layout(rel, text):
+    """Checks the line layout: one sentence per line in the README and the
+    site, one line per paragraph in release notes."""
     problems = []
+    notes = rel.startswith("release-notes/")
+    prev = ""
+    for i, line, fence in prose_lines(text):
+        s = line.strip()
+        if fence:
+            if rel == "README.md" and len(line) > 80:
+                problems.append((i, "code block line is wider than 80 columns", s))
+            prev = ""
+            continue
+        # A run of badges is one row of images, not a sentence.
+        prose = s and not s.startswith(("#", "|", "{{", "<", "![", "[![", "-->", ">"))
+        if notes:
+            if s.startswith("#"):
+                problems.append((i, "release notes have no headings; the release supplies them", s))
+            elif prose and prev and not s.startswith("- "):
+                problems.append((i, "release notes keep each paragraph and bullet on one line; join this to the line above", s))
+            elif s.startswith("- ") and not re.match(r"- \*\*[A-Z][^*]*:\*\* [A-Z\"]", s):
+                problems.append((i, "a bullet is a capitalized bold label, a colon, then a sentence opening with a capital", s))
+            prev = s if prose else ""
+            continue
+        if not prose:
+            prev = ""
+            continue
+        body = re.sub(r"^(?:[-*]|\d+\.)\s+", "", s)
+        if prev and not re.search(r"[.!?:]\W*$", prev):
+            problems.append((i, "hard-wrapped; join this to the line above, so each sentence is one line", prev))
+        if len([x for x in sentences(body) if re.search(r"[A-Za-z]", x)]) > 1:
+            problems.append((i, "more than one sentence on this line; put each on its own line", s))
+        prev = s
+    if notes:
+        words = len(re.findall(r"\S+", text))
+        if words > 200:
+            problems.append((1, f"release notes run {words} words; keep them near 150 and move detail to the docs", ""))
+    return problems
+
+
+def check(rel, text):
+    problems = [] if rel.endswith(".html") else layout(rel, text)
     html = rel.endswith(".html")
     for line, para in prose_blocks(text, html):
         for s in sentences(para):
