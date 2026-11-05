@@ -277,6 +277,8 @@ func (v *view) updateFiles(k tea.KeyMsg, w, bodyH int) tea.Cmd {
 		}
 	case "S":
 		return v.sendComments()
+	case "z":
+		v.full = !v.full
 	case "T":
 		v.toggleFilesTree()
 	case "E":
@@ -334,7 +336,7 @@ func (v *view) jumpMark(dir int) {
 const bashGap = " changes made through Bash aren't tracked"
 
 func (v *view) filesView(w, h int) string {
-	if v.zoom && w < wideLayout {
+	if v.full || v.zoom && w < wideLayout {
 		return v.detailPane(w, h)
 	}
 	listW := w

@@ -58,10 +58,12 @@ so line numbers match what the agent sees.
 ## Read the diff
 
 Files this session or its subagents changed come first. Files changed
-by you or another agent are dimmed, and the right pane says so. Press `T` to
-show the files in a tree of folders, which works as in the
+by you or another agent are dimmed, and the right pane says so. The files
+are shown in a tree of folders, which works as in the
 [Files tab](../files/#the-tree): selecting a folder lists its files and their
-totals. Press
+totals, and `T` switches to a flat list. Press `z` to show the diff on the
+whole screen, where comments work as before, and press it again to bring
+back the files. Press
 `enter` or `tab` to move into a file's lines, and `J` and `K` to jump between
 hunks.
 

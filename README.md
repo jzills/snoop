@@ -99,8 +99,10 @@ edited or wrote, with read, edit and write counts and the lines added and
 removed. Changed files come first, then files only read, each most recent
 first. The right pane shows a file's history with every change as a diff,
 which `n` and `N` step through, and pressing `enter` shows the latest change
-in the timeline. Pressing `T` switches to a tree of folders, each with the
-totals of its files. Changes made through Bash aren't tracked.
+in the timeline. The files are shown in a tree of folders, each with the
+totals of its files, and pressing `T` switches to a flat list. Pressing `z`
+shows the right pane on the whole screen. Changes made through Bash aren't
+tracked.
 
 **Stats:** The Stats tab opens with the session's cost, duration, tokens (and
 how many came from cache) and context. Below them, Turns lists each prompt's
@@ -344,8 +346,10 @@ shows it in the timeline, and `←` and `→` collapse and expand (`←` on a ca
 moves to its group). Pressing `E` expands everything (press it again to
 reset), and a `/` search keeps only matching calls with their groups opened.
 
-In the Files and Diff tabs, `T` switches between the list and a tree of
-folders. In the tree, `space` and `enter` open or close a folder, `←` and `→`
+In the Files and Diff tabs, the files start as a tree of folders with every
+folder open, and `T` switches between the tree and a flat list. Pressing `z`
+shows the right pane on the whole screen, and the keys and comments work as
+before. In the tree, `space` and `enter` open or close a folder, `←` and `→`
 close and open (`←` on a file moves to its folder), and `E` on a folder opens
 it and every folder in it (press it again to close them). On a file, `E` does
 the same for the whole tree. In the Files tab, `c` comments on the change at

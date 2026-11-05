@@ -646,6 +646,9 @@ func (v *view) updateDiff(k tea.KeyMsg, w, bodyH int) (cmd tea.Cmd, ok bool) {
 		return v.startPick(), true
 	case "S":
 		return v.sendComments(), true
+	case "z":
+		v.full = !v.full
+		return nil, true
 	case "C":
 		if f != nil {
 			c := v.fileComment(v.diffAbs(f.Path))
@@ -881,7 +884,7 @@ func (v *view) diffView(w, h int) (out string) {
 		}
 		return strings.Join(lines, "\n")
 	}
-	if w < wideLayout && v.focusR {
+	if v.full || w < wideLayout && v.focusR {
 		return v.diffPane(w, h, true)
 	}
 	listW := w

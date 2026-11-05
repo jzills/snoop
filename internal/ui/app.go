@@ -81,7 +81,7 @@ type tickMsg struct{}
 
 func New(opts Options) *App {
 	p := newPicker(opts.ProjectDir, opts.CacheDir)
-	a := &App{opts: opts, picker: p, noted: map[string]time.Time{}}
+	a := &App{opts: opts, picker: p, noted: map[string]time.Time{}, prefs: defaultPrefs()}
 	if opts.CacheDir != "" {
 		a.claimDir = filepath.Join(opts.CacheDir, "notified")
 	}
