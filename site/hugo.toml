@@ -4,6 +4,10 @@
 # content/docs/, which takes Hextra's sidebar, table of contents and search.
 baseURL = "https://jzills.github.io/snoop/"
 title = "snoop"
+# No tag or category pages: no page has either, so Hugo's default /tags/ and
+# /categories/ were empty, and listed in the sitemap they were indexed as thin
+# pages.
+disableKinds = ["taxonomy", "term"]
 [languages.en]
   label = "English"
 
@@ -19,6 +23,14 @@ title = "snoop"
   [[module.mounts]]
     source = "static"
     target = "static"
+  # Read, not published: the release notes page renders each paragraph from
+  # release-notes/. They reach main only in a release's own pull request, so
+  # the site, built from main, never shows a version nobody can install.
+  # Mounted rather than copied into site/, since a copy goes stale with every
+  # release.
+  [[module.mounts]]
+    source = "../release-notes"
+    target = "assets/release-notes"
 
 [markup]
   [markup.goldmark.renderer]
@@ -59,21 +71,35 @@ title = "snoop"
     default = "system"
     displayToggle = true
 
+# The bar holds a first visitor's top tasks, the same on each of the project
+# sites: Documentation, Quickstart, Releases, Search, GitHub and the
+# light/dark button. Documentation keeps the docs section's own title, so the
+# bar and the breadcrumb under it name the section the same way. The footer
+# covers the rest. Quickstart is the first step, and opens with the install;
+# Releases shows that snoop ships often.
 [menu]
   [[menu.main]]
     name = "Documentation"
     pageRef = "/docs"
     weight = 1
   [[menu.main]]
-    name = "Search"
+    name = "Quickstart"
+    pageRef = "/docs/quickstart"
     weight = 2
+  [[menu.main]]
+    name = "Releases"
+    pageRef = "/releases"
+    weight = 3
+  [[menu.main]]
+    name = "Search"
+    weight = 4
     [menu.main.params]
       type = "search"
   [[menu.main]]
     identifier = "github"
     name = "GitHub"
     url = "https://github.com/jzills/snoop"
-    weight = 3
+    weight = 5
     [menu.main.params]
       icon = "github"
   # Hextra's light, dark and system switch, in the bar on every page. The
@@ -81,6 +107,6 @@ title = "snoop"
   # layouts/_partials/footer.html), so this is where it lives.
   [[menu.main]]
     name = "Theme"
-    weight = 4
+    weight = 6
     [menu.main.params]
       type = "theme-toggle"

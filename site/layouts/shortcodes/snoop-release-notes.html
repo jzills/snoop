@@ -1,0 +1,30 @@
+{{- /*
+  Every release's notes from release-notes/, newest first.
+
+      {{% snoop-release-notes %}}
+
+  Percent delimiters, so the headings this writes are markdown and reach the
+  page's table of contents as one entry per version.
+
+  Versions are compared as numbers, major, minor and patch packed into one
+  integer. Sorted as strings, v0.9.0 would land above v0.10.0.
+
+  safeHTML on the body because what this emits is markdown, not HTML: without
+  it html/template escapes the notes before goldmark sees them, and kx found
+  `<topic>` published as `&lt;topic&gt;` under the Hugo version pages.yml
+  pins. The bodies are this repository's own release-notes/*.md.
+*/ -}}
+{{- $notes := slice -}}
+{{- range resources.Match "release-notes/v*.md" -}}
+  {{- $version := strings.TrimPrefix "v" (path.BaseName .Name) -}}
+  {{- $p := split $version "." -}}
+  {{- $rank := add (add (mul (int (index $p 0)) 1000000) (mul (int (index $p 1)) 1000)) (int (index $p 2)) -}}
+  {{- $notes = $notes | append (dict "version" $version "rank" $rank "body" .Content) -}}
+{{- end -}}
+{{- range sort $notes "rank" "desc" }}
+## v{{ .version }}
+
+{{ .body | safeHTML }}
+
+[v{{ .version }} on GitHub](https://github.com/jzills/snoop/releases/tag/v{{ .version }})
+{{ end -}}
