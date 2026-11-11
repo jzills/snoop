@@ -97,6 +97,7 @@ var helpBoard = []helpSection{
 		{"--long-turn 15m", "alert when a turn has run 15 minutes (off by default)"},
 		{"--notify", "send a desktop notification for them, naming the session: a Windows toast on WSL, the terminal's own in iTerm2, WezTerm, Ghostty and kitty or over SSH, osascript or notify-send elsewhere"},
 		{"", "none while snoop has focus; one per session and alert a minute; one between several snoops"},
+		{"", "the top bar shows ● notify, or ○ notify while held by focus"},
 	}},
 	{"General", [][2]string{
 		{"?", "show or hide this help"},
@@ -287,6 +288,9 @@ func renderHelp(title string, sections []helpSection, w int) string {
 // screen.
 func (a *App) helpBox() string {
 	title, sections := a.helpContent()
+	if s, ok := a.signalsHelp(); ok {
+		sections = append([]helpSection{s}, sections...)
+	}
 	boxW := min(a.w-4, 84)
 	innerW := boxW - 4
 	content := renderHelp(title, sections, innerW)

@@ -69,9 +69,10 @@ type App struct {
 	note        string // replaces the footer until the next key
 
 	// Notifications.
-	focused  bool                 // snoop's window has focus, as the terminal reports it
-	noted    map[string]time.Time // last notification per session and alert kind
-	claimDir string               // shared by every snoop, so one event notifies once
+	focused    bool                 // snoop's window has focus, as the terminal reports it
+	noted      map[string]time.Time // last notification per session and alert kind
+	claimDir   string               // shared by every snoop, so one event notifies once
+	noteFailed bool                 // a notification failed to send
 
 	// A followed session's successor, held back while comments are unsent.
 	followNext string
@@ -148,6 +149,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case notifyErrMsg:
 		a.err = "notification failed: " + msg.err.Error()
+		a.noteFailed = true
 		return a, nil
 	case spinMsg:
 		if a.animating() {
@@ -553,15 +555,17 @@ func (a *App) View() string {
 func (a *App) screen() string {
 	var out string
 	now := a.clock()
+	badge := a.badge()
 	switch v := a.top(); {
 	case v != nil:
-		v.at = now
+		v.at, v.badge = now, badge
 		v.status, v.known = a.viewStatus(v, now)
 		out = v.render(a.w, a.h)
 	case a.board != nil:
-		a.board.asks, a.board.turns = a.asks, a.turns
+		a.board.asks, a.board.turns, a.board.badge = a.asks, a.turns, badge
 		out = a.board.view(a.w, a.h, now, a.stallFor())
 	default:
+		a.picker.badge = badge
 		out = a.picker.view(a.w, a.h)
 	}
 	// Errors and opening progress replace the footer.

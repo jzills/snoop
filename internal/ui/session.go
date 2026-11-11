@@ -109,6 +109,7 @@ type view struct {
 
 	// What the session is doing, set by the app before each render.
 	status     rowStatus
+	badge      string    // the app's signals, beside snoop in the top bar
 	known      bool      // status is worth showing: the session was written lately
 	at         time.Time // the clock as of that render
 	subLast    time.Time // newest subagent write, looked up every boardScan
@@ -652,7 +653,7 @@ func (v *view) header(w int) string {
 	if w-lipgloss.Width(left)-lipgloss.Width(details)-1 < 1 {
 		details = strings.Join(status, "  ")
 	}
-	return topBar(strings.Join(append(alerts, live...), "  "), w) + "\n" + spread(left, details, w)
+	return topBar(v.badge, strings.Join(append(alerts, live...), "  "), w) + "\n" + spread(left, details, w)
 }
 
 func (v *view) tabs(w int) string {

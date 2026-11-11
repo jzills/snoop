@@ -40,6 +40,17 @@ snoop --follow --bell
 snoop --live --notify --alerts turn,stall,error
 ```
 
+While either is on, the top bar shows it beside "snoop" on every screen:
+
+| Badge | Meaning |
+| --- | --- |
+| `● notify` | notifications go out for the chosen alerts |
+| `○ notify` | notifications are held, because snoop's window has focus |
+| `✗ notify` | the last notification failed to send; the footer says why |
+| `● bell` | the bell rings for the chosen alerts |
+
+Press `?` to see which delivery method snoop picked and which alerts it signals.
+
 A notification's title names the session and its body says what happened:
 
 ```text
