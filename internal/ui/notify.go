@@ -95,3 +95,53 @@ func (a *App) notifyOne(c *alert, now time.Time) tea.Cmd {
 }
 
 func writeTerm(s string) { os.Stderr.WriteString(s) }
+
+// badge says which signals are on, beside snoop in the top bar, so you
+// know alerts will reach you: notifications are held while snoop has
+// focus, and marked once one fails.
+func (a *App) badge() string {
+	var parts []string
+	if a.opts.Notifier != nil {
+		switch {
+		case a.noteFailed:
+			parts = append(parts, sErr.Render(glyphErr+" notify"))
+		case a.focused:
+			parts = append(parts, sDim.Render("○ notify"))
+		default:
+			parts = append(parts, sAccent.Render("● notify"))
+		}
+	}
+	if a.opts.Bell {
+		parts = append(parts, sAccent.Render("● bell"))
+	}
+	return strings.Join(parts, "  ")
+}
+
+// signalsHelp explains the badge: how notifications go out and for which
+// alerts.
+func (a *App) signalsHelp() (helpSection, bool) {
+	if a.opts.Notifier == nil && !a.opts.Bell {
+		return helpSection{}, false
+	}
+	var kinds []string
+	for _, k := range AlertKinds {
+		if a.opts.BellOn[k] {
+			kinds = append(kinds, k)
+		}
+	}
+	on := "for " + strings.Join(kinds, ", ")
+	if len(kinds) == 0 {
+		on = "for no alerts (see --alerts)"
+	}
+	s := helpSection{title: "Signals"}
+	if n := a.opts.Notifier; n != nil {
+		s.keys = append(s.keys,
+			[2]string{"● notify", "desktop notifications by " + n.Name() + ", " + on},
+			[2]string{"○ notify", "held while snoop has focus"},
+			[2]string{glyphErr + " notify", "the last notification failed to send"})
+	}
+	if a.opts.Bell {
+		s.keys = append(s.keys, [2]string{"● bell", "the terminal bell rings " + on})
+	}
+	return s, true
+}

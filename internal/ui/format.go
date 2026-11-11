@@ -92,8 +92,12 @@ func count(n int) string {
 
 // topBar is the first two rows of every screen: snoop on the left, right
 // on the right, and a rule under them.
-func topBar(right string, w int) string {
-	return spread(sTitle.Render(" snoop"), right, w) + "\n" + sFaint.Render(strings.Repeat("─", w))
+func topBar(badge, right string, w int) string {
+	left := sTitle.Render(" snoop")
+	if badge != "" {
+		left += "  " + badge
+	}
+	return spread(left, right, w) + "\n" + sFaint.Render(strings.Repeat("─", w))
 }
 
 // spread puts left and right at either end of a w-wide row; when they

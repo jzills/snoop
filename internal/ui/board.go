@@ -121,6 +121,7 @@ type boardRow struct {
 func (r *boardRow) project() string { return filepath.Base(r.info.Project()) }
 
 type board struct {
+	badge    string // the app's signals, beside snoop in the top bar
 	root     string
 	rows     map[string]*boardRow
 	loading  map[string]bool
@@ -352,7 +353,7 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 	if b.alert != nil && b.alertShown {
 		right = b.alert.render() + "   " + right
 	}
-	sb.WriteString(topBar(right, w) + "\n")
+	sb.WriteString(topBar(b.badge, right, w) + "\n")
 
 	bodyH := h - 5
 	// The selected session's request, in full, under the list.
