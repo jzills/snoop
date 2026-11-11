@@ -75,6 +75,9 @@ type App struct {
 
 	// A followed session's successor, held back while comments are unsent.
 	followNext string
+
+	now      func() time.Time // the clock, for tests
+	spinning bool             // a spinMsg is on its way
 }
 
 type tickMsg struct{}
@@ -146,8 +149,25 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case notifyErrMsg:
 		a.err = "notification failed: " + msg.err.Error()
 		return a, nil
+	case spinMsg:
+		if a.animating() {
+			return a, spinTick()
+		}
+		a.spinning = false
+		return a, nil
+	case subWriteMsg:
+		msg.v.subLast = msg.last
+		return a, nil
 	case tickMsg:
 		cmds := []tea.Cmd{tick()}
+		if !a.spinning && a.animating() {
+			a.spinning = true
+			cmds = append(cmds, spinTick())
+		}
+		if v := a.top(); v != nil && v.label == "" && time.Since(v.subChecked) >= boardScan {
+			v.subChecked = time.Now()
+			cmds = append(cmds, v.subWriteCmd())
+		}
 		for _, v := range a.stack {
 			if v.pollSubs() {
 				v.refresh()
@@ -532,12 +552,15 @@ func (a *App) View() string {
 // picker, with the footer.
 func (a *App) screen() string {
 	var out string
+	now := a.clock()
 	switch v := a.top(); {
 	case v != nil:
+		v.at = now
+		v.status, v.known = a.viewStatus(v, now)
 		out = v.render(a.w, a.h)
 	case a.board != nil:
 		a.board.asks, a.board.turns = a.asks, a.turns
-		out = a.board.view(a.w, a.h, time.Now(), a.stallFor())
+		out = a.board.view(a.w, a.h, now, a.stallFor())
 	default:
 		out = a.picker.view(a.w, a.h)
 	}

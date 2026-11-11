@@ -41,7 +41,7 @@ func (s rowStatus) String() string {
 	return [...]string{"asking", "waiting", "your turn", "working", "idle"}[s]
 }
 
-func (s rowStatus) render(sel func(lipgloss.Style) lipgloss.Style) string {
+func (s rowStatus) render(sel func(lipgloss.Style) lipgloss.Style, frame string) string {
 	switch s {
 	case rowAsking:
 		return sel(sAccent.Bold(true)).Render("? asking")
@@ -50,6 +50,9 @@ func (s rowStatus) render(sel func(lipgloss.Style) lipgloss.Style) string {
 	case rowYourTurn:
 		return sel(sOK).Render(glyphOK + " your turn")
 	case rowWorking:
+		if frame != "" {
+			return sel(sText).Render(frame + " working")
+		}
 		return sel(sText).Render("● working")
 	}
 	return sel(sDim).Render(glyphSystem + " idle")
@@ -277,13 +280,9 @@ func (b *board) arrange(now time.Time, stall time.Duration) {
 	b.order = b.order[:0]
 	for _, r := range b.rows {
 		r.status, r.detail = rowState(r.f.Sess, r.info.Path, r.last, now, stall)
-		// Claude Code records the turn as done only once the Stop hook
-		// stops waiting for a reply.
-		if t, ok := b.turns[r.info.ID]; ok && r.status != rowYourTurn {
-			r.status, r.detail = rowYourTurn, "turn ended "+agoAt(t.Ended, now)+" · R replies"
-		}
+		t, ended := b.turns[r.info.ID]
+		r.status, r.detail = withHooks(r.status, r.detail, now, t, ended, b.asks[r.info.ID])
 		if rs := b.asks[r.info.ID]; len(rs) > 0 {
-			r.status, r.detail = rowAsking, askSummary(rs[0])
 			if len(rs) > 1 {
 				r.detail += fmt.Sprintf("  (1 of %d)", len(rs))
 			}
@@ -426,7 +425,7 @@ func (b *board) view(w, h int, now time.Time, stall time.Duration) string {
 		if sel {
 			nameStyle = sBold
 		}
-		line := mark + fit(r.status.render(st), stateW) + st(sDim).Render("  ") +
+		line := mark + fit(r.status.render(st, spinFrame(now)), stateW) + st(sDim).Render("  ") +
 			st(sAccent).Render(fit(r.project(), projW)) + st(sDim).Render("  ") +
 			st(nameStyle).Render(fit(r.info.Name(), nameW)) + st(sDim).Render("  ") +
 			ctx + st(sDim).Render("  ") +
