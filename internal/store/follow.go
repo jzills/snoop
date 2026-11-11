@@ -80,7 +80,7 @@ func Recent(root string, since time.Time) []Activity {
 			continue
 		}
 		last := st.ModTime()
-		if last.Before(since) && last.After(since.Add(-subagentHorizon)) {
+		if last.After(since.Add(-subagentHorizon)) {
 			if sub := subagentWrite(p); sub.After(last) {
 				last = sub
 			}
@@ -104,6 +104,10 @@ func subagentWrite(sessionPath string) time.Time {
 	}
 	return last
 }
+
+// SubagentWrite is the newest write to any of a session's subagent
+// transcripts, or the zero time.
+func SubagentWrite(sessionPath string) time.Time { return subagentWrite(sessionPath) }
 
 // SubagentWrittenSince reports whether any of a session's subagents wrote
 // at or after t.

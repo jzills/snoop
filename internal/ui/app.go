@@ -69,12 +69,16 @@ type App struct {
 	note        string // replaces the footer until the next key
 
 	// Notifications.
-	focused  bool                 // snoop's window has focus, as the terminal reports it
-	noted    map[string]time.Time // last notification per session and alert kind
-	claimDir string               // shared by every snoop, so one event notifies once
+	focused    bool                 // snoop's window has focus, as the terminal reports it
+	noted      map[string]time.Time // last notification per session and alert kind
+	claimDir   string               // shared by every snoop, so one event notifies once
+	noteFailed bool                 // a notification failed to send
 
 	// A followed session's successor, held back while comments are unsent.
 	followNext string
+
+	now      func() time.Time // the clock, for tests
+	spinning bool             // a spinMsg is on its way
 }
 
 type tickMsg struct{}
@@ -145,9 +149,27 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case notifyErrMsg:
 		a.err = "notification failed: " + msg.err.Error()
+		a.noteFailed = true
+		return a, nil
+	case spinMsg:
+		if a.animating() {
+			return a, spinTick()
+		}
+		a.spinning = false
+		return a, nil
+	case subWriteMsg:
+		msg.v.subLast = msg.last
 		return a, nil
 	case tickMsg:
 		cmds := []tea.Cmd{tick()}
+		if !a.spinning && a.animating() {
+			a.spinning = true
+			cmds = append(cmds, spinTick())
+		}
+		if v := a.top(); v != nil && v.label == "" && time.Since(v.subChecked) >= boardScan {
+			v.subChecked = time.Now()
+			cmds = append(cmds, v.subWriteCmd())
+		}
 		for _, v := range a.stack {
 			if v.pollSubs() {
 				v.refresh()
@@ -532,13 +554,18 @@ func (a *App) View() string {
 // picker, with the footer.
 func (a *App) screen() string {
 	var out string
+	now := a.clock()
+	badge := a.badge()
 	switch v := a.top(); {
 	case v != nil:
+		v.at, v.badge = now, badge
+		v.status, v.known = a.viewStatus(v, now)
 		out = v.render(a.w, a.h)
 	case a.board != nil:
-		a.board.asks, a.board.turns = a.asks, a.turns
-		out = a.board.view(a.w, a.h, time.Now(), a.stallFor())
+		a.board.asks, a.board.turns, a.board.badge = a.asks, a.turns, badge
+		out = a.board.view(a.w, a.h, now, a.stallFor())
 	default:
+		a.picker.badge = badge
 		out = a.picker.view(a.w, a.h)
 	}
 	// Errors and opening progress replace the footer.

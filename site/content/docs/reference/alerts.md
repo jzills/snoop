@@ -13,7 +13,7 @@ Lines already in a transcript when snoop opens it never raise alerts.
 | --- | --- | --- |
 | `error` | `✗ error: Bash` | a tool call fails. The header counts errors you haven't seen |
 | `stall` | `◌ waiting 30s on Bash` | a tool call has no result after `--stall`. Often a permission prompt |
-| `turn` | `✓ your turn` | Claude finishes a turn |
+| `turn` | `✓ your turn` | Claude finishes a turn and no subagent is still running in the background |
 | `compact` | `⟳ compacted` | the context is compacted |
 | `ctx` | `ctx 90%` | the context window passes 90% |
 | `ask` | `? Bash: npm test` | the session asks for permission to use a tool. Needs snoop's hooks; press `A` or `D` to answer |
@@ -39,6 +39,17 @@ With `--bell`, snoop rings the terminal bell, and with `--notify` it sends a des
 snoop --follow --bell
 snoop --live --notify --alerts turn,stall,error
 ```
+
+While either is on, the top bar shows it beside "snoop" on every screen:
+
+| Badge | Meaning |
+| --- | --- |
+| `● notify` | notifications go out for the chosen alerts |
+| `○ notify` | notifications are held, because snoop's window has focus |
+| `✗ notify` | the last notification failed to send; the footer says why |
+| `● bell` | the bell rings for the chosen alerts |
+
+Press `?` to see which delivery method snoop picked and which alerts it signals.
 
 A notification's title names the session and its body says what happened:
 

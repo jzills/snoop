@@ -87,7 +87,7 @@ var helpBoard = []helpSection{
 		{"? asking", "the session asks for permission to use a tool; A allows it once, Y always, D denies it"},
 		{glyphPending + " waiting", "a tool call has had no result for --stall (30s): often a permission prompt"},
 		{glyphOK + " your turn", "the turn ended, or was interrupted; R replies"},
-		{"● working", "replying or running a tool or subagent"},
+		{"⠹ working", "replying or running a tool or subagent, in the background too"},
 		{glyphSystem + " idle", "no prompts yet, or nothing written for 10 minutes"},
 		{"", "sessions leave the board after 30 minutes without writes"},
 	}},
@@ -97,6 +97,7 @@ var helpBoard = []helpSection{
 		{"--long-turn 15m", "alert when a turn has run 15 minutes (off by default)"},
 		{"--notify", "send a desktop notification for them, naming the session: a Windows toast on WSL, the terminal's own in iTerm2, WezTerm, Ghostty and kitty or over SSH, osascript or notify-send elsewhere"},
 		{"", "none while snoop has focus; one per session and alert a minute; one between several snoops"},
+		{"", "the top bar shows ● notify, or ○ notify while held by focus"},
 	}},
 	{"General", [][2]string{
 		{"?", "show or hide this help"},
@@ -130,11 +131,14 @@ var helpTimeline = []helpSection{
 		{"X", "expand every subagent (nested ones too); again to collapse all"},
 		{"●", "a collapsed subagent has events matching the search or filter"},
 		{"a  o", "open the subagent transcript of an Agent call"},
+		{"", "one in the background spins until it reports back; the last row shows what it is doing"},
 		{"esc", "return to the parent session"},
 	}},
 	{"Live", [][2]string{
 		{"↓", "in the header: following, so new events are selected as they arrive"},
 		{"", "moving up pauses following; G resumes it"},
+		{"⠹ working", "in the header: what the session is doing, as on the live board (w)"},
+		{"", "while it works, the last row says what it is doing and for how long"},
 	}},
 	helpTabs,
 	helpGeneral,
@@ -284,6 +288,9 @@ func renderHelp(title string, sections []helpSection, w int) string {
 // screen.
 func (a *App) helpBox() string {
 	title, sections := a.helpContent()
+	if s, ok := a.signalsHelp(); ok {
+		sections = append([]helpSection{s}, sections...)
+	}
 	boxW := min(a.w-4, 84)
 	innerW := boxW - 4
 	content := renderHelp(title, sections, innerW)

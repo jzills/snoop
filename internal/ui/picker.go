@@ -44,6 +44,7 @@ type openedMsg struct {
 type showBoardMsg struct{}
 
 type picker struct {
+	badge       string // the app's signals, beside snoop in the top bar
 	all         []store.SessionInfo
 	shown       []int
 	cursor      int
@@ -303,7 +304,7 @@ func (p *picker) view(w, h int) string {
 	if prog := p.scanProgress(); prog != "" {
 		right = prog + "  " + right
 	}
-	b.WriteString(topBar(right, w) + "\n")
+	b.WriteString(topBar(p.badge, right, w) + "\n")
 
 	bodyH := h - 4
 	if p.summary {

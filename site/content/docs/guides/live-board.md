@@ -21,7 +21,7 @@ You can also press `w` in the session picker.
 | `? asking` | the session asks for permission to use a tool, which you can answer here |
 | `◌ waiting` | a tool call has had no result for 30 seconds, usually a permission prompt |
 | `✓ your turn` | the turn ended, or you interrupted it |
-| `● working` | replying, or running a tool or subagent |
+| `⠹ working` | replying, or running a tool or subagent, including one in the background |
 | `· idle` | no prompts yet, or nothing written for 10 minutes |
 
 The header counts the sessions waiting on you.
