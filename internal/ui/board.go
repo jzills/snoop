@@ -74,6 +74,9 @@ func rowState(s *parse.Session, root string, last, now time.Time, stall time.Dur
 		return rowYourTurn, "interrupted " + agoAt(e.Time, now)
 	}
 	if t.Done {
+		if bg := backgroundAgents(s); len(bg) > 0 && now.Sub(last) < staleAfter {
+			return rowWorking, inBackground(bg)
+		}
 		return rowYourTurn, "turn ended " + agoAt(t.End, now)
 	}
 	var running *parse.Event

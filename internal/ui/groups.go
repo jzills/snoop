@@ -407,10 +407,10 @@ func renderGroupDetail(g *groupNode, w int) string {
 		e := calls[i].ev
 		status := sOK.Render(glyphOK)
 		switch {
+		case e.Tool.Running():
+			status = sDim.Render(glyphPending)
 		case e.Tool.IsError:
 			status = sErr.Render(glyphErr)
-		case !e.Tool.HasResult:
-			status = sDim.Render(glyphPending)
 		}
 		ts := "        "
 		if !e.Time.IsZero() {

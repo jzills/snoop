@@ -104,6 +104,7 @@ var (
 	reTask     = regexp.MustCompile(`(?s)^\s*<task-notification>.*</task-notification>`)
 	reTaskSum  = regexp.MustCompile(`(?s)<summary>(.*?)</summary>`)
 	reTaskStat = regexp.MustCompile(`(?s)<status>(.*?)</status>`)
+	reTaskUse  = regexp.MustCompile(`<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>`)
 )
 
 // UserText classifies the text of a user record. Claude Code stores more
