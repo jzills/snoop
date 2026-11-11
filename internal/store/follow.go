@@ -105,6 +105,10 @@ func subagentWrite(sessionPath string) time.Time {
 	return last
 }
 
+// SubagentWrite is the newest write to any of a session's subagent
+// transcripts, or the zero time.
+func SubagentWrite(sessionPath string) time.Time { return subagentWrite(sessionPath) }
+
 // SubagentWrittenSince reports whether any of a session's subagents wrote
 // at or after t.
 func SubagentWrittenSince(sessionPath string, t time.Time) bool {

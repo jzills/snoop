@@ -107,6 +107,13 @@ type view struct {
 	tl       *tail.Tailer
 	lastLive time.Time
 
+	// What the session is doing, set by the app before each render.
+	status     rowStatus
+	known      bool      // status is worth showing: the session was written lately
+	at         time.Time // the clock as of that render
+	subLast    time.Time // newest subagent write, looked up every boardScan
+	subChecked time.Time
+
 	// Alerts: the newest is shown in the header until a key is pressed.
 	alert      *alert
 	alertShown bool
@@ -635,12 +642,10 @@ func (v *view) header(w int) string {
 	if m := contextMeter(s.Context, s.ContextWindow(), w/3); m != "" {
 		status = append(status, m)
 	}
-	if time.Since(v.lastLive) < 5*time.Second {
-		live = append(live, sLive.Render("● live"))
-	} else if time.Since(s.End) < 2*time.Minute {
-		live = append(live, sOK.Render("○ active"))
+	if v.known {
+		live = append(live, stateLabel(v.status, v.spin()))
 	}
-	// The top bar has the alerts and whether the session is live; the row
+	// The top bar has the alerts and what the session is doing; the row
 	// under it has the session, with its directory and branch giving way
 	// to the context meter when space is short.
 	details := strings.Join(append([]string{sDim.Render(strings.Join(meta, " · "))}, status...), "  ")
@@ -773,7 +778,14 @@ func (v *view) timeline(w, h int) string {
 	if w >= wideLayout {
 		listW = w * 11 / 20
 	}
-	v.offset = scrollOffset(v.offset, v.cursor, len(v.shown), h)
+	// While the session works, a row under the newest event says what it
+	// is doing.
+	working := v.known && v.status == rowWorking
+	listH := h
+	if working {
+		listH = max(h-1, 1)
+	}
+	v.offset = scrollOffset(v.offset, v.cursor, len(v.shown), listH)
 	// Each turn starts after a blank line, so the rows from the offset to
 	// the cursor can take more than h lines; move down until they fit.
 	gap := func(i int) bool {
@@ -784,29 +796,34 @@ func (v *view) timeline(w, h int) string {
 		for i := v.offset; i <= v.cursor; i++ {
 			n += 1 + boolInt(gap(i))
 		}
-		if n <= h {
+		if n <= listH {
 			break
 		}
 		v.offset++
 	}
 	lines := make([]string, 0, h)
 	var prev time.Time
-	for i := v.offset; i < len(v.shown) && len(lines) < h; i++ {
+	end := false
+	for i := v.offset; i < len(v.shown) && len(lines) < listH; i++ {
 		e := v.shown[i]
 		if gap(i) {
 			lines = append(lines, strings.Repeat(" ", listW))
-			if len(lines) == h {
+			if len(lines) == listH {
 				break
 			}
 		}
 		lines = append(lines, renderTimelineRow(v.sess, e, i == v.cursor, listW,
-			rowOpts{depth: v.depth[e], open: v.expanded[agentID(e)], marked: v.marked[e], prev: prev}))
+			rowOpts{depth: v.depth[e], open: v.expanded[agentID(e)], marked: v.marked[e], prev: prev, spin: v.spin()}))
+		end = i == len(v.shown)-1
 		if !e.Time.IsZero() {
 			prev = e.Time
 		}
 	}
 	if len(v.shown) == 0 {
 		lines = append(lines, sDim.Render(" nothing matches"))
+	}
+	if working && (end || len(v.shown) == 0) {
+		lines = append(lines, v.workLine(v.clock(), listW))
 	}
 	for len(lines) < h {
 		lines = append(lines, strings.Repeat(" ", listW))
@@ -925,6 +942,7 @@ type rowOpts struct {
 	open     bool      // an Agent call expanded inline
 	marked   bool      // a collapsed Agent call whose subagent matches the search
 	prev     time.Time // the row above's time; a time in the same minute shows only its seconds
+	spin     string    // the spinner frame for calls still running, while the session works
 }
 
 // renderRowName renders a timeline row.
@@ -990,6 +1008,8 @@ func renderRowName(e *parse.Event, sel bool, w int, o rowOpts) string {
 		}
 		status := st(sDim).Render(glyphPending)
 		switch {
+		case !t.HasResult && o.spin != "":
+			status = st(sAccent).Render(o.spin)
 		case t.IsError:
 			status = st(sErr).Render(glyphErr)
 		case t.HasResult:
@@ -1017,4 +1037,20 @@ func renderRowName(e *parse.Event, sel bool, w int, o rowOpts) string {
 		line += st(sText).Render(strings.Repeat(" ", pad))
 	}
 	return fit(line, w)
+}
+
+// clock is the time as of the last render.
+func (v *view) clock() time.Time {
+	if v.at.IsZero() {
+		return time.Now()
+	}
+	return v.at
+}
+
+// spin is the spinner frame while the session works, or "".
+func (v *view) spin() string {
+	if !v.known || v.status != rowWorking {
+		return ""
+	}
+	return spinFrame(v.clock())
 }

@@ -19,6 +19,10 @@ With `--follow`, snoop opens the newest session for the current directory, or fo
 While following, the newest event is selected as it arrives and the header shows `↓`.
 Moving up pauses following, and pressing `G` resumes it.
 
+The header also shows what the session is doing, in the same states as the [live board](../live-board/#states): `⠹ working`, `◌ waiting`, `? asking`, `✓ your turn` or `· idle`.
+While the session works, the timeline's last row says what it is doing and for how long, such as `⠹ Bash  go test ./… · 41s` or `⠹ replying · 12s`.
+The state disappears once nothing has been written for 30 minutes.
+
 You can also open any session directly, by an id prefix or a path:
 
 ```sh
@@ -28,7 +32,8 @@ snoop ~/.claude/projects/-home-me-src-api/64f3ec44-….jsonl
 
 ## Read the timeline
 
-Each tool row shows the call's duration and status: `✓` done, `✗` error, `◌` running.
+Each tool row shows the call's duration and status: `✓` done, `✗` error, or a spinner while it runs.
+A call that is still running while the session waits on you shows `◌`.
 Each kind of tool has its own glyph and color:
 
 | Glyph | Kind |

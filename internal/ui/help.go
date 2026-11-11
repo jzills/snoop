@@ -87,7 +87,7 @@ var helpBoard = []helpSection{
 		{"? asking", "the session asks for permission to use a tool; A allows it once, Y always, D denies it"},
 		{glyphPending + " waiting", "a tool call has had no result for --stall (30s): often a permission prompt"},
 		{glyphOK + " your turn", "the turn ended, or was interrupted; R replies"},
-		{"● working", "replying or running a tool or subagent"},
+		{"⠹ working", "replying or running a tool or subagent"},
 		{glyphSystem + " idle", "no prompts yet, or nothing written for 10 minutes"},
 		{"", "sessions leave the board after 30 minutes without writes"},
 	}},
@@ -135,6 +135,8 @@ var helpTimeline = []helpSection{
 	{"Live", [][2]string{
 		{"↓", "in the header: following, so new events are selected as they arrive"},
 		{"", "moving up pauses following; G resumes it"},
+		{"⠹ working", "in the header: what the session is doing, as on the live board (w)"},
+		{"", "while it works, the last row says what it is doing and for how long"},
 	}},
 	helpTabs,
 	helpGeneral,
