@@ -19,6 +19,13 @@ Press `X` to expand every subagent, nested ones included, and again to collapse 
 Press `a` on an Agent call to open the subagent's transcript in a view of its own, with all four tabs.
 Press `esc` to return to the parent session.
 
+## Background subagents
+
+A subagent or skill started in the background, such as `/code-review`, returns at once and reports back later in a task notification.
+Until then, its call shows a spinner instead of `✓`, and the session stays working even after its turn ends.
+The timeline's last row names the newest one and what it is doing, such as `⠹ 1 in background · code-review · 3m06s  Read app.go`.
+When it reports back, the call shows its full duration and Claude Code goes on with the turn.
+
 ## Search and files
 
 Search and filters reach inside subagents.

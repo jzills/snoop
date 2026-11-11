@@ -49,6 +49,14 @@ func (v *view) pollSubs() bool {
 			}
 		}
 	}
+	// Background subagents are followed while they run, for the work row.
+	for _, e := range backgroundAgents(v.sess) {
+		if id := e.Tool.AgentID; id != "" && !v.expanded[id] {
+			if _, c := v.sub(id); c {
+				changed = true
+			}
+		}
+	}
 	return changed
 }
 

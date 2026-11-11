@@ -1009,14 +1009,21 @@ func renderRowName(e *parse.Event, sel bool, w int, o rowOpts) string {
 		}
 		status := st(sDim).Render(glyphPending)
 		switch {
-		case !t.HasResult && o.spin != "":
+		case t.Running() && o.spin != "":
 			status = st(sAccent).Render(o.spin)
-		case t.IsError:
+		case t.Running():
+		case t.IsError || t.BackgroundStatus == "failed":
 			status = st(sErr).Render(glyphErr)
 		case t.HasResult:
 			status = st(sOK).Render(glyphOK)
 		}
 		d := dur(e.Duration())
+		if t.Background {
+			d = ""
+			if t.BackgroundDone {
+				d = dur(t.BackgroundEnd.Sub(e.Time))
+			}
+		}
 		right = st(sFaint).Render(fmt.Sprintf(" %6s ", d)) + status + st(sText).Render(" ")
 		if o.marked {
 			right = st(sAccent).Render(" ●") + right

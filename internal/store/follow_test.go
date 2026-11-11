@@ -94,3 +94,21 @@ func TestRecentIncludesBusySubagents(t *testing.T) {
 		t.Errorf("quiet.jsonl last write = %v ago, want its subagent's", now.Sub(last))
 	}
 }
+
+func TestRecentCountsSubagentsOfRecentSessions(t *testing.T) {
+	root := t.TempDir()
+	proj := filepath.Join(root, "-repo")
+	os.MkdirAll(filepath.Join(proj, "s", "subagents"), 0o755)
+	now := time.Now()
+	write := func(p string, at time.Time) {
+		os.WriteFile(p, []byte(prompt("u", "x")), 0o644)
+		os.Chtimes(p, at, at)
+	}
+	// Written 15 minutes ago, while its background subagent still writes.
+	write(filepath.Join(proj, "s.jsonl"), now.Add(-15*time.Minute))
+	write(filepath.Join(proj, "s", "subagents", "agent-a1.jsonl"), now.Add(-5*time.Second))
+	as := Recent(root, now.Add(-30*time.Minute))
+	if len(as) != 1 || now.Sub(as[0].Last) > time.Minute {
+		t.Errorf("recent = %v, want s.jsonl at its subagent's write", as)
+	}
+}

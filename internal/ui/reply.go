@@ -135,7 +135,7 @@ func (a *App) turnAlert(t review.Turn) *alert {
 			continue
 		}
 		last := v.sess.Turns[len(v.sess.Turns)-1]
-		if last.Done {
+		if last.Done || len(backgroundAgents(v.sess)) > 0 {
 			return nil
 		}
 		al := &alert{kind: alertTurn, text: glyphOK + " your turn", note: note, ev: last.Events[len(last.Events)-1],
@@ -150,7 +150,7 @@ func (a *App) turnAlert(t review.Turn) *alert {
 				continue
 			}
 			last := row.f.Sess.Turns[len(row.f.Sess.Turns)-1]
-			if last.Done {
+			if last.Done || len(backgroundAgents(row.f.Sess)) > 0 {
 				return nil
 			}
 			al := &alert{kind: alertTurn, text: row.project() + ": " + glyphOK + " your turn", note: note,

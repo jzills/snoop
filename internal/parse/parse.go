@@ -54,6 +54,13 @@ type ToolCall struct {
 	// AgentID links an Agent (or forked Skill) call to subagents/agent-<id>.jsonl.
 	AgentID string
 
+	// A call launched in the background gets its result at once; its task
+	// reports back later in a task notification.
+	Background       bool
+	BackgroundDone   bool
+	BackgroundEnd    time.Time
+	BackgroundStatus string // as the notification says: completed, failed, killed
+
 	group string // see Group; computed once when the call is parsed
 }
 
@@ -197,6 +204,7 @@ type Session struct {
 	Errors      int // tool calls whose result was an error
 
 	tools        map[string]*ToolCall
+	background   []*Event       // calls launched in the background, in order
 	messages     map[string]int // message id -> context size of the request
 	turnByPrompt map[*Event]*Turn
 	weight       map[string]float64 // weighted tokens per model
@@ -503,6 +511,7 @@ func PromptText(raw json.RawMessage) string {
 func (s *Session) feedUser(rec *rawRecord, ts time.Time) []*Event {
 	var str string
 	if json.Unmarshal(rec.Message.Content, &str) == nil {
+		s.noteTask(str, ts)
 		t, k := UserText(str)
 		if rec.IsCompactSummary {
 			k = KindSystem // the summary Claude Code writes after compacting
@@ -520,6 +529,7 @@ func (s *Session) feedUser(rec *rawRecord, ts time.Time) []*Event {
 	for _, b := range blocks {
 		switch b.Type {
 		case "text":
+			s.noteTask(b.Text, ts)
 			if t, k := UserText(b.Text); t != "" {
 				out = append(out, s.add(&Event{Kind: k, UUID: rec.UUID, Time: ts, Text: t}))
 			}
@@ -538,6 +548,7 @@ func (s *Session) feedUser(rec *rawRecord, ts time.Time) []*Event {
 			if id := agentID(rec.ToolUseResult); id != "" {
 				t.AgentID = id
 			}
+			s.launched(t, rec.ToolUseResult)
 		}
 	}
 	return out
@@ -647,4 +658,67 @@ func resultText(raw json.RawMessage) string {
 		}
 	}
 	return strings.Join(parts, "\n")
+}
+
+// RunningBackground is the calls launched in the background whose task
+// hasn't reported back yet.
+func (s *Session) RunningBackground() []*Event {
+	var out []*Event
+	for _, e := range s.background {
+		if e.Tool.Running() {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// Running reports whether the call is still going: it has no result, or
+// it runs in the background and hasn't reported back.
+func (t *ToolCall) Running() bool {
+	return !t.HasResult || t.Background && !t.BackgroundDone
+}
+
+// noteTask applies a task notification: the background call it names has
+// ended, and Claude Code goes on with the turn to read what it found.
+func (s *Session) noteTask(text string, ts time.Time) {
+	if !strings.Contains(text, "<task-notification>") || !reTask.MatchString(text) {
+		return
+	}
+	if m := reTaskUse.FindStringSubmatch(text); m != nil {
+		if t := s.tools[m[1]]; t != nil {
+			t.BackgroundDone, t.BackgroundEnd = true, ts
+			if st := reTaskStat.FindStringSubmatch(text); st != nil {
+				t.BackgroundStatus = strings.TrimSpace(st[1])
+			}
+		}
+	}
+	if t := s.cur(); t != nil && t.Done {
+		t.Done = false
+	}
+}
+
+// launched marks t as running in the background when its result says so.
+func (s *Session) launched(t *ToolCall, raw json.RawMessage) {
+	if len(raw) == 0 || raw[0] != '{' {
+		return
+	}
+	var r struct {
+		Status     string `json:"status"`
+		Background bool   `json:"background"`
+		TaskID     string `json:"backgroundTaskId"`
+	}
+	json.Unmarshal(raw, &r)
+	if r.Status != "async_launched" && !(r.Status == "forked" && r.Background) && r.TaskID == "" {
+		return
+	}
+	if t.Background {
+		return
+	}
+	t.Background = true
+	for i := len(s.Events) - 1; i >= 0; i-- {
+		if s.Events[i].Tool == t {
+			s.background = append(s.background, s.Events[i])
+			return
+		}
+	}
 }

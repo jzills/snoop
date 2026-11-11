@@ -87,7 +87,7 @@ var helpBoard = []helpSection{
 		{"? asking", "the session asks for permission to use a tool; A allows it once, Y always, D denies it"},
 		{glyphPending + " waiting", "a tool call has had no result for --stall (30s): often a permission prompt"},
 		{glyphOK + " your turn", "the turn ended, or was interrupted; R replies"},
-		{"⠹ working", "replying or running a tool or subagent"},
+		{"⠹ working", "replying or running a tool or subagent, in the background too"},
 		{glyphSystem + " idle", "no prompts yet, or nothing written for 10 minutes"},
 		{"", "sessions leave the board after 30 minutes without writes"},
 	}},
@@ -131,6 +131,7 @@ var helpTimeline = []helpSection{
 		{"X", "expand every subagent (nested ones too); again to collapse all"},
 		{"●", "a collapsed subagent has events matching the search or filter"},
 		{"a  o", "open the subagent transcript of an Agent call"},
+		{"", "one in the background spins until it reports back; the last row shows what it is doing"},
 		{"esc", "return to the parent session"},
 	}},
 	{"Live", [][2]string{
