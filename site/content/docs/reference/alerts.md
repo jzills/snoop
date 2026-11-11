@@ -13,7 +13,7 @@ Lines already in a transcript when snoop opens it never raise alerts.
 | --- | --- | --- |
 | `error` | `✗ error: Bash` | a tool call fails. The header counts errors you haven't seen |
 | `stall` | `◌ waiting 30s on Bash` | a tool call has no result after `--stall`. Often a permission prompt |
-| `turn` | `✓ your turn` | Claude finishes a turn |
+| `turn` | `✓ your turn` | Claude finishes a turn and no subagent is still running in the background |
 | `compact` | `⟳ compacted` | the context is compacted |
 | `ctx` | `ctx 90%` | the context window passes 90% |
 | `ask` | `? Bash: npm test` | the session asks for permission to use a tool. Needs snoop's hooks; press `A` or `D` to answer |

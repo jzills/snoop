@@ -80,7 +80,7 @@ func Recent(root string, since time.Time) []Activity {
 			continue
 		}
 		last := st.ModTime()
-		if last.Before(since) && last.After(since.Add(-subagentHorizon)) {
+		if last.After(since.Add(-subagentHorizon)) {
 			if sub := subagentWrite(p); sub.After(last) {
 				last = sub
 			}

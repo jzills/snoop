@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -65,7 +66,7 @@ func (a *App) viewStatus(v *view, now time.Time) (rowStatus, bool) {
 		return rowIdle, false
 	}
 	if v.label != "" {
-		if call := a.parentCall(v); call != nil && call.HasResult {
+		if call := a.parentCall(v); call != nil && !call.Running() {
 			return rowIdle, false
 		}
 		st, _ := rowState(v.sess, v.rootPath, last, now, a.stallFor())
@@ -140,9 +141,9 @@ func stateLabel(st rowStatus, frame string) string {
 }
 
 // workLine is the timeline's last row while the session works: what it
-// is doing and for how long.
+// is doing and for how long, then what a background subagent is doing.
 func (v *view) workLine(now time.Time, w int) string {
-	what, since := "replying", time.Time{}
+	what, doing, since := "replying", "", time.Time{}
 	if n := len(v.sess.Turns); n > 0 {
 		t := v.sess.Turns[n-1]
 		for _, e := range t.Events {
@@ -150,7 +151,13 @@ func (v *view) workLine(now time.Time, w int) string {
 				since = e.Time
 			}
 		}
-		if e := runningCall(t); e != nil {
+		if bg := backgroundAgents(v.sess); t.Done && len(bg) > 0 {
+			e := bg[len(bg)-1]
+			what, since = inBackground(bg), e.Time
+			if f := v.subs[e.Tool.AgentID]; f != nil && len(f.Sess.Events) > 0 {
+				doing = describe(f.Sess.Events[len(f.Sess.Events)-1])
+			}
+		} else if e := runningCall(t); e != nil {
 			what = e.Tool.Name + "  " + oneLine(e.Tool.Summary)
 			if e.Tool.Kind == parse.ToolAgent {
 				what = "⤷ " + e.Tool.Group() + "  " + oneLine(e.Tool.Summary)
@@ -161,6 +168,11 @@ func (v *view) workLine(now time.Time, w int) string {
 	line := " " + strings.Repeat(" ", 10) + sAccent.Render(spinFrame(now)) + " " + sText.Render(what)
 	if !since.IsZero() {
 		line += sDim.Render(" · " + waited(now.Sub(since)))
+	}
+	// What a background subagent is doing comes last, as the most likely
+	// to be cut.
+	if doing != "" {
+		line += sText.Render("  " + doing)
 	}
 	return fit(line, w)
 }
@@ -174,4 +186,40 @@ func runningCall(t *parse.Turn) *parse.Event {
 		}
 	}
 	return running
+}
+
+// backgroundAgents is the subagents and forked skills still running in
+// the background. Background shells are left out: a dev server never
+// reports back.
+func backgroundAgents(s *parse.Session) []*parse.Event {
+	var out []*parse.Event
+	for _, e := range s.RunningBackground() {
+		if k := e.Tool.Kind; k == parse.ToolAgent || k == parse.ToolSkill {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// inBackground says how many run in the background, naming the newest.
+func inBackground(bg []*parse.Event) string {
+	t := bg[len(bg)-1].Tool
+	name := t.Group()
+	if t.Kind == parse.ToolAgent {
+		name = "⤷ " + name
+	}
+	return fmt.Sprintf("%d in background · %s", len(bg), name)
+}
+
+// describe is what a subagent's newest event shows it doing.
+func describe(e *parse.Event) string {
+	switch {
+	case e.Tool != nil:
+		return e.Tool.Name + "  " + oneLine(e.Tool.Summary)
+	case e.Kind == parse.KindThinking:
+		return "thinking"
+	case e.Kind == parse.KindText:
+		return "replying"
+	}
+	return ""
 }

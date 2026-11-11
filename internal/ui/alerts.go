@@ -184,7 +184,8 @@ func (w *watch) alerts(s *parse.Session, before liveState) []*alert {
 	}
 	if n := len(s.Turns); n > 0 {
 		t := s.Turns[n-1]
-		if t.Done && (t != before.turn || !before.done) && !w.alertedWaiting(t) {
+		// Claude Code goes on with the turn once background work reports.
+		if t.Done && (t != before.turn || !before.done) && !w.alertedWaiting(t) && len(backgroundAgents(s)) == 0 {
 			note := "Your turn"
 			if d := t.Duration(); d > 0 {
 				note += " · finished after " + dur(d.Truncate(time.Second))
