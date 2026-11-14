@@ -96,7 +96,7 @@ func New(opts Options) *App {
 }
 
 func (a *App) Init() tea.Cmd {
-	cmds := []tea.Cmd{loadSessions(a.opts.Root), tick()}
+	cmds := []tea.Cmd{loadSessions(a.opts.Root), tick(), waitHighlight}
 	if a.board != nil {
 		cmds = append(cmds, a.board.scanCmd(time.Now()))
 	}
@@ -298,10 +298,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			v.refresh()
 			v.cursor, v.follow = 0, false
 		}
-		return a, a.push(v)
+		// Color the newest edits and writes before they're selected, once
+		// the view is up.
+		return a, tea.Batch(a.push(v), colorAhead(v.sess.Events))
 	case diffMsg:
 		msg.v.onDiff(msg)
 		return a, nil
+	case hlMsg:
+		// A pane started waiting for colors: its spinner needs the tick.
+		if !a.spinning && a.animating() {
+			a.spinning = true
+			return a, tea.Batch(waitHighlight, spinTick())
+		}
+		return a, waitHighlight
 	case basesMsg:
 		msg.v.onBases(msg)
 		return a, nil
@@ -331,8 +340,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, tea.Batch(msg.v.waitTail(), func() tea.Msg { return openMsg{path: path} })
 		}
+		n := len(msg.v.sess.Events)
 		as := msg.v.onTail(msg.u)
-		return a, tea.Batch(msg.v.waitTail(), a.signal(msg.v.own(as)))
+		var ahead []*parse.Event
+		if evs := msg.v.sess.Events; len(evs) >= n {
+			ahead = evs[n:]
+		}
+		return a, tea.Batch(msg.v.waitTail(), a.signal(msg.v.own(as)), colorAhead(ahead))
 	case tea.KeyMsg:
 		a.err = ""
 		switch msg.String() {

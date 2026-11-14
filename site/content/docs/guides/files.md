@@ -34,6 +34,7 @@ The footer stays, and the keys work as before: `↑` and `↓` change the file, 
 ## A file's history
 
 The right pane shows the selected file's history, with every change as a diff.
+The code in each edit and write is colored by the file's language, and `-` and `+` mark removed and added lines.
 Press `n` and `N` to step through the changes, or `enter` to show the file's latest change in the timeline; for a change a subagent made, that is the Agent call.
 
 Pressing `y` copies all of the file's changes to the clipboard.

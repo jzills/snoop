@@ -108,11 +108,11 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 	case "Edit", "MultiEdit":
 		b.WriteString(sBold.Render(get("file_path")) + "\n")
 		for _, ed := range t.Edits() {
-			b.WriteString(diff(ed.Old, ed.New, w) + "\n")
+			b.WriteString(diff(get("file_path"), ed.Old, ed.New, w) + "\n")
 		}
 	case "Write":
 		b.WriteString(sBold.Render(get("file_path")) + "\n")
-		b.WriteString(sAdd.Render(wrap(capLines(get("content"), maxDetailLines), w)) + "\n")
+		b.WriteString(codeBlock(get("file_path"), get("content"), w) + "\n")
 	case "Agent", "Task":
 		if typ := get("subagent_type"); typ != "" {
 			b.WriteString(sDim.Render("type ") + lipgloss.NewStyle().Foreground(cAgent).Render(typ) + "\n")
@@ -149,16 +149,41 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 
 var sAgentRunning = lipgloss.NewStyle().Foreground(cAgent)
 
-// diff shows an edit as "-"/"+" lines; an empty side shows no lines.
-func diff(old, nw string, w int) string {
+// diff shows an edit to the file at path as "-"/"+" lines, the code
+// colored by its language; an empty side shows no lines.
+func diff(path, old, nw string, w int) string {
 	var b strings.Builder
-	for _, l := range parse.Lines(capLines(old, maxDetailLines/2)) {
-		b.WriteString(sDel.Render(wrap("- "+l, w)) + "\n")
+	side := func(lines []string, more int, mark string, st lipgloss.Style) {
+		if len(lines) == 0 {
+			return
+		}
+		code, state := renderCode(path, strings.Join(lines, "\n"), st)
+		for _, l := range code {
+			if state != hlWaiting {
+				l = st.Render(mark) + l
+			}
+			b.WriteString(wrap(l, w) + "\n")
+		}
+		if more > 0 {
+			b.WriteString(sDim.Render(fmt.Sprintf("… %d more lines", more)) + "\n")
+		}
 	}
-	for _, l := range parse.Lines(capLines(nw, maxDetailLines/2)) {
-		b.WriteString(sAdd.Render(wrap("+ "+l, w)) + "\n")
-	}
+	o, n, oMore, nMore := editSides(old, nw)
+	side(o, oMore, "- ", sDel)
+	side(n, nMore, "+ ", sAdd)
 	return strings.TrimRight(b.String(), "\n")
+}
+
+// codeBlock shows a written file's content, colored by its language, or
+// in the added-line color when none matches.
+func codeBlock(path, src string, w int) string {
+	lines, more := writeLines(src)
+	code, _ := renderCode(path, strings.Join(lines, "\n"), sAdd)
+	out := wrap(strings.Join(code, "\n"), w)
+	if more > 0 {
+		out += "\n" + sDim.Render(fmt.Sprintf("… %d more lines", more))
+	}
+	return out
 }
 
 // prettyInput shows top-level fields as labelled blocks so multi-line

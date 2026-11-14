@@ -6,15 +6,19 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 
 	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/review"
 	"github.com/jzills/snoop/internal/store"
+	"github.com/jzills/snoop/internal/syntax"
 )
 
 // The Diff tab shows the git diff of the session's working tree, takes
@@ -59,6 +63,13 @@ type reviewState struct {
 	picking bool
 	bases   []review.Base
 	bCursor int
+
+	// The selected file's code in spans, one per row, as of hlVer.
+	hlFile  *review.File
+	hlVer   int
+	hlRows  [][]syntax.Span
+	hlWait  bool // some of the file's colors are on the way
+	hlSince time.Time
 }
 
 // pending is a comment not sent yet. Its id survives edits and deletes,
@@ -172,7 +183,9 @@ func (v *view) loadDiff() tea.Cmd {
 		for _, c := range subs {
 			own = append(own, c.paths...)
 		}
-		return diffMsg{v: v, seq: seq, base: d.Base, d: d, ours: ownPaths(d.Root, cwd, own), subs: subs}
+		ours := ownPaths(d.Root, cwd, own)
+		colorDiff(d, ours)
+		return diffMsg{v: v, seq: seq, base: d.Base, d: d, ours: ours, subs: subs}
 	}
 }
 
@@ -378,6 +391,103 @@ func diffRows(f *review.File) []dRow {
 		}
 	}
 	return rows
+}
+
+// hunkSides is a hunk's old and new code, each side whole, so a line
+// inside a comment or string colors right.
+func hunkSides(h *review.Hunk) (old, nw string) {
+	var o, n []string
+	for _, l := range h.Lines {
+		if l.Kind != '+' {
+			o = append(o, l.Text)
+		}
+		if l.Kind != '-' {
+			n = append(n, l.Text)
+		}
+	}
+	return strings.Join(o, "\n"), strings.Join(n, "\n")
+}
+
+// colorDiff colors the diff's files on the job's goroutine, the session's
+// own files first, up to hlDiffLines lines; the rest is colored ahead. A
+// reload colors only the hunks that changed, so a diff on screen never
+// drops its colors.
+func colorDiff(d *review.Diff, ours map[string]bool) {
+	files := append([]*review.File(nil), d.Files...)
+	sort.SliceStable(files, func(i, j int) bool { return ours[files[i].Path] && !ours[files[j].Path] })
+	budget := hlDiffLines
+	var later []hlJob
+	for _, f := range files {
+		for i := range f.Hunks {
+			old, nw := hunkSides(&f.Hunks[i])
+			for _, src := range []string{nw, old} {
+				if budget > 0 {
+					if hl.now(f.Path, src) {
+						budget -= strings.Count(src, "\n") + 1
+					}
+				} else if k, ok := keyFor(f.Path, src); ok {
+					later = append(later, hlJob{key: k, path: f.Path, src: src})
+				}
+			}
+		}
+	}
+	hl.ahead(later)
+}
+
+// diffSpans is each of a file's rows in spans, nil for a header. While a
+// side's colors are on the way it reports since, when the pane first
+// waited.
+func diffSpans(f *review.File) (rows [][]syntax.Span, waiting bool, since time.Time) {
+	for i := range f.Hunks {
+		h := &f.Hunks[i]
+		rows = append(rows, nil) // the header
+		old, nw := hunkSides(h)
+		os, ost, osince := hl.get(f.Path, old)
+		ns, nst, nsince := hl.get(f.Path, nw)
+		for _, w := range []struct {
+			st hlState
+			at time.Time
+		}{{ost, osince}, {nst, nsince}} {
+			if w.st == hlWaiting && (!waiting || w.at.Before(since)) {
+				waiting, since = true, w.at
+			}
+		}
+		oi, ni := 0, 0
+		for _, l := range h.Lines {
+			var sp []syntax.Span
+			switch l.Kind {
+			case '-':
+				if os != nil {
+					sp = os[oi]
+				}
+				oi++
+			case '+':
+				if ns != nil {
+					sp = ns[ni]
+				}
+				ni++
+			default:
+				if ns != nil {
+					sp = ns[ni]
+				}
+				oi++
+				ni++
+			}
+			rows = append(rows, sp)
+		}
+	}
+	return rows, waiting, since
+}
+
+// fileSpans is diffSpans for the selected file, worked out again only when
+// the file or the highlighted code changes.
+func (v *view) fileSpans(f *review.File) ([][]syntax.Span, bool, time.Time) {
+	r := &v.rev
+	if ver := hl.ver(); r.hlFile != f || r.hlVer != ver {
+		r.hlFile, r.hlVer = f, ver
+		r.hlRows, r.hlWait, r.hlSince = diffSpans(f)
+	}
+	return r.hlRows, r.hlWait, r.hlSince
 }
 
 // clampLine keeps a row index on a line of the selected file, never a
@@ -1035,8 +1145,17 @@ func (v *view) diffPane(w, h int, full bool) string {
 	if r.anchor >= 0 && v.focusR {
 		lo, hi = min(r.anchor, r.line), max(r.anchor, r.line)
 	}
+	spans, waiting, since := v.fileSpans(f)
+	if waiting {
+		// Code is never drawn plain while its colors are on the way.
+		out = append(out, waitLine(since))
+		for len(out) < h {
+			out = append(out, "")
+		}
+		return border.Height(h).Render(strings.Join(out, "\n"))
+	}
 	for i := r.lOffset; i < len(rows) && len(out) < h; i++ {
-		out = append(out, v.diffRow(rows[i], innerW, numW, v.focusR && i == r.line, i >= lo && i <= hi))
+		out = append(out, v.diffRow(rows[i], spans[i], innerW, numW, v.focusR && i == r.line, i >= lo && i <= hi))
 		for _, n := range notes[i] {
 			if len(out) < h {
 				out = append(out, sKey.Render(fit(strings.Repeat(" ", indent)+n, innerW)))
@@ -1049,17 +1168,33 @@ func (v *view) diffPane(w, h int, full bool) string {
 	return border.Height(h).Render(strings.Join(out, "\n"))
 }
 
-func (v *view) diffRow(row dRow, w, numW int, cur, inRange bool) string {
+// tints is whether the terminal shows true color. Only then do added and
+// removed lines sit on a tint under the code's own colors: 256 colors round
+// the tints to gray or to loud greens and reds, so there those lines keep
+// their green and red text.
+var tints = sync.OnceValue(func() bool { return lipgloss.ColorProfile() == termenv.TrueColor })
+
+// diffRow draws a row of the diff; spans is the line's code, or nil to draw
+// it plain.
+func (v *view) diffRow(row dRow, spans []syntax.Span, w, numW int, cur, inRange bool) string {
 	if row.line == nil {
 		return sFaint.Render(fit(row.header, w))
 	}
 	l := row.line
+	tint := l.Kind != ' ' && tints()
+	if l.Kind != ' ' && !tint {
+		spans = nil
+	}
 	var bg lipgloss.TerminalColor = lipgloss.NoColor{}
 	switch {
 	case cur:
 		bg = cSelBg
 	case inRange:
 		bg = cPromptBg
+	case tint && l.Kind == '+':
+		bg = cAddBg
+	case tint && l.Kind == '-':
+		bg = cDelBg
 	}
 	st := func(s lipgloss.Style) lipgloss.Style { return s.Background(bg) }
 	gutter := st(sText).Render(" ")
@@ -1080,8 +1215,13 @@ func (v *view) diffRow(row dRow, w, numW int, cur, inRange bool) string {
 		textStyle = sDel
 	}
 	prefix := gutter + st(sFaint).Render(num(l.Old)+" "+num(l.New)+" ") + st(textStyle).Render(string(l.Kind)+" ")
-	body := strings.ReplaceAll(l.Text, "\t", "    ")
-	line := prefix + st(textStyle).Render(fit(body, max(w-lipgloss.Width(prefix), 1)))
+	bodyW := max(w-lipgloss.Width(prefix), 1)
+	var line string
+	if spans != nil {
+		line = prefix + ansi.Truncate(renderSpans(spans, bg), bodyW, "…")
+	} else {
+		line = prefix + st(textStyle).Render(fit(strings.ReplaceAll(l.Text, "\t", "    "), bodyW))
+	}
 	if pad := w - lipgloss.Width(line); pad > 0 {
 		line += st(sText).Render(strings.Repeat(" ", pad))
 	}
