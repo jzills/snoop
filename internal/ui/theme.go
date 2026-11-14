@@ -22,6 +22,8 @@ var (
 	cOK       = lipgloss.AdaptiveColor{Light: "#1A7F37", Dark: "#56D364"}
 	cAdd      = lipgloss.AdaptiveColor{Light: "#1A7F37", Dark: "#56D364"}
 	cDel      = lipgloss.AdaptiveColor{Light: "#CF222E", Dark: "#FF7B72"}
+	cAddBg    = lipgloss.AdaptiveColor{Light: "#E6FFEC", Dark: "#12261A"} // true color only
+	cDelBg    = lipgloss.AdaptiveColor{Light: "#FFEBE9", Dark: "#2D1618"}
 )
 
 var (

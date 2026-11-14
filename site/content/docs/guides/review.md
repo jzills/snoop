@@ -55,6 +55,10 @@ The files are shown in a tree of folders, which works as in the [Files tab](../f
 Press `z` to show the diff on the whole screen, where comments work as before, and press it again to bring back the files.
 Press `enter` or `tab` to move into a file's lines, and `J` and `K` to jump between hunks.
 
+Code is colored by its language, which comes from the file's name, and a file in a language snoop doesn't recognize stays plain.
+In a terminal with true color, added and removed lines sit on a green or red tint under the code's colors.
+With 256 colors or fewer, added and removed lines keep green and red text, and only unchanged lines are colored by language.
+
 The diff is read when you open the tab, again when the session finishes an edit or a command (at most every two seconds), which includes the agent's commits, and when you press `r`.
 Git runs in the background, so following the session doesn't slow down.
 

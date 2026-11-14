@@ -473,10 +473,10 @@ func renderFileDetail(f *fileEntry, w int) (string, []int) {
 		switch e.Tool.Name {
 		case "Edit", "MultiEdit":
 			for _, ed := range e.Tool.Edits() {
-				b.WriteString(diff(ed.Old, ed.New, w) + "\n")
+				b.WriteString(diff(f.path, ed.Old, ed.New, w) + "\n")
 			}
 		case "Write":
-			b.WriteString(sAdd.Render(wrap(capLines(e.Tool.InputString("content"), maxDetailLines), w)) + "\n")
+			b.WriteString(codeBlock(f.path, e.Tool.InputString("content"), w) + "\n")
 		case "NotebookEdit":
 			b.WriteString(sAdd.Render(wrap(capLines(e.Tool.InputString("new_source"), maxDetailLines), w)) + "\n")
 		}
