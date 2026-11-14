@@ -353,9 +353,9 @@ func renderRequest(r review.Request, w int) string {
 			b.WriteString("\n" + sDim.Render(wrap(d, w)))
 		}
 	case "Edit":
-		b.WriteString(sBold.Render(wrap(str("file_path"), w)) + "\n" + diff(str("old_string"), str("new_string"), w))
+		b.WriteString(sBold.Render(wrap(str("file_path"), w)) + "\n" + diff(str("file_path"), str("old_string"), str("new_string"), w))
 	case "Write":
-		b.WriteString(sBold.Render(wrap(str("file_path"), w)) + "\n" + sAdd.Render(wrap(capLines(str("content"), maxDetailLines), w)))
+		b.WriteString(sBold.Render(wrap(str("file_path"), w)) + "\n" + codeBlock(str("file_path"), str("content"), w))
 	default:
 		pretty, _ := json.MarshalIndent(in, "", "  ")
 		b.WriteString(sText.Render(r.Tool) + "\n" + sDim.Render(wrap(string(pretty), w)))

@@ -13,6 +13,9 @@ Set Theme {"background":"#0d1117","foreground":"#e6edf3","cursor":"#a99cff","bla
 Type "snoop --live"
 Enter
 Sleep 3s
+# Select the asking session, so its request shows under the list.
+Up 2
+Sleep 500ms
 Screenshot site/static/shots/ask.png
 Sleep 300ms
 Type "q"

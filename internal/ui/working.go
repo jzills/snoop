@@ -122,6 +122,9 @@ func (v *view) subWriteCmd() tea.Cmd {
 // animating reports whether anything on screen is working, as of the
 // last render.
 func (a *App) animating() bool {
+	if hl.busy() {
+		return true // a pane shows the highlighting spinner
+	}
 	if v := a.top(); v != nil {
 		return v.known && v.status == rowWorking
 	}
@@ -138,6 +141,16 @@ func (a *App) animating() bool {
 // stateLabel is the header's word for a session's state.
 func stateLabel(st rowStatus, frame string) string {
 	return st.render(func(s lipgloss.Style) lipgloss.Style { return s }, frame)
+}
+
+// spinLine is the spinner, what is in progress and, when since is set, for
+// how long. Every wait in a session is drawn with it, so they look alike.
+func spinLine(now time.Time, what string, since time.Time) string {
+	line := sAccent.Render(spinFrame(now)) + " " + sText.Render(what)
+	if !since.IsZero() {
+		line += sDim.Render(" · " + waited(now.Sub(since)))
+	}
+	return line
 }
 
 // workLine is the timeline's last row while the session works: what it
@@ -165,10 +178,7 @@ func (v *view) workLine(now time.Time, w int) string {
 			since = e.Time
 		}
 	}
-	line := " " + strings.Repeat(" ", 10) + sAccent.Render(spinFrame(now)) + " " + sText.Render(what)
-	if !since.IsZero() {
-		line += sDim.Render(" · " + waited(now.Sub(since)))
-	}
+	line := " " + strings.Repeat(" ", 10) + spinLine(now, what, since)
 	// What a background subagent is doing comes last, as the most likely
 	// to be cut.
 	if doing != "" {

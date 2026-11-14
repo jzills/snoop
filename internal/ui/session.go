@@ -77,6 +77,8 @@ type view struct {
 	detailAgent bool   // subagent finished, for Agent rows
 	detailGroup string // key of a group shown in the Tools tab
 	detailGSig  string // its counts, which change as calls arrive
+	detailHL    int    // highlighted code that had landed
+	detailWait  bool   // it drew code still waiting for its colors
 
 	// Tools tab: calls grouped by kind and name.
 	groups  []*groupNode
@@ -897,7 +899,8 @@ func (v *view) detailPane(w, h int) string {
 		meta, _ := v.subagent(e.Tool.AgentID)
 		agent = meta.Finished
 	}
-	if e != v.detailEv || innerW != v.detailW || done != v.detailDone || agent != v.detailAgent || groupKey != v.detailGroup || groupSig != v.detailGSig {
+	if e != v.detailEv || innerW != v.detailW || done != v.detailDone || agent != v.detailAgent || groupKey != v.detailGroup || groupSig != v.detailGSig || hl.ver() != v.detailHL || v.detailWait {
+		waits := hl.waitCount()
 		switch {
 		case group != nil:
 			v.detail.SetContent(renderGroupDetail(group, innerW))
@@ -918,7 +921,8 @@ func (v *view) detailPane(w, h int) string {
 			v.detail.GotoTop()
 		}
 		v.detailEv, v.detailW, v.detailDone, v.detailAgent = e, innerW, done, agent
-		v.detailGroup, v.detailGSig = groupKey, groupSig
+		v.detailGroup, v.detailGSig, v.detailHL = groupKey, groupSig, hl.ver()
+		v.detailWait = hl.waitCount() != waits
 	}
 	v.detail.Width, v.detail.Height = innerW, h
 	return border.Height(h).Render(v.detail.View())
