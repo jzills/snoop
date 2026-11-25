@@ -49,6 +49,7 @@ A compaction appears as `⟳ compacted (auto) 253k → 68k`.
 ## The detail pane
 
 The right pane shows the selected event in full: a Bash command and its output, an edit as a diff, the content of a Write, an agent's prompt and result, a reply's text.
+The lines a Read returned are colored by the file's language, such as YAML for a Helm chart's values, with their line numbers dimmed.
 JSON in a result is indented and colored, whether it is the whole result, as many MCP tools return, or a line of command output, such as `gh pr view --json`.
 Press `enter` or `tab` to focus it and scroll with `↑` `↓`, or scroll it from the list with `J` `K`.
 On narrow terminals the focused pane fills the screen.

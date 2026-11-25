@@ -142,12 +142,65 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 		res := capLines(strings.TrimRight(t.Result, "\n"), maxDetailLines)
 		if t.IsError {
 			b.WriteString(sErr.Render(wrap(res, w)))
+		} else if code, ok := readBlock(t, w); ok {
+			b.WriteString(code)
 		} else if segs, ok := syntax.JSONSegments(t.Result); ok {
 			b.WriteString(resultSegments(segs, w))
 		} else {
 			b.WriteString(wrap(res, w))
 		}
 	}
+}
+
+// readBlock shows a Read result's code colored by the file's language,
+// with its line numbers dimmed. It reports false for other calls, for a
+// file in no known language, and for a result that isn't numbered lines,
+// such as an error.
+func readBlock(t *parse.ToolCall, w int) (string, bool) {
+	path := t.InputString("file_path")
+	if t.Name != "Read" || syntax.Lang(path) == "" {
+		return "", false
+	}
+	nums, code, ok := readLines(strings.TrimRight(t.Result, "\n"))
+	if !ok {
+		return "", false
+	}
+	more := len(code) - maxDetailLines
+	if more > 0 {
+		nums, code = nums[:maxDetailLines], code[:maxDetailLines]
+	}
+	numW := 0
+	for _, n := range nums {
+		numW = max(numW, len(n))
+	}
+	lines, st := renderCode(path, strings.Join(code, "\n"), sText)
+	var b strings.Builder
+	for i, l := range lines {
+		if st != hlWaiting {
+			l = sDim.Render(fmt.Sprintf("%*s  ", numW, nums[i])) + l
+		}
+		b.WriteString(wrap(l, w) + "\n")
+	}
+	if more > 0 {
+		b.WriteString(sDim.Render(fmt.Sprintf("… %d more lines", more)) + "\n")
+	}
+	return strings.TrimRight(b.String(), "\n"), true
+}
+
+// readLines splits the "12\tcode" lines Claude Code returns for a Read into
+// line numbers and code. It reports false when any line isn't numbered.
+func readLines(res string) (nums, code []string, ok bool) {
+	if res == "" {
+		return nil, nil, false
+	}
+	for _, l := range strings.Split(res, "\n") {
+		n, c, found := strings.Cut(l, "\t")
+		if !found || n == "" || strings.Trim(n, "0123456789") != "" {
+			return nil, nil, false
+		}
+		nums, code = append(nums, n), append(code, c)
+	}
+	return nums, code, true
 }
 
 // resultSegments shows a result's JSON indented and colored and the rest
