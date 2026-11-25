@@ -133,6 +133,23 @@ func (s *Session) request(model string, u Usage) {
 	}
 }
 
+// oneMModels have a 1M context window by default, so their ids carry no
+// [1m] suffix. Claude Code reports the window only late in a session, if
+// at all. They are matched by prefix, so a date doesn't matter.
+var oneMModels = []string{
+	"claude-opus-5",
+	"claude-haiku-5-5",
+}
+
+func defaultOneM(model string) bool {
+	for _, p := range oneMModels {
+		if strings.HasPrefix(model, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // ContextWindow is the context limit of the session's model: as Claude Code
 // reported it, else inferred from the model id or the context actually used.
 func (s *Session) ContextWindow() int {
@@ -141,7 +158,8 @@ func (s *Session) ContextWindow() int {
 		return s.ctxMax
 	case s.windows[s.lastModel] > 0:
 		return s.windows[s.lastModel]
-	case s.oneM, strings.Contains(s.lastModel, "[1m]"), s.PeakContext > 200_000, s.prePeak > 200_000:
+	case s.oneM, strings.Contains(s.lastModel, "[1m]"), defaultOneM(s.lastModel),
+		s.PeakContext > 200_000, s.prePeak > 200_000:
 		return 1_000_000
 	}
 	return 200_000
