@@ -2,6 +2,7 @@ package ui
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -58,4 +59,44 @@ func TestMixedJSONResultIndented(t *testing.T) {
 	waitSpans(t, func() bool {
 		return strings.HasSuffix(ansi.Strip(renderDetail(e, noLookup, 80)), want)
 	})
+}
+
+func readEvent(t *testing.T, path, result string) *parse.Event {
+	t.Helper()
+	p, _ := json.Marshal(path)
+	res, _ := json.Marshal(result)
+	in := `{"type":"assistant","uuid":"a1","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Read","input":{"file_path":` + string(p) + `}}]}}
+{"type":"user","uuid":"r1","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":` + string(res) + `}]}}
+`
+	s, _ := parse.Parse(strings.NewReader(in))
+	return s.Events[len(s.Events)-1]
+}
+
+func TestReadResultColored(t *testing.T) {
+	var src []string
+	for i := 1; i <= 10; i++ {
+		src = append(src, strconv.Itoa(i)+"\tkey"+strconv.Itoa(i)+": value")
+	}
+	e := readEvent(t, "/repo/chart/values.yaml", strings.Join(src, "\n"))
+	want := "Result\n 1  key1: value\n 2  key2: value"
+	var got string
+	waitSpans(t, func() bool {
+		got = renderDetail(e, noLookup, 80)
+		return strings.Contains(ansi.Strip(got), want)
+	})
+	if !strings.HasSuffix(ansi.Strip(got), "10  key10: value") {
+		t.Errorf("last line of:\n%s", ansi.Strip(got))
+	}
+}
+
+func TestReadResultPlainWhenUnknown(t *testing.T) {
+	for _, c := range []struct{ path, res string }{
+		{"/repo/notes.unknownext", "1\tone\n2\ttwo"},
+		{"/repo/a.yaml", "File does not exist."},
+	} {
+		got := ansi.Strip(renderDetail(readEvent(t, c.path, c.res), noLookup, 80))
+		if !strings.HasSuffix(got, "Result\n"+c.res) {
+			t.Errorf("%s rendered as:\n%s", c.path, got)
+		}
+	}
 }
