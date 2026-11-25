@@ -13,6 +13,7 @@ import (
 
 	"github.com/jzills/snoop/internal/parse"
 	"github.com/jzills/snoop/internal/store"
+	"github.com/jzills/snoop/internal/syntax"
 )
 
 // Long tool results are capped so a 1MB Read does not stall rendering.
@@ -141,6 +142,8 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 		res := capLines(strings.TrimRight(t.Result, "\n"), maxDetailLines)
 		if t.IsError {
 			b.WriteString(sErr.Render(wrap(res, w)))
+		} else if js, ok := syntax.IndentJSON(t.Result); ok {
+			b.WriteString(codeBlock("result.json", js, w))
 		} else {
 			b.WriteString(wrap(res, w))
 		}

@@ -119,3 +119,23 @@ func BenchmarkLinesGo(b *testing.B) {
 		Lines("x.go", src)
 	}
 }
+
+func TestIndentJSON(t *testing.T) {
+	cases := []struct {
+		name, in, want string
+		ok             bool
+	}{
+		{"object", `{"a":1,"b":[true,null]}`, "{\n  \"a\": 1,\n  \"b\": [\n    true,\n    null\n  ]\n}", true},
+		{"array with space", "  [1, 2]\n", "[\n  1,\n  2\n]", true},
+		{"looks like JSON", `{"a":1} trailing`, "", false},
+		{"bare string", `"text"`, "", false},
+		{"plain text", "ok", "", false},
+		{"too big", "[" + strings.Repeat("1,", maxJSON) + "1]", "", false},
+	}
+	for _, c := range cases {
+		got, ok := IndentJSON(c.in)
+		if ok != c.ok || got != c.want {
+			t.Errorf("%s: IndentJSON = %q, %v; want %q, %v", c.name, got, ok, c.want, c.ok)
+		}
+	}
+}

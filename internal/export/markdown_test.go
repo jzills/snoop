@@ -67,3 +67,16 @@ func TestResultCapped(t *testing.T) {
 		t.Errorf("cap tail = %q", got[len(got)-30:])
 	}
 }
+
+func TestJSONResultIndented(t *testing.T) {
+	in := `{"type":"user","uuid":"u1","timestamp":"2026-10-24T10:00:00Z","message":{"content":"go"}}
+{"type":"assistant","uuid":"a1","timestamp":"2026-10-24T10:00:01Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"mcp__x__get","input":{}}]}}
+{"type":"user","uuid":"r1","timestamp":"2026-10-24T10:00:02Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"{\"id\":7,\"tags\":[\"a\"]}"}]}}
+`
+	s, _ := parse.Parse(strings.NewReader(in))
+	md := Markdown(s, "", All(s))
+	want := "Result:\n\n```json\n{\n  \"id\": 7,\n  \"tags\": [\n    \"a\"\n  ]\n}\n```"
+	if !strings.Contains(md, want) {
+		t.Errorf("missing %q in:\n%s", want, md)
+	}
+}

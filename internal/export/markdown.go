@@ -10,6 +10,7 @@ import (
 	json "github.com/goccy/go-json"
 
 	"github.com/jzills/snoop/internal/parse"
+	"github.com/jzills/snoop/internal/syntax"
 )
 
 // Tool results longer than this are cut, with a note.
@@ -126,7 +127,11 @@ func tool(e *parse.Event) string {
 	lang, body := Input(t)
 	b.WriteString(fence(lang, body))
 	if t.HasResult && t.Result != "" {
-		b.WriteString("\nResult:\n\n" + fence("", capLines(t.Result, maxResultLines)))
+		lang, res := "", t.Result
+		if js, ok := syntax.IndentJSON(res); ok && !t.IsError {
+			lang, res = "json", js
+		}
+		b.WriteString("\nResult:\n\n" + fence(lang, capLines(res, maxResultLines)))
 	}
 	b.WriteString("\n</details>\n")
 	return b.String()
