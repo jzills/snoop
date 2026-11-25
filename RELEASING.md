@@ -15,7 +15,7 @@ publishes.
    Homebrew finds it as `jzills/tap`): a README entry, and `snoop` alongside
    `kx` in its `formula.yml` audit, install and test steps.
 4. **Turn on GitHub Pages** (Settings → Pages → Source: GitHub Actions). The
-   site at https://jzills.github.io/snoop/ serves `install.sh`, so this has to
+   site at https://j.zills.io/snoop/ serves `install.sh`, so this has to
    happen before the README's install command works. `.github/workflows/pages.yml`
    publishes `site/` on every push to `main` that touches it; run it once by
    hand (Actions → Pages → Run workflow) after turning Pages on.
@@ -61,14 +61,14 @@ failed job skips versions already uploaded.
 
    ```
    brew install jzills/tap/snoop && snoop --version
-   curl -fsSL https://jzills.github.io/snoop/install.sh | sh
+   curl -fsSL https://j.zills.io/snoop/install.sh | sh
    go install github.com/jzills/snoop/cmd/snoop@v0.1.0
    npm install -g snoop-cli && snoop --version
    pipx install snoop-cli && snoop --version
    ```
 
    On Windows, also run
-   `irm https://jzills.github.io/snoop/install.ps1 | iex`.
+   `irm https://j.zills.io/snoop/install.ps1 | iex`.
 
 A run stopped at the approval gate has published nothing. Delete the tag
 (`git push --delete origin vX.Y.Z`) to abandon it.

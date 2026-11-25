@@ -70,7 +70,7 @@ and why you'd want it, and the site holds every key, flag, table and edge case.
 - Each section ends with "See the [<topic> guide](url) for more." It is
   always "guide", except "See the [alerts reference](url)" for a reference
   page.
-- Every link is absolute (`https://jzills.github.io/snoop/docs/…`,
+- Every link is absolute (`https://j.zills.io/snoop/docs/…`,
   `https://raw.githubusercontent.com/jzills/snoop/main/…`), because npm and
   PyPI don't resolve paths in the repository.
 - Before taking a fact out of the README, check the site already says it.

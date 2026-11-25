@@ -2,7 +2,7 @@
 #
 # A landing page at / (layouts/home.html) and the documentation under
 # content/docs/, which takes Hextra's sidebar, table of contents and search.
-baseURL = "https://jzills.github.io/snoop/"
+baseURL = "https://j.zills.io/snoop/"
 title = "snoop"
 # No tag or category pages: no page has either, so Hugo's default /tags/ and
 # /categories/ were empty, and listed in the sitemap they were indexed as thin

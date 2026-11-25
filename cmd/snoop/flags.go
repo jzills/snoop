@@ -17,7 +17,7 @@ import (
 // Long flags take two dashes and short ones one, so -follow is an error
 // rather than another spelling of --follow.
 
-const docsURL = "https://jzills.github.io/snoop/docs/reference/cli/"
+const docsURL = "https://j.zills.io/snoop/docs/reference/cli/"
 
 // cliFlags is snoop's own flags, before any command.
 type cliFlags struct {
