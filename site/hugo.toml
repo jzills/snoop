@@ -91,9 +91,8 @@ disableKinds = ["taxonomy", "term"]
     displayToggle = false
 
 # The footer, shared by every project docs site: the markup is
-# layouts/_partials/custom/footer.html and the install command is
-# layouts/_partials/oss/footer-command.html. Keys are lowercase, as Hugo
-# stores them. A link is a site `path`, an absolute `url`, or kind = "bug",
+# layouts/_partials/custom/footer.html. Keys are lowercase, as Hugo stores
+# them. A link is a site `path`, an absolute `url`, or kind = "bug",
 # which opens a new issue with `bug` as its body; the body asks for the
 # Claude Code version too, because the transcript format changes between
 # versions.
@@ -104,7 +103,6 @@ disableKinds = ["taxonomy", "term"]
   mark = "snoop-mark.svg"
   showname = false
   tagline = "Keep an eye on your agents, live or after the fact, from the transcripts on your machine."
-  command = "curl -fsSL https://j.zills.io/snoop/install.sh | sh"
   repo = "https://github.com/jzills/snoop"
   bug = """**What happened**
 
