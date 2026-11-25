@@ -142,12 +142,43 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 		res := capLines(strings.TrimRight(t.Result, "\n"), maxDetailLines)
 		if t.IsError {
 			b.WriteString(sErr.Render(wrap(res, w)))
-		} else if js, ok := syntax.IndentJSON(t.Result); ok {
-			b.WriteString(codeBlock("result.json", js, w))
+		} else if segs, ok := syntax.JSONSegments(t.Result); ok {
+			b.WriteString(resultSegments(segs, w))
 		} else {
 			b.WriteString(wrap(res, w))
 		}
 	}
+}
+
+// resultSegments shows a result's JSON indented and colored and the rest
+// as it was, maxDetailLines in all.
+func resultSegments(segs []syntax.Segment, w int) string {
+	var parts []string
+	left := maxDetailLines
+	for i, sg := range segs {
+		lines := strings.Split(sg.Text, "\n")
+		if len(lines) > left {
+			more := len(lines) - left
+			for _, rest := range segs[i+1:] {
+				more += strings.Count(rest.Text, "\n") + 1
+			}
+			if left > 0 {
+				parts = append(parts, segment(syntax.Segment{Text: strings.Join(lines[:left], "\n"), JSON: sg.JSON}, w))
+			}
+			parts = append(parts, sDim.Render(fmt.Sprintf("… %d more lines", more)))
+			break
+		}
+		left -= len(lines)
+		parts = append(parts, segment(sg, w))
+	}
+	return strings.Join(parts, "\n")
+}
+
+func segment(sg syntax.Segment, w int) string {
+	if sg.JSON {
+		return codeBlock("result.json", sg.Text, w)
+	}
+	return wrap(sg.Text, w)
 }
 
 var sAgentRunning = lipgloss.NewStyle().Foreground(cAgent)

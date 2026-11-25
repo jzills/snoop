@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -136,6 +137,31 @@ func TestIndentJSON(t *testing.T) {
 		got, ok := IndentJSON(c.in)
 		if ok != c.ok || got != c.want {
 			t.Errorf("%s: IndentJSON = %q, %v; want %q, %v", c.name, got, ok, c.want, c.ok)
+		}
+	}
+}
+
+func TestJSONSegments(t *testing.T) {
+	type seg = Segment
+	cases := []struct {
+		name string
+		in   string
+		want []seg
+	}{
+		{"whole", `{"a":1}`, []seg{{"{\n  \"a\": 1\n}", true}}},
+		{"exit code after", "{\"a\":1}\nexit 0", []seg{{"{\n  \"a\": 1\n}", true}, {"exit 0", false}}},
+		{"text before", "tagged\n[1]", []seg{{"tagged", false}, {"[\n  1\n]", true}}},
+		{"one per line", "{\"a\":1}\n{\"b\":2}\ndone", []seg{{"{\n  \"a\": 1\n}\n{\n  \"b\": 2\n}", true}, {"done", false}}},
+		{"error between", "HTTP 401: Bad credentials\n{\"m\":\"x\"}\n9:### Heading\n26:## Other", []seg{
+			{"HTTP 401: Bad credentials", false}, {"{\n  \"m\": \"x\"\n}", true}, {"9:### Heading\n26:## Other", false}}},
+		{"already indented", "{\n  \"a\": 1\n}\nexit 0", nil},
+		{"no JSON", "ok\n{not json}", nil},
+		{"too big", "[" + strings.Repeat("1,", maxJSON) + "1]\nexit 0", nil},
+	}
+	for _, c := range cases {
+		got, ok := JSONSegments(c.in)
+		if ok != (c.want != nil) || fmt.Sprint(got) != fmt.Sprint(c.want) {
+			t.Errorf("%s: JSONSegments = %v, %v; want %v", c.name, got, ok, c.want)
 		}
 	}
 }

@@ -127,11 +127,7 @@ func tool(e *parse.Event) string {
 	lang, body := Input(t)
 	b.WriteString(fence(lang, body))
 	if t.HasResult && t.Result != "" {
-		lang, res := "", t.Result
-		if js, ok := syntax.IndentJSON(res); ok && !t.IsError {
-			lang, res = "json", js
-		}
-		b.WriteString("\nResult:\n\n" + fence(lang, capLines(res, maxResultLines)))
+		b.WriteString("\nResult:\n\n" + resultBlocks(t.Result, t.IsError))
 	}
 	b.WriteString("\n</details>\n")
 	return b.String()
@@ -172,6 +168,23 @@ func Diff(old, nw string) string {
 		b.WriteString("+ " + l + "\n")
 	}
 	return strings.TrimSuffix(b.String(), "\n")
+}
+
+// resultBlocks fences a result, its JSON indented in json blocks.
+func resultBlocks(res string, isErr bool) string {
+	segs, ok := syntax.JSONSegments(res)
+	if !ok || isErr {
+		return fence("", capLines(res, maxResultLines))
+	}
+	var b strings.Builder
+	for _, sg := range segs {
+		lang := ""
+		if sg.JSON {
+			lang = "json"
+		}
+		b.WriteString(fence(lang, capLines(sg.Text, maxResultLines)))
+	}
+	return b.String()
 }
 
 // fence wraps body in a code fence longer than any backtick run inside it.

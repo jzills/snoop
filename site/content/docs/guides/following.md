@@ -49,7 +49,7 @@ A compaction appears as `⟳ compacted (auto) 253k → 68k`.
 ## The detail pane
 
 The right pane shows the selected event in full: a Bash command and its output, an edit as a diff, the content of a Write, an agent's prompt and result, a reply's text.
-A result that is a JSON object or array, as many MCP tools return, is indented and colored.
+JSON in a result is indented and colored, whether it is the whole result, as many MCP tools return, or a line of command output, such as `gh pr view --json`.
 Press `enter` or `tab` to focus it and scroll with `↑` `↓`, or scroll it from the list with `J` `K`.
 On narrow terminals the focused pane fills the screen.
 

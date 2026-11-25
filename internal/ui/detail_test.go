@@ -51,3 +51,11 @@ func TestNonJSONResultUnchanged(t *testing.T) {
 		}
 	}
 }
+
+func TestMixedJSONResultIndented(t *testing.T) {
+	e := resultEvent(t, "tagged\n{\"id\":7}\nexit 0", false)
+	want := "Result\ntagged\n{\n  \"id\": 7\n}\nexit 0"
+	waitSpans(t, func() bool {
+		return strings.HasSuffix(ansi.Strip(renderDetail(e, noLookup, 80)), want)
+	})
+}

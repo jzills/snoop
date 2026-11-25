@@ -80,3 +80,16 @@ func TestJSONResultIndented(t *testing.T) {
 		t.Errorf("missing %q in:\n%s", want, md)
 	}
 }
+
+func TestMixedJSONResultIndented(t *testing.T) {
+	in := `{"type":"user","uuid":"u1","timestamp":"2026-10-24T10:00:00Z","message":{"content":"go"}}
+{"type":"assistant","uuid":"a1","timestamp":"2026-10-24T10:00:01Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"gh pr view 1 --json state"}}]}}
+{"type":"user","uuid":"r1","timestamp":"2026-10-24T10:00:02Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"{\"state\":\"OPEN\"}\nexit 0"}]}}
+`
+	s, _ := parse.Parse(strings.NewReader(in))
+	md := Markdown(s, "", All(s))
+	want := "Result:\n\n```json\n{\n  \"state\": \"OPEN\"\n}\n```\n```\nexit 0\n```"
+	if !strings.Contains(md, want) {
+		t.Errorf("missing %q in:\n%s", want, md)
+	}
+}
