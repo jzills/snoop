@@ -95,18 +95,23 @@ func TestCompaction(t *testing.T) {
 }
 
 func TestContextWindow(t *testing.T) {
-	req := func(ctx int) string {
-		return `{"type":"assistant","message":{"id":"x","model":"claude-opus-5-5","content":[],"usage":{"input_tokens":` + strconv.Itoa(ctx) + `}}}` + "\n"
+	reqOf := func(model string, ctx int) string {
+		return `{"type":"assistant","message":{"id":"x","model":"` + model + `","content":[],"usage":{"input_tokens":` + strconv.Itoa(ctx) + `}}}` + "\n"
 	}
+	req := func(ctx int) string { return reqOf("claude-sonnet-4-6", ctx) }
 	cases := []struct {
 		name string
 		in   string
 		want int
 	}{
 		{"default", req(1000), 200_000},
+		{"unknown model", reqOf("claude-new-9", 1000), 200_000},
+		{"1m by default", reqOf("claude-opus-5-5", 1000), 1_000_000},
+		{"1m by default, dated", reqOf("claude-haiku-5-5-20261001", 1000), 1_000_000},
 		{"reported", `{"type":"system","subtype":"local_command","content":"x","contextUsage":{"raw_max_tokens":1000000}}` + "\n" + req(1000), 1_000_000},
-		{"usage report", `{"type":"system","subtype":"local_command","content":"x","usageReport":{"session":{"model_usage":{"claude-opus-5-5":{"contextWindow":500000}}}}}` + "\n" + req(1000), 500_000},
-		{"1m model", `{"type":"user","requestedModel":"claude-opus-5-5[1m]","message":{"content":"hi"}}` + "\n" + req(1000), 1_000_000},
+		{"usage report", `{"type":"system","subtype":"local_command","content":"x","usageReport":{"session":{"model_usage":{"claude-sonnet-4-6":{"contextWindow":500000}}}}}` + "\n" + req(1000), 500_000},
+		{"usage report beats default", `{"type":"system","subtype":"local_command","content":"x","usageReport":{"session":{"model_usage":{"claude-opus-5-5":{"contextWindow":500000}}}}}` + "\n" + reqOf("claude-opus-5-5", 1000), 500_000},
+		{"1m model", `{"type":"user","requestedModel":"claude-sonnet-4-6[1m]","message":{"content":"hi"}}` + "\n" + req(1000), 1_000_000},
 		{"inferred", req(250_000), 1_000_000},
 	}
 	for _, c := range cases {

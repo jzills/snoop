@@ -28,6 +28,8 @@ The header shows how full the context window is:
 ctx 142k/200k ▰▰▰▰▰▰▰▱▱▱ 71%
 ```
 
+The window is the size Claude Code reports for the model.
+Until it reports one, snoop uses 1M for models with a 1M window by default, such as Claude Opus 5.5, and for models run with `[1m]`, and 200k for the rest.
 The meter turns to the accent color at 70% and red at 90%.
 The Stats tab shows the current and peak context and the number of compactions, and each compaction appears in the timeline with the context before and after it.
 
