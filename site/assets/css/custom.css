@@ -99,7 +99,7 @@ html.dark {
 
 .snoop-home p {
   color: var(--snoop-muted);
-  line-height: 1.65;
+  line-height: var(--oss-leading-prose);
 }
 
 .snoop-home a:not(.snoop-button):not(.snoop-feature) {
@@ -164,8 +164,10 @@ html.dark {
 
 /* The wordmark, large. Its eyes still blink, and only they glow: on the
    wrapper, the glow would put an accent haze behind the letters too. */
+/* Sized so its line is --oss-hero-mark tall, like kx's logo: the
+   wordmark's line-height is 1. */
 .snoop-hero__wordmark {
-  font-size: clamp(3rem, 8vw, 4.5rem);
+  font-size: var(--oss-hero-mark);
 }
 
 .snoop-hero__logo svg {
@@ -181,7 +183,7 @@ html.dark {
 }
 
 .snoop-hero__title {
-  font-size: clamp(2.2rem, 6vw, 3.75rem);
+  font-size: var(--oss-type-hero);
   font-weight: 750;
   line-height: 1.05;
   max-width: 22ch;
@@ -190,7 +192,7 @@ html.dark {
 }
 
 .snoop-hero__lede {
-  font-size: clamp(1.05rem, 2vw, 1.2rem);
+  font-size: var(--oss-type-lede);
   max-width: 40rem;
   margin: 1.25rem 0 0;
   text-wrap: pretty;
@@ -436,14 +438,14 @@ html.dark {
 }
 
 .snoop-feature__title {
-  font-size: 1.05rem;
+  font-size: var(--oss-type-card-title);
   font-weight: 600;
   margin: 0;
 }
 
 .snoop-feature p {
   margin: 0.6rem 0 0;
-  font-size: 0.93rem;
+  font-size: var(--oss-type-card-body);
 }
 
 .snoop-split__text a::after {
@@ -471,7 +473,7 @@ html.dark {
 
 .snoop-split h2,
 .snoop-closing h2 {
-  font-size: clamp(1.6rem, 3.2vw, 2.1rem);
+  font-size: var(--oss-type-section);
   font-weight: 700;
   margin: 0;
 }

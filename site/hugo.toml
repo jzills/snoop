@@ -103,7 +103,8 @@ disableKinds = ["taxonomy", "term"]
   # mark is the fallback if that partial goes.
   mark = "snoop-mark.svg"
   showname = false
-  tagline = "Keep an eye on your agents, live or after the fact. It reads the transcripts on your machine and sends nothing anywhere."
+  tagline = "Keep an eye on your agents, live or after the fact, from the transcripts on your machine."
+  command = "curl -fsSL https://j.zills.io/snoop/install.sh | sh"
   repo = "https://github.com/jzills/snoop"
   bug = """**What happened**
 
@@ -119,6 +120,9 @@ disableKinds = ["taxonomy", "term"]
 Paste the output of `snoop --version` and `claude --version`.
 """
 
+  # Four links per column, labels of 19 characters or fewer, and a tagline
+  # of two lines on every project docs site, so the footers are the same
+  # height wherever a reader is.
   [[params.oss.columns]]
     heading = "Get started"
     links = [
@@ -132,7 +136,7 @@ Paste the output of `snoop --version` and `claude --version`.
     links = [
       { label = "Guides", path = "docs/guides/" },
       { label = "The live board", path = "docs/guides/live-board/" },
-      { label = "What it reads and writes", path = "docs/reference/data/" },
+      { label = "Data it reads", path = "docs/reference/data/" },
       { label = "Troubleshooting", path = "docs/reference/troubleshooting/" },
     ]
   [[params.oss.columns]]
@@ -141,6 +145,7 @@ Paste the output of `snoop --version` and `claude --version`.
       { label = "GitHub", url = "https://github.com/jzills/snoop" },
       { label = "Release notes", path = "releases/" },
       { label = "Report a bug", kind = "bug" },
+      { label = "MIT license", url = "https://github.com/jzills/snoop/blob/HEAD/LICENSE" },
     ]
 
 # The bar holds a first visitor's top tasks, the same on each of the project
