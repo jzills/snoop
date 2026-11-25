@@ -606,7 +606,6 @@ html.snoop-motion .snoop-band[data-snoop-reveal] {
   --oss-muted: var(--snoop-muted);
   --oss-accent: var(--snoop-accent);
   --oss-border: var(--snoop-border);
-  --oss-surface: var(--snoop-surface);
   --oss-page: var(--snoop-page);
 }
 
