@@ -13,3 +13,20 @@
     <script defer src="{{ $reveal.RelPermalink }}" integrity="{{ $reveal.Data.Integrity }}"></script>
   {{- end }}
 {{- end }}
+
+{{- /*
+  The chrome and footer stylesheets every project docs site shares: the
+  typefaces, the light/dark button and the footer. Linked rather than
+  @import-ed from custom.css: Hextra runs that file through its Tailwind
+  build, which leaves a plain @import as a literal for a URL nothing
+  publishes. custom.css maps their --oss-* colors onto this site's.
+*/ -}}
+{{- range slice "css/oss-chrome.css" "css/oss-footer.css" }}
+  {{- with resources.Get . }}
+    {{- $css := . | minify | fingerprint }}
+  <link rel="stylesheet" href="{{ $css.RelPermalink }}" integrity="{{ $css.Data.Integrity }}" />
+  {{- end }}
+{{- end }}
+
+{{- /* The typefaces every project docs site is set in; see the partial. */ -}}
+{{- partial "oss/fonts.html" . -}}

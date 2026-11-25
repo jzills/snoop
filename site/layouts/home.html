@@ -19,7 +19,7 @@
 
       <section class="snoop-hero">
         <span class="snoop-hero__logo">
-          {{- with resources.Get "snoop-mark.svg" }}{{ .Content | safeHTML }}{{ end -}}
+          {{- partial "snoop/wordmark.html" (dict "class" "snoop-hero__wordmark") -}}
         </span>
         <h1 class="snoop-hero__title">Keep an eye on your agents</h1>
         <p class="snoop-hero__lede">

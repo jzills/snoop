@@ -41,6 +41,14 @@ disableKinds = ["taxonomy", "term"]
   [markup.highlight]
     noClasses = false
 
+  # The typographer stays on for quotes, but its dash substitutions are
+  # neutralized: it rewrites "--" as an en dash, which would turn every flag
+  # named in prose, --version among them, into a dash that can't be copied
+  # and run.
+  [markup.goldmark.extensions.typographer]
+    enDash = "--"
+    emDash = "---"
+
 [params]
   description = "Follow a Claude Code session live, and see what each prompt cost, how full the context is, which files changed and what the subagents did."
 
@@ -48,11 +56,13 @@ disableKinds = ["taxonomy", "term"]
   [params.navbar]
     displayTitle = false
     displayLogo = false
+    width = "normal"
 
   [params.footer]
     enable = true
     displayCopyright = false
     displayPoweredBy = false
+    width = "normal"
 
   [params.search]
     enable = true
@@ -64,12 +74,74 @@ disableKinds = ["taxonomy", "term"]
     enable = true
     base = "https://github.com/jzills/snoop/edit/main/site/content"
 
+  # The page, navbar and footer widths, stated on every project docs site so
+  # their columns line up when you move from one to the next. This site was
+  # on "wide" (90rem), which drew its footer 10rem wider than its siblings'.
   [params.page]
-    width = "wide"
+    width = "normal"
 
+  # The light/dark button is the navbar's Theme entry below. It renders
+  # layouts/_partials/theme-toggle.html, one sun/moon button shared with the
+  # other project docs sites, in place of Hextra's light/dark/system menu.
+  # With nothing stored, the reader's system setting picks light or dark.
+  # displayToggle governs a second copy, in a sticky bar at the foot of the
+  # docs sidebar, doing what the navbar's already does.
   [params.theme]
     default = "system"
-    displayToggle = true
+    displayToggle = false
+
+# The footer, shared by every project docs site: the markup is
+# layouts/_partials/custom/footer.html and the install command is
+# layouts/_partials/oss/footer-command.html. Keys are lowercase, as Hugo
+# stores them. A link is a site `path`, an absolute `url`, or kind = "bug",
+# which opens a new issue with `bug` as its body; the body asks for the
+# Claude Code version too, because the transcript format changes between
+# versions.
+[params.oss]
+  name = "snoop"
+  # The footer draws the wordmark itself (_partials/oss/footer-brand.html);
+  # mark is the fallback if that partial goes.
+  mark = "snoop-mark.svg"
+  showname = false
+  tagline = "Keep an eye on your agents, live or after the fact. It reads the transcripts on your machine and sends nothing anywhere."
+  repo = "https://github.com/jzills/snoop"
+  bug = """**What happened**
+
+
+**What you expected**
+
+
+**Steps to reproduce**
+
+
+**Versions**
+
+Paste the output of `snoop --version` and `claude --version`.
+"""
+
+  [[params.oss.columns]]
+    heading = "Get started"
+    links = [
+      { label = "Install", path = "docs/install/" },
+      { label = "Quickstart", path = "docs/quickstart/" },
+      { label = "Keyboard shortcuts", path = "docs/reference/keys/" },
+      { label = "Command line", path = "docs/reference/cli/" },
+    ]
+  [[params.oss.columns]]
+    heading = "Learn"
+    links = [
+      { label = "Guides", path = "docs/guides/" },
+      { label = "The live board", path = "docs/guides/live-board/" },
+      { label = "What it reads and writes", path = "docs/reference/data/" },
+      { label = "Troubleshooting", path = "docs/reference/troubleshooting/" },
+    ]
+  [[params.oss.columns]]
+    heading = "Project"
+    links = [
+      { label = "GitHub", url = "https://github.com/jzills/snoop" },
+      { label = "Release notes", path = "releases/" },
+      { label = "Report a bug", kind = "bug" },
+    ]
 
 # The bar holds a first visitor's top tasks, the same on each of the project
 # sites: Documentation, Quickstart, Releases, Search, GitHub and the
@@ -102,9 +174,9 @@ disableKinds = ["taxonomy", "term"]
     weight = 5
     [menu.main.params]
       icon = "github"
-  # Hextra's light, dark and system switch, in the bar on every page. The
-  # landing page has no sidebar, and the footer's copy is gone (see
-  # layouts/_partials/footer.html), so this is where it lives.
+  # The light/dark button (layouts/_partials/theme-toggle.html), in the bar
+  # on every page. The footer's copy is gone (see
+  # layouts/_partials/footer.html) and the sidebar's is off (params.theme).
   [[menu.main]]
     name = "Theme"
     weight = 6
