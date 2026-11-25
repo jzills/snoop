@@ -80,7 +80,7 @@ def wheel(out, root, dist, version, target, tag):
         f"Version: {version}",
         f"Summary: {SUMMARY}",
         "License: MIT",
-        "Project-URL: Homepage, https://jzills.github.io/snoop/",
+        "Project-URL: Homepage, https://j.zills.io/snoop/",
         "Project-URL: Source, https://github.com/jzills/snoop",
         "Classifier: Environment :: Console",
         "Classifier: License :: OSI Approved :: MIT License",

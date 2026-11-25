@@ -10,7 +10,7 @@ You can install snoop, a single binary for macOS, Linux and Windows, in any of t
 Run this on macOS or Linux:
 
 ```sh
-curl -fsSL https://jzills.github.io/snoop/install.sh | sh
+curl -fsSL https://j.zills.io/snoop/install.sh | sh
 ```
 
 The script picks the build for your machine, checks it against the release's `SHA256SUMS`, and installs it to `~/.local/bin` without sudo.
@@ -50,7 +50,7 @@ Update it with `npm update -g snoop-cli`, `pipx upgrade snoop-cli` or `uv tool u
 Install it with the PowerShell script, which checks the download against the release's `SHA256SUMS`, installs `snoop.exe` to `%LOCALAPPDATA%\Programs\snoop` and adds that folder to your `PATH`:
 
 ```powershell
-irm https://jzills.github.io/snoop/install.ps1 | iex
+irm https://j.zills.io/snoop/install.ps1 | iex
 ```
 
 The script reads `SNOOP_INSTALL_DIR` and `SNOOP_VERSION` like the shell script.

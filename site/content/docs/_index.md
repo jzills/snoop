@@ -15,7 +15,7 @@ There is nothing to configure, and nothing is sent anywhere.
 Install snoop, then run it in any terminal:
 
 ```sh
-curl -fsSL https://jzills.github.io/snoop/install.sh | sh
+curl -fsSL https://j.zills.io/snoop/install.sh | sh
 snoop
 ```
 

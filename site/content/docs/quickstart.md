@@ -12,7 +12,7 @@ This page takes you from installing snoop to following a session live.
 The install script picks the build for your machine, checks it against the release's checksums, and installs it without `sudo`:
 
 ```sh
-curl -fsSL https://jzills.github.io/snoop/install.sh | sh
+curl -fsSL https://j.zills.io/snoop/install.sh | sh
 ```
 
 Homebrew, npm, PyPI, Windows and `go install` are on the [install page](../install/).

@@ -18,7 +18,7 @@
 [![License](https://img.shields.io/github/license/jzills/snoop?style=flat-square&color=3fb950&labelColor=21262d)](https://github.com/jzills/snoop/blob/main/LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/jzills/snoop/ci.yml?branch=main&style=flat-square&color=3fb950&labelColor=21262d&label=CI)](https://github.com/jzills/snoop/actions/workflows/ci.yml)
 
-[Documentation](https://jzills.github.io/snoop/docs/) · [Install](https://jzills.github.io/snoop/docs/install/) · [Guides](https://jzills.github.io/snoop/docs/guides/) · [Keys](https://jzills.github.io/snoop/docs/reference/keys/)
+[Documentation](https://j.zills.io/snoop/docs/) · [Install](https://j.zills.io/snoop/docs/install/) · [Guides](https://j.zills.io/snoop/docs/guides/) · [Keys](https://j.zills.io/snoop/docs/reference/keys/)
 
 </div>
 
@@ -42,7 +42,7 @@ brew install jzills/tap/snoop
 Or the install script, which checks the build against the release's checksums and installs it without `sudo`:
 
 ```sh
-curl -fsSL https://jzills.github.io/snoop/install.sh | sh
+curl -fsSL https://j.zills.io/snoop/install.sh | sh
 ```
 
 Or from npm or PyPI, where the package is `snoop-cli` and the command is `snoop`:
@@ -55,10 +55,10 @@ pipx install snoop-cli
 On Windows, use npm, PyPI or the PowerShell script:
 
 ```powershell
-irm https://jzills.github.io/snoop/install.ps1 | iex
+irm https://j.zills.io/snoop/install.ps1 | iex
 ```
 
-See the [install guide](https://jzills.github.io/snoop/docs/install/) for more.
+See the [install guide](https://j.zills.io/snoop/docs/install/) for more.
 
 ## Follow a session
 
@@ -74,7 +74,7 @@ Each prompt shows its tokens, estimated cost and duration, and the header shows 
 Selecting a prompt shows where its turn's time went, in a waterfall where parallel calls overlap.
 Press `x` on an Agent call to expand its subagent's work inline, live while it runs.
 
-See the [following guide](https://jzills.github.io/snoop/docs/guides/following/) for more.
+See the [following guide](https://j.zills.io/snoop/docs/guides/following/) for more.
 
 ## Watch every agent at once
 
@@ -92,7 +92,7 @@ When a session asks for permission, the request appears in full under the list.
 Press `A` to allow it once, `Y` to always allow it, or `D` to deny it with a reason Claude sees.
 When a session's turn ends, press `R` to reply, and the agent carries on as if you'd typed it in its terminal.
 
-See the [live board guide](https://jzills.github.io/snoop/docs/guides/live-board/) for more.
+See the [live board guide](https://j.zills.io/snoop/docs/guides/live-board/) for more.
 
 ## Review and comment
 
@@ -109,14 +109,14 @@ Replies, comments and answers to permission prompts reach the agent through Clau
 snoop hooks install
 ```
 
-See the [review guide](https://jzills.github.io/snoop/docs/guides/review/) for more.
+See the [review guide](https://j.zills.io/snoop/docs/guides/review/) for more.
 
 ## Cost, files and time
 
 The Stats tab breaks a session down by prompt, tool and model, and the Files tab lists every file it read or changed, each with its history as diffs.
 In the session picker, press `s` for totals across sessions and a daily cost chart, or `f` to find sessions by a file they changed, a command they ran or a prompt.
 
-See the [cost and context guide](https://jzills.github.io/snoop/docs/guides/cost-and-context/) for more.
+See the [cost and context guide](https://j.zills.io/snoop/docs/guides/cost-and-context/) for more.
 
 ## Alerts
 
@@ -124,14 +124,14 @@ While a session runs, the header flags a failed tool call, a stalled one, a fini
 With `--notify`, the same alerts arrive as desktop notifications through your terminal or the system, over SSH and in WSL too.
 With `--cost-alert 5` and `--long-turn 15m`, a runaway session gets flagged as well.
 
-See the [alerts reference](https://jzills.github.io/snoop/docs/reference/alerts/) for more.
+See the [alerts reference](https://j.zills.io/snoop/docs/reference/alerts/) for more.
 
 ## Copy and export
 
 Press `y` to copy the selected command, diff or message, over SSH too, or `e` to export the timeline to Markdown.
 From the shell, `snoop export <session>` writes the whole session to stdout.
 
-See the [export guide](https://jzills.github.io/snoop/docs/guides/export/) for more.
+See the [export guide](https://j.zills.io/snoop/docs/guides/export/) for more.
 
 ## Notes
 

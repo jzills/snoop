@@ -19,7 +19,7 @@ dist="${2:-dist}"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 out="$dist/npm"
 repo='{"type": "git", "url": "git+https://github.com/jzills/snoop.git"}'
-homepage="https://jzills.github.io/snoop/"
+homepage="https://j.zills.io/snoop/"
 
 rm -rf "$out"
 mkdir -p "$out"

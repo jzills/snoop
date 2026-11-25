@@ -1,6 +1,6 @@
 # Installs snoop on Windows — https://github.com/jzills/snoop
 #
-#   irm https://jzills.github.io/snoop/install.ps1 | iex
+#   irm https://j.zills.io/snoop/install.ps1 | iex
 #
 # Downloads the newest snoop for Windows (x64 or arm64), checks it against the
 # release's SHA256SUMS, installs it to %LOCALAPPDATA%\Programs\snoop, and adds

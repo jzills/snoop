@@ -16,7 +16,7 @@ try {
     `snoop: no build for ${process.platform}/${process.arch} was installed (${pkg}). ` +
       "Builds exist for Linux, macOS and Windows on x64 and arm64; if npm skipped " +
       "optional dependencies, reinstall without --omit=optional, or see " +
-      "https://jzills.github.io/snoop/docs/install/",
+      "https://j.zills.io/snoop/docs/install/",
   );
   process.exit(1);
 }
