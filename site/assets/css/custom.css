@@ -45,35 +45,42 @@ html.dark {
 /* Navbar
  * ------------------------------------------------------------------ */
 
-/* The eyes sit on the name's baseline and are sized in ex, so they span its
-   x-height in whichever system font draws it. Centering them on the line box
-   instead lined them up in one font and not another, since each font puts
-   its x-height at a different place in the box. The nudge down matches the
-   overshoot of round letters like "s" and "o" below the baseline. */
-.snoop-brand {
+/* The wordmark: "sn", the eyes as its "oo", then "p"; see
+   layouts/_partials/snoop/wordmark.html. Every size is in em, measured from
+   Inter's own "o" at weight 650: its ink is 0.58em tall, reaches 0.0175em
+   below the baseline, and two of them advance 1.22em. Each eye is 13.8 of
+   the SVG's 15 units, so a 0.63em SVG draws eyes exactly as tall as the
+   "o"s they replace, and dropping it 0.043em puts their bottoms where the
+   "o"s overshoot the baseline. The SVG has no baseline of its own, so it
+   aligns by its bottom edge, which is what the drop corrects. The eyes are
+   round where Inter's "o" is slightly oval, so the pair is a little wider
+   than "oo"; the margins center it over where "oo" would be and put the
+   "p" where it would fall. Checked by overlaying the word set as text. */
+.snoop-wordmark {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.5rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  color: var(--snoop-text);
+  white-space: nowrap;
 }
 
-.snoop-brand {
-  font-size: 1.05rem;
-}
-
-.snoop-brand svg {
-  height: 1.12ex;
-  width: auto;
+.snoop-wordmark svg {
   display: block;
   flex: none;
   position: relative;
-  top: 0.1ex;
+  top: 0.042em;
+  height: 0.62em;
+  width: auto;
+  margin: 0 -0.015em 0 -0.025em;
   color: var(--snoop-accent);
 }
 
-.snoop-brand__name {
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--snoop-text);
+/* In the navbar, sized so the word reads at the weight of kx's and
+   action-cache's pixel marks beside it on the other sites. */
+.snoop-brand {
+  font-size: 1.6rem;
 }
 
 /* Landing page
@@ -152,17 +159,19 @@ html.dark {
 /* The two eyes, large, with a soft halo; every few seconds they blink. */
 .snoop-hero__logo {
   display: block;
-  color: var(--snoop-accent);
   margin-bottom: 1.75rem;
-  filter: drop-shadow(0 6px 24px color-mix(in srgb, var(--snoop-accent) 45%, transparent));
+}
+
+/* The wordmark, large. Its eyes still blink, and only they glow: on the
+   wrapper, the glow would put an accent haze behind the letters too. */
+.snoop-hero__wordmark {
+  font-size: clamp(3rem, 8vw, 4.5rem);
 }
 
 .snoop-hero__logo svg {
-  display: block;
-  height: clamp(2.25rem, 6vw, 3rem);
-  width: auto;
   transform-origin: 50% 50%;
   animation: snoop-blink 6s ease-in-out infinite;
+  filter: drop-shadow(0 6px 24px color-mix(in srgb, var(--snoop-accent) 45%, transparent));
 }
 
 @keyframes snoop-blink {
@@ -588,8 +597,7 @@ html.snoop-motion .snoop-band[data-snoop-reveal] {
  * The footer and the light/dark button are shared by every project docs
  * site: their styles are assets/css/oss-footer.css and oss-chrome.css. These
  * map them onto snoop's colors in both themes, which html.dark switches on
- * :root itself. The eyes stand beside the name, as in the navbar, so they
- * take less than the footer brand's whole 2rem. */
+ * :root itself. */
 
 :root {
   --oss-text: var(--snoop-text);
@@ -598,7 +606,16 @@ html.snoop-motion .snoop-band[data-snoop-reveal] {
   --oss-border: var(--snoop-border);
   --oss-surface: var(--snoop-surface);
   --oss-page: var(--snoop-page);
-  --oss-brand-mark-height: 0.8rem;
+}
+
+/* The wordmark in the footer's 2rem brand slot. The slot's rule sizes an
+   SVG to the slot's height, so the eyes are given back their own. */
+.snoop-footer-wordmark {
+  font-size: 1.6rem;
+}
+
+.oss-footer__brand .snoop-footer-wordmark svg {
+  height: 0.62em;
 }
 
 /* Docs
