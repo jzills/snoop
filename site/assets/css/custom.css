@@ -50,8 +50,7 @@ html.dark {
    instead lined them up in one font and not another, since each font puts
    its x-height at a different place in the box. The nudge down matches the
    overshoot of round letters like "s" and "o" below the baseline. */
-.snoop-brand,
-.snoop-footer .snoop-footer__brand {
+.snoop-brand {
   display: inline-flex;
   align-items: baseline;
   gap: 0.5rem;
@@ -61,8 +60,7 @@ html.dark {
   font-size: 1.05rem;
 }
 
-.snoop-brand svg,
-.snoop-footer__brand svg {
+.snoop-brand svg {
   height: 1.12ex;
   width: auto;
   display: block;
@@ -107,8 +105,7 @@ html.dark {
   text-underline-offset: 0.2em;
 }
 
-.snoop-home code,
-.snoop-footer code {
+.snoop-home code {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.875em;
   color: var(--snoop-text);
@@ -587,134 +584,20 @@ html.snoop-motion .snoop-band[data-snoop-reveal] {
 }
 
 /* Footer
- * ------------------------------------------------------------------ */
+ * ------------------------------------------------------------------
+ * The footer is shared by every project docs site: its markup is
+ * layouts/_partials/custom/footer.html, its styles assets/css/oss-footer.css.
+ * These map it onto snoop's colors in both themes. The eyes stand beside the
+ * name, as in the navbar, so they take less than the brand's whole 2rem. */
 
-/* The footer takes the page's background, and its top edge is a line of the
-   accent fading out at both ends. */
 .hextra-footer {
-  position: relative;
-  background-color: var(--snoop-page);
-}
-
-.hextra-footer::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--snoop-accent), transparent);
-  opacity: 0.45;
-}
-
-.snoop-footer {
-  padding: 3.5rem 0 2.5rem;
-  color: var(--snoop-muted);
-  font-size: 0.9rem;
-}
-
-.snoop-footer a {
-  color: var(--snoop-muted);
-  transition: color 0.15s;
-}
-
-.snoop-footer a:hover {
-  color: var(--snoop-text);
-}
-
-.snoop-footer__top {
-  display: flex;
-  flex-direction: column;
-  gap: 2.5rem;
-}
-
-@media (min-width: 900px) {
-  .snoop-footer__top {
-    flex-direction: row;
-    justify-content: space-between;
-    gap: 4rem;
-  }
-}
-
-.snoop-footer__about {
-  max-width: 34rem;
-  min-width: 0;
-}
-
-.snoop-footer .snoop-footer__brand {
-  gap: 0.6rem;
-  color: var(--snoop-text);
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.snoop-footer__tagline {
-  margin-top: 1rem;
-  line-height: 1.6;
-}
-
-.snoop-footer__command {
-  margin-top: 1.25rem;
-}
-
-.snoop-footer__command .snoop-install__command {
-  font-size: 0.78rem;
-  white-space: nowrap;
-}
-
-.snoop-footer__cols {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2rem 1.5rem;
-}
-
-@media (min-width: 640px) {
-  .snoop-footer__cols {
-    grid-template-columns: repeat(3, minmax(0, auto));
-    gap: 2rem 4rem;
-  }
-}
-
-.snoop-footer__heading {
-  margin-bottom: 0.75rem;
-  color: var(--snoop-text);
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.snoop-footer__col li + li {
-  margin-top: 0.5rem;
-}
-
-.snoop-footer__wordmark {
-  margin-top: 3.5rem;
-  font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  line-height: 1;
-  user-select: none;
-}
-
-.snoop-footer__bottom {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem 2rem;
-  margin-top: 0.85rem;
-}
-
-.snoop-footer__connect {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-}
-
-.snoop-footer__connect span {
-  font-weight: 600;
-}
-
-.snoop-footer__connect a {
-  display: inline-flex;
+  --oss-text: var(--snoop-text);
+  --oss-muted: var(--snoop-muted);
+  --oss-accent: var(--snoop-accent);
+  --oss-border: var(--snoop-border);
+  --oss-surface: var(--snoop-surface);
+  --oss-page: var(--snoop-page);
+  --oss-brand-mark-height: 0.8rem;
 }
 
 /* Docs
