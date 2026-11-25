@@ -1,5 +1,5 @@
-// The install commands on the landing page and in the footer: a copy button
-// on each.
+// The install command on the landing page: a copy button. The footer's
+// command has its own, shared with the other docs sites: oss-copy.js.
 //
 // An enhancement over markup that already works without it. The buttons ship
 // `hidden` and are revealed only once this runs, so a reader without
