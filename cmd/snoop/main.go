@@ -11,7 +11,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,9 +19,9 @@ import (
 	"runtime/debug"
 	"slices"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/spf13/pflag"
 
 	"github.com/jzills/snoop/internal/export"
 	"github.com/jzills/snoop/internal/notify"
@@ -70,62 +69,59 @@ func versionText() string {
 }
 
 func main() {
-	showVersion := flag.Bool("version", false, "print the version and exit")
-	follow := flag.Bool("follow", false, "follow the newest session for the project and switch to new ones")
-	flag.BoolVar(follow, "f", false, "shorthand for --follow")
-	live := flag.Bool("live", false, "show every session written in the last 30 minutes, across projects")
-	project := flag.String("project", "", "project directory (default: current directory)")
-	stall := flag.Duration("stall", 30*time.Second, "alert when a tool call has no result after this long (0 disables)")
-	ring := flag.Bool("bell", false, "ring the terminal bell on alerts")
-	var notifyMode notifyFlag
-	flag.Var(&notifyMode, "notify", "send desktop notifications on alerts: auto (bare --notify), terminal or system")
-	costAlert := flag.Float64("cost-alert", 0, "alert each time a session's cost passes another multiple of this many dollars, such as 5 (0 disables)")
-	longTurn := flag.Duration("long-turn", 0, "alert when a turn has run this long, such as 15m (0 disables)")
-	alerts := flag.String("alerts", "error,turn,ask,cost,long", "alerts that ring the bell or notify: "+strings.Join(ui.AlertKinds, ","))
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: snoop [--follow | --live] [--project dir] [--bell] [--notify] [--version] [session-id|path]\n\n")
-		flag.PrintDefaults()
+	// Commands come first, each with its own flags.
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "export":
+			exportCmd(store.Root(), os.Args[2:])
+			return
+		case "hook":
+			hookCmd(os.Args[2:])
+			return
+		case "hooks":
+			hooksCmd(store.Root(), os.Args[2:])
+			return
+		}
 	}
-	flag.Parse()
-	if *showVersion {
+	f := newCLIFlags()
+	if err := parseFlags(f.fs, os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, "snoop: %v\nRun snoop --help for usage.\n", err)
+		os.Exit(2)
+	}
+	if f.help {
+		f.usage(os.Stdout)
+		return
+	}
+	if f.version {
 		fmt.Println(versionText())
 		return
 	}
-
-	root := store.Root()
-	switch flag.Arg(0) {
-	case "export":
-		exportCmd(root, flag.Args()[1:])
-		return
-	case "hook":
-		hookCmd(flag.Args()[1:])
-		return
-	case "hooks":
-		hooksCmd(root, flag.Args()[1:])
-		return
+	if f.fs.NArg() > 1 {
+		fail(fmt.Errorf("open one session at a time, not %d", f.fs.NArg()))
 	}
-	cwd := *project
+	root := store.Root()
+	cwd := f.project
 	if cwd == "" {
 		cwd, _ = os.Getwd()
 	}
 	cwd, _ = filepath.Abs(cwd)
-	if *costAlert < 0 || *longTurn < 0 {
+	if f.costAlert < 0 || f.longTurn < 0 {
 		fail(fmt.Errorf("--cost-alert and --long-turn can't be negative"))
 	}
-	if *live && (*follow || flag.NArg() > 0) {
+	if f.live && (f.follow || f.fs.NArg() > 0) {
 		fail(fmt.Errorf("--live shows every session; it can't be combined with --follow or a session"))
 	}
-	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: *follow, Live: *live,
-		Stall: *stall, Limits: ui.Limits{Cost: *costAlert, LongTurn: *longTurn}, Bell: *ring, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir(),
+	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: f.follow, Live: f.live,
+		Stall: f.stall, Limits: ui.Limits{Cost: f.costAlert, LongTurn: f.longTurn}, Bell: f.bell, BellOn: map[string]bool{}, CacheDir: summary.DefaultDir(),
 		AsksDir: review.AsksDir(), ListeningFile: review.ListeningFile(), InboxDir: review.InboxDir(), TurnsDir: review.TurnsDir()}
-	if notifyMode != "" {
-		s, err := notify.Choose(string(notifyMode), notify.Env{Getenv: os.Getenv, LookPath: exec.LookPath, GOOS: runtime.GOOS, Out: os.Stderr})
+	if f.notify != "" {
+		s, err := notify.Choose(string(f.notify), notify.Env{Getenv: os.Getenv, LookPath: exec.LookPath, GOOS: runtime.GOOS, Out: os.Stderr})
 		if err != nil {
 			fail(err)
 		}
 		opts.Notifier = s
 	}
-	for _, k := range strings.Split(*alerts, ",") {
+	for _, k := range strings.Split(f.alerts, ",") {
 		k = strings.TrimSpace(k)
 		if k == "" {
 			continue
@@ -137,13 +133,13 @@ func main() {
 	}
 
 	switch {
-	case flag.NArg() > 0:
-		p, err := resolve(root, flag.Arg(0))
+	case f.fs.NArg() > 0:
+		p, err := resolve(root, f.fs.Arg(0))
 		if err != nil {
 			fail(err)
 		}
 		opts.Path = p
-	case *follow:
+	case f.follow:
 		p, err := store.Newest(opts.ProjectDir)
 		if err != nil {
 			fail(fmt.Errorf("no sessions for %s (looked in %s)", cwd, opts.ProjectDir))
@@ -161,19 +157,13 @@ func main() {
 
 // exportCmd writes a whole session as Markdown, without thinking blocks.
 func exportCmd(root string, args []string) {
-	fs := flag.NewFlagSet("export", flag.ExitOnError)
-	out := fs.String("o", "", "write to this file instead of stdout")
+	fs := pflag.NewFlagSet("export", pflag.ContinueOnError)
+	out := fs.StringP("output", "o", "", "write to this `file` instead of stdout")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: snoop export <session-id|path> [-o file]\n\n")
-		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "Usage:\n  snoop export <session-id|path> [-o file]\n\nWrite a session as Markdown, without thinking blocks.\n\nFlags:\n%s", flagTable(allFlags(fs), 0))
 	}
-	fs.Parse(args)
-	// Allow the flag after the session too.
+	parseCommand(fs, args)
 	rest := fs.Args()
-	if len(rest) > 1 {
-		fs.Parse(rest[1:])
-		rest = append(rest[:1], fs.Args()...)
-	}
 	if len(rest) != 1 {
 		fs.Usage()
 		os.Exit(2)
@@ -216,24 +206,4 @@ func resolve(root, arg string) (string, error) {
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, "snoop:", err)
 	os.Exit(1)
-}
-
-// notifyFlag is --notify: bare it means auto, or it names a way to notify.
-type notifyFlag string
-
-func (f *notifyFlag) String() string   { return string(*f) }
-func (f *notifyFlag) IsBoolFlag() bool { return true }
-
-func (f *notifyFlag) Set(v string) error {
-	switch v {
-	case "true":
-		v = notify.Auto
-	case "false":
-		v = ""
-	case notify.Auto, notify.Terminal, notify.System:
-	default:
-		return fmt.Errorf("want auto, terminal or system")
-	}
-	*f = notifyFlag(v)
-	return nil
 }
