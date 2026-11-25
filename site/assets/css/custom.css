@@ -106,7 +106,7 @@ html.dark {
 }
 
 .snoop-home code {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--oss-font-mono);
   font-size: 0.875em;
   color: var(--snoop-text);
   background-color: var(--snoop-surface);
@@ -585,12 +585,13 @@ html.snoop-motion .snoop-band[data-snoop-reveal] {
 
 /* Footer
  * ------------------------------------------------------------------
- * The footer is shared by every project docs site: its markup is
- * layouts/_partials/custom/footer.html, its styles assets/css/oss-footer.css.
- * These map it onto snoop's colors in both themes. The eyes stand beside the
- * name, as in the navbar, so they take less than the brand's whole 2rem. */
+ * The footer and the light/dark button are shared by every project docs
+ * site: their styles are assets/css/oss-footer.css and oss-chrome.css. These
+ * map them onto snoop's colors in both themes, which html.dark switches on
+ * :root itself. The eyes stand beside the name, as in the navbar, so they
+ * take less than the footer brand's whole 2rem. */
 
-.hextra-footer {
+:root {
   --oss-text: var(--snoop-text);
   --oss-muted: var(--snoop-muted);
   --oss-accent: var(--snoop-accent);
