@@ -4,10 +4,14 @@ weight: 1
 ---
 
 ```text
-snoop [--follow | --live] [--project dir] [--bell] [--notify] [session-id|path]
+snoop [flags] [session-id|path]
 snoop export <session-id|path> [-o file]
 snoop hooks install|uninstall|status [--project] [--ask-wait duration]
 ```
+
+Run `snoop --help` to see the commands and flags, grouped by what they do.
+Long flags take two dashes and short flags take one, so `--follow` and `-f` work but `-follow` is an error.
+Flags can come before or after the session.
 
 ## Commands
 
@@ -36,9 +40,10 @@ snoop hooks install|uninstall|status [--project] [--ask-wait duration]
 | `--bell` | off | ring the terminal bell on the alerts chosen with `--alerts` |
 | `--notify[=MODE]` | off | send desktop notifications on those alerts. `MODE` is `auto` (the default), `terminal` or `system` |
 | `--alerts LIST` | `error,turn,ask,cost,long` | which alerts ring the bell or notify: any of `error`, `stall`, `turn`, `compact`, `ctx`, `ask`, `cost`, `long` |
+| `--help`, `-h` | | show the commands and flags |
 | `--version` | | print the version and exit |
 
-The export command takes `-o FILE` to write to a file instead of stdout.
+The export command takes `--output FILE`, or `-o FILE`, to write to a file instead of stdout.
 
 ## Environment
 

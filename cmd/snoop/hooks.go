@@ -1,13 +1,14 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/spf13/pflag"
 
 	"github.com/jzills/snoop/internal/review"
 )
@@ -37,21 +38,22 @@ func hookCmd(args []string) {
 // hooksCmd installs, removes or reports the hooks that deliver review
 // comments.
 func hooksCmd(root string, args []string) {
-	fs := flag.NewFlagSet("hooks", flag.ExitOnError)
+	fs := pflag.NewFlagSet("hooks", pflag.ContinueOnError)
+	fs.SortFlags = false
 	project := fs.Bool("project", false, "use .claude/settings.json in the current directory instead of your user settings")
 	askWait := fs.Duration("ask-wait", review.DefaultAskWait, "with install: how long a permission request waits for an answer from snoop, and a finished turn for a reply (1s to 30m)")
 	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "usage: snoop hooks install|uninstall|status [--project]\n\n")
+		fmt.Fprintf(os.Stderr, "Usage:\n  snoop hooks install|uninstall|status [--project] [--ask-wait duration]\n\n")
 		fmt.Fprintf(os.Stderr, "The hooks deliver comments sent from the Diff tab and replies to the agent,\n")
 		fmt.Fprintf(os.Stderr, "and let the live board and session views answer permission requests.\n\n")
-		fs.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "Flags:\n%s", flagTable(allFlags(fs), 0))
 	}
-	if len(args) == 0 {
+	parseCommand(fs, args)
+	if fs.NArg() != 1 {
 		fs.Usage()
 		os.Exit(2)
 	}
-	action := args[0]
-	fs.Parse(args[1:])
+	action := fs.Arg(0)
 	settings := review.UserSettings(root)
 	if *project {
 		settings = filepath.Join(".claude", "settings.json")

@@ -13,6 +13,7 @@ require (
 	github.com/goccy/go-json v0.12.0
 	github.com/muesli/termenv v0.16.0
 	github.com/sahilm/fuzzy v0.1.3
+	github.com/spf13/pflag v1.1.0
 )
 
 require (
