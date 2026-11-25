@@ -1,0 +1,21 @@
+{{- /*
+  The snoop wordmark: the name set in the site's typeface, with the eyes
+  standing in for its "oo".
+
+      {{ partial "snoop/wordmark.html" (dict "class" "snoop-brand") }}
+
+  One partial for the navbar, the landing page's hero and the footer, so the
+  three can't drift apart. The letters are text, not an outline in the SVG,
+  so they take Inter's metrics wherever the page sets them; the eyes are the
+  inlined mark, so they take the accent color in both themes. Their size and
+  baseline are em-relative in custom.css (.snoop-wordmark), which is what
+  keeps them on the letters' x-height at any font size.
+
+  The whole word is one image to a screen reader, named "snoop".
+*/ -}}
+{{- $class := .class | default "" -}}
+<span class="snoop-wordmark {{ $class }}" role="img" aria-label="snoop">
+  <span class="snoop-wordmark__letters" aria-hidden="true">sn</span>
+  {{- with resources.Get "snoop-mark.svg" }}{{ .Content | safeHTML }}{{ end -}}
+  <span class="snoop-wordmark__letters" aria-hidden="true">p</span>
+</span>
