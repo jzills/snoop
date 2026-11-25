@@ -80,7 +80,10 @@ disableKinds = ["taxonomy", "term"]
   [params.page]
     width = "normal"
 
-  # The switch is the one in the navbar (the Theme menu entry below).
+  # The light/dark button is the navbar's Theme entry below. It renders
+  # layouts/_partials/theme-toggle.html, one sun/moon button shared with the
+  # other project docs sites, in place of Hextra's light/dark/system menu.
+  # With nothing stored, the reader's system setting picks light or dark.
   # displayToggle governs a second copy, in a sticky bar at the foot of the
   # docs sidebar, doing what the navbar's already does.
   [params.theme]
@@ -169,9 +172,9 @@ Paste the output of `snoop --version` and `claude --version`.
     weight = 5
     [menu.main.params]
       icon = "github"
-  # Hextra's light, dark and system switch, in the bar on every page. The
-  # footer's copy is gone (see layouts/_partials/footer.html) and the
-  # sidebar's is off (params.theme), so this is the only one.
+  # The light/dark button (layouts/_partials/theme-toggle.html), in the bar
+  # on every page. The footer's copy is gone (see
+  # layouts/_partials/footer.html) and the sidebar's is off (params.theme).
   [[menu.main]]
     name = "Theme"
     weight = 6
