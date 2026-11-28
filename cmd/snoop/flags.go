@@ -1,10 +1,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -27,6 +27,7 @@ type cliFlags struct {
 	stall, longTurn                   time.Duration
 	costAlert                         float64
 	notify                            notifyFlag
+	args                              []string // the session, and anything after it
 }
 
 // flagGroups orders the help: each group's flags, in this order.
@@ -184,18 +185,48 @@ func parseFlags(fs *pflag.FlagSet, args []string) error {
 	return fs.Parse(args)
 }
 
-// parseCommand parses a command's flags, exiting after its help or on a
-// mistake.
-func parseCommand(fs *pflag.FlagSet, args []string) {
-	err := parseFlags(fs, args)
-	switch {
-	case errors.Is(err, pflag.ErrHelp):
-		os.Exit(0)
-	case err != nil:
+// parseCommand parses a command's flags. It prints the command's help to
+// stdout and exits when asked for it, and prints the error and help to
+// stderr and exits on a mistake.
+func parseCommand(fs *pflag.FlagSet, args []string, usage func(io.Writer)) {
+	help := fs.BoolP("help", "h", false, "show this help")
+	fs.Usage = func() { usage(os.Stderr) }
+	if err := parseFlags(fs, args); err != nil {
 		fmt.Fprintf(os.Stderr, "snoop %s: %v\n\n", fs.Name(), err)
-		fs.Usage()
+		usage(os.Stderr)
 		os.Exit(2)
 	}
+	if *help {
+		usage(os.Stdout)
+		os.Exit(0)
+	}
+}
+
+// commands are the words that start a command rather than name a session.
+var commands = []string{"export", "hook", "hooks"}
+
+// parseMain parses snoop's own flags up to a command, returning the
+// command and its arguments, or the session after which more flags may
+// follow, in f.args.
+func parseMain(args []string) (f *cliFlags, cmd string, cmdArgs []string, err error) {
+	f = newCLIFlags()
+	f.fs.SetInterspersed(false)
+	if err := parseFlags(f.fs, args); err != nil {
+		return f, "", nil, err
+	}
+	rest := f.fs.Args()
+	if len(rest) == 0 {
+		return f, "", nil, nil
+	}
+	if slices.Contains(commands, rest[0]) {
+		return f, rest[0], rest[1:], nil
+	}
+	f.fs.SetInterspersed(true)
+	if err := parseFlags(f.fs, rest[1:]); err != nil {
+		return f, "", nil, err
+	}
+	f.args = append([]string{rest[0]}, f.fs.Args()...)
+	return f, "", nil, nil
 }
 
 // allFlags is a command's flags in the order they were added.

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -42,13 +43,12 @@ func hooksCmd(root string, args []string) {
 	fs.SortFlags = false
 	project := fs.Bool("project", false, "use .claude/settings.json in the current directory instead of your user settings")
 	askWait := fs.Duration("ask-wait", review.DefaultAskWait, "with install: how long a permission request waits for an answer from snoop, and a finished turn for a reply (1s to 30m)")
-	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage:\n  snoop hooks install|uninstall|status [--project] [--ask-wait duration]\n\n")
-		fmt.Fprintf(os.Stderr, "The hooks deliver comments sent from the Diff tab and replies to the agent,\n")
-		fmt.Fprintf(os.Stderr, "and let the live board and session views answer permission requests.\n\n")
-		fmt.Fprintf(os.Stderr, "Flags:\n%s", flagTable(allFlags(fs), 0))
-	}
-	parseCommand(fs, args)
+	parseCommand(fs, args, func(w io.Writer) {
+		fmt.Fprintf(w, "Usage:\n  snoop hooks install|uninstall|status [--project] [--ask-wait duration]\n\n")
+		fmt.Fprintf(w, "The hooks deliver comments sent from the Diff tab and replies to the agent,\n")
+		fmt.Fprintf(w, "and let the live board and session views answer permission requests.\n\n")
+		fmt.Fprintf(w, "Flags:\n%s", flagTable(allFlags(fs), 0))
+	})
 	if fs.NArg() != 1 {
 		fs.Usage()
 		os.Exit(2)

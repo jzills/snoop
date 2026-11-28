@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -94,5 +95,33 @@ func TestShortDuration(t *testing.T) {
 		if got := shortDuration(in); got != want {
 			t.Errorf("shortDuration(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestParseMainFindsCommandAfterFlags(t *testing.T) {
+	for _, c := range []struct {
+		args          []string
+		cmd           string
+		cmdArgs, rest []string
+	}{
+		{[]string{"export", "64f3", "-o", "x.md"}, "export", []string{"64f3", "-o", "x.md"}, nil},
+		{[]string{"--bell", "export", "64f3"}, "export", []string{"64f3"}, nil},
+		{[]string{"-f", "hooks", "status", "--project"}, "hooks", []string{"status", "--project"}, nil},
+		{[]string{"64f3", "--bell"}, "", nil, []string{"64f3"}},
+		{[]string{"64f3", "extra"}, "", nil, []string{"64f3", "extra"}},
+		{[]string{"--bell", "64f3", "-f"}, "", nil, []string{"64f3"}},
+	} {
+		f, cmd, cmdArgs, err := parseMain(c.args)
+		if err != nil {
+			t.Errorf("%q: %v", c.args, err)
+			continue
+		}
+		if cmd != c.cmd || fmt.Sprint(cmdArgs) != fmt.Sprint(c.cmdArgs) || cmd == "" && fmt.Sprint(f.args) != fmt.Sprint(c.rest) {
+			t.Errorf("%q: cmd %q, args %q, rest %q", c.args, cmd, cmdArgs, f.args)
+		}
+	}
+	f, _, _, err := parseMain([]string{"64f3", "--bell"})
+	if err != nil || !f.bell {
+		t.Errorf("a flag after the session wasn't parsed: %v", err)
 	}
 }
