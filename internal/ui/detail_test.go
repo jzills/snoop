@@ -100,3 +100,16 @@ func TestReadResultPlainWhenUnknown(t *testing.T) {
 		}
 	}
 }
+
+func TestReadResultKeepsTrailingText(t *testing.T) {
+	res := "1\tkey: value\n2\tother: 2\n\n<system-reminder>\nnote\n</system-reminder>"
+	e := readEvent(t, "/repo/values.yaml", res)
+	want := "Result\n1  key: value\n2  other: 2\n\n<system-reminder>\nnote\n</system-reminder>"
+	waitSpans(t, func() bool { return strings.HasSuffix(ansi.Strip(renderDetail(e, noLookup, 80)), want) })
+}
+
+func TestReadResultArrowAndPadding(t *testing.T) {
+	e := readEvent(t, "/repo/values.yaml", "     9→key: value\n    10→other: 2")
+	want := "Result\n 9  key: value\n10  other: 2"
+	waitSpans(t, func() bool { return strings.HasSuffix(ansi.Strip(renderDetail(e, noLookup, 80)), want) })
+}

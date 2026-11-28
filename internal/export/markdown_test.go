@@ -1,6 +1,8 @@
 package export
 
 import (
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -91,5 +93,42 @@ func TestMixedJSONResultIndented(t *testing.T) {
 	want := "Result:\n\n```json\n{\n  \"state\": \"OPEN\"\n}\n```\n```\nexit 0\n```"
 	if !strings.Contains(md, want) {
 		t.Errorf("missing %q in:\n%s", want, md)
+	}
+}
+
+func bashResult(t *testing.T, result string) string {
+	t.Helper()
+	res, _ := json.Marshal(result)
+	in := `{"type":"user","uuid":"u1","timestamp":"2026-10-24T10:00:00Z","message":{"content":"go"}}
+{"type":"assistant","uuid":"a1","timestamp":"2026-10-24T10:00:01Z","message":{"id":"m1","content":[{"type":"tool_use","id":"t1","name":"Bash","input":{"command":"x"}}]}}
+{"type":"user","uuid":"r1","timestamp":"2026-10-24T10:00:02Z","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":` + string(res) + `}]}}
+`
+	s, _ := parse.Parse(strings.NewReader(in))
+	return Markdown(s, "", All(s))
+}
+
+func TestMixedResultCappedAsAWhole(t *testing.T) {
+	var lines []string
+	for i := 0; i < maxResultLines; i++ {
+		lines = append(lines, `{"i":1}`, "ok")
+	}
+	md := bashResult(t, strings.Join(lines, "\n"))
+	if n := strings.Count(md, "\nok\n") + strings.Count(md, "\"i\": 1"); n > maxResultLines {
+		t.Errorf("export has %d of the result's lines, want at most %d", n, maxResultLines)
+	}
+	if !strings.Contains(md, "more lines") {
+		t.Error("no note of the lines left out")
+	}
+}
+
+func TestLongOneLineJSONExportedWhole(t *testing.T) {
+	var fields []string
+	for i := 0; i < maxResultLines; i++ {
+		fields = append(fields, fmt.Sprintf(`"k%d":%d`, i, i))
+	}
+	res := "{" + strings.Join(fields, ",") + "}"
+	md := bashResult(t, res)
+	if !strings.Contains(md, res) || strings.Contains(md, "more lines") {
+		t.Errorf("a JSON line too long to indent wasn't exported whole")
 	}
 }

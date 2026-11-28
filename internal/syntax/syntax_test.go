@@ -148,12 +148,12 @@ func TestJSONSegments(t *testing.T) {
 		in   string
 		want []seg
 	}{
-		{"whole", `{"a":1}`, []seg{{"{\n  \"a\": 1\n}", true}}},
-		{"exit code after", "{\"a\":1}\nexit 0", []seg{{"{\n  \"a\": 1\n}", true}, {"exit 0", false}}},
-		{"text before", "tagged\n[1]", []seg{{"tagged", false}, {"[\n  1\n]", true}}},
-		{"one per line", "{\"a\":1}\n{\"b\":2}\ndone", []seg{{"{\n  \"a\": 1\n}\n{\n  \"b\": 2\n}", true}, {"done", false}}},
+		{"whole", `{"a":1}`, []seg{{"{\n  \"a\": 1\n}", `{"a":1}`, true}}},
+		{"exit code after", "{\"a\":1}\nexit 0", []seg{{"{\n  \"a\": 1\n}", `{"a":1}`, true}, {"exit 0", "exit 0", false}}},
+		{"text before", "tagged\n[1]", []seg{{"tagged", "tagged", false}, {"[\n  1\n]", "[1]", true}}},
+		{"one per line", "{\"a\":1}\n{\"b\":2}\ndone", []seg{{"{\n  \"a\": 1\n}\n{\n  \"b\": 2\n}", "{\"a\":1}\n{\"b\":2}", true}, {"done", "done", false}}},
 		{"error between", "HTTP 401: Bad credentials\n{\"m\":\"x\"}\n9:### Heading\n26:## Other", []seg{
-			{"HTTP 401: Bad credentials", false}, {"{\n  \"m\": \"x\"\n}", true}, {"9:### Heading\n26:## Other", false}}},
+			{"HTTP 401: Bad credentials", "HTTP 401: Bad credentials", false}, {"{\n  \"m\": \"x\"\n}", `{"m":"x"}`, true}, {"9:### Heading\n26:## Other", "9:### Heading\n26:## Other", false}}},
 		{"already indented", "{\n  \"a\": 1\n}\nexit 0", nil},
 		{"no JSON", "ok\n{not json}", nil},
 		{"too big", "[" + strings.Repeat("1,", maxJSON) + "1]\nexit 0", nil},
@@ -162,6 +162,29 @@ func TestJSONSegments(t *testing.T) {
 		got, ok := JSONSegments(c.in)
 		if ok != (c.want != nil) || fmt.Sprint(got) != fmt.Sprint(c.want) {
 			t.Errorf("%s: JSONSegments = %v, %v; want %v", c.name, got, ok, c.want)
+		}
+	}
+}
+
+func TestFit(t *testing.T) {
+	segs, _ := JSONSegments("tagged\n{\"a\":1,\"b\":2}\ndone\nexit 0")
+	cases := []struct {
+		n         int
+		wantTexts []string
+		wantMore  int
+	}{
+		{20, []string{"tagged", "{\n  \"a\": 1,\n  \"b\": 2\n}", "done\nexit 0"}, 0},
+		{3, []string{"tagged", `{"a":1,"b":2}`, "done"}, 1},
+		{1, []string{"tagged"}, 3},
+	}
+	for _, c := range cases {
+		got, more := Fit(segs, c.n)
+		var texts []string
+		for _, sg := range got {
+			texts = append(texts, sg.Text)
+		}
+		if fmt.Sprint(texts) != fmt.Sprint(c.wantTexts) || more != c.wantMore {
+			t.Errorf("Fit(%d) = %q, %d; want %q, %d", c.n, texts, more, c.wantTexts, c.wantMore)
 		}
 	}
 }

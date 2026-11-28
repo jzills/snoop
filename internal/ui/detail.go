@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -144,7 +145,7 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 			b.WriteString(sErr.Render(wrap(res, w)))
 		} else if code, ok := readBlock(t, w); ok {
 			b.WriteString(code)
-		} else if segs, ok := syntax.JSONSegments(t.Result); ok {
+		} else if segs, ok := resultJSON(t); ok {
 			b.WriteString(resultSegments(segs, w))
 		} else {
 			b.WriteString(wrap(res, w))
@@ -153,21 +154,22 @@ func renderTool(b *strings.Builder, e *parse.Event, lookup subagentLookup, w int
 }
 
 // readBlock shows a Read result's code colored by the file's language,
-// with its line numbers dimmed. It reports false for other calls, for a
-// file in no known language, and for a result that isn't numbered lines,
-// such as an error.
+// with its line numbers dimmed, and any text after the numbered lines as
+// it was. It reports false for other calls, for a file in no known
+// language, and for a result that doesn't start with numbered lines, such
+// as an error.
 func readBlock(t *parse.ToolCall, w int) (string, bool) {
 	path := t.InputString("file_path")
 	if t.Name != "Read" || syntax.Lang(path) == "" {
 		return "", false
 	}
-	nums, code, ok := readLines(strings.TrimRight(t.Result, "\n"))
-	if !ok {
+	nums, code, tail := readLines(strings.TrimRight(t.Result, "\n"))
+	if len(code) == 0 {
 		return "", false
 	}
 	more := len(code) - maxDetailLines
 	if more > 0 {
-		nums, code = nums[:maxDetailLines], code[:maxDetailLines]
+		nums, code, tail = nums[:maxDetailLines], code[:maxDetailLines], ""
 	}
 	numW := 0
 	for _, n := range nums {
@@ -184,54 +186,87 @@ func readBlock(t *parse.ToolCall, w int) (string, bool) {
 	if more > 0 {
 		b.WriteString(sDim.Render(fmt.Sprintf("… %d more lines", more)) + "\n")
 	}
+	if tail != "" {
+		b.WriteString(wrap(tail, w) + "\n")
+	}
 	return strings.TrimRight(b.String(), "\n"), true
 }
 
-// readLines splits the "12\tcode" lines Claude Code returns for a Read into
-// line numbers and code. It reports false when any line isn't numbered.
-func readLines(res string) (nums, code []string, ok bool) {
-	if res == "" {
-		return nil, nil, false
-	}
-	for _, l := range strings.Split(res, "\n") {
-		n, c, found := strings.Cut(l, "\t")
-		if !found || n == "" || strings.Trim(n, "0123456789") != "" {
-			return nil, nil, false
+// readLines splits the numbered lines Claude Code returns for a Read, such
+// as "12\tcode" or "    12→code", into line numbers and code, up to the
+// first line that isn't numbered. The rest, such as a note Claude Code
+// added, is tail.
+func readLines(res string) (nums, code []string, tail string) {
+	lines := strings.Split(res, "\n")
+	for i, l := range lines {
+		n, c, ok := numbered(l)
+		if !ok {
+			return nums, code, strings.Join(lines[i:], "\n")
 		}
 		nums, code = append(nums, n), append(code, c)
 	}
-	return nums, code, true
+	return nums, code, ""
+}
+
+func numbered(l string) (num, code string, ok bool) {
+	l = strings.TrimLeft(l, " ")
+	end := strings.IndexFunc(l, func(r rune) bool { return r < '0' || r > '9' })
+	if end <= 0 {
+		return "", "", false
+	}
+	switch rest := l[end:]; {
+	case strings.HasPrefix(rest, "\t"):
+		return l[:end], rest[1:], true
+	case strings.HasPrefix(rest, "→"):
+		return l[:end], rest[len("→"):], true
+	}
+	return "", "", false
 }
 
 // resultSegments shows a result's JSON indented and colored and the rest
 // as it was, maxDetailLines in all.
 func resultSegments(segs []syntax.Segment, w int) string {
+	segs, more := syntax.Fit(segs, maxDetailLines)
 	var parts []string
-	left := maxDetailLines
-	for i, sg := range segs {
-		lines := strings.Split(sg.Text, "\n")
-		if len(lines) > left {
-			more := len(lines) - left
-			for _, rest := range segs[i+1:] {
-				more += strings.Count(rest.Text, "\n") + 1
-			}
-			if left > 0 {
-				parts = append(parts, segment(syntax.Segment{Text: strings.Join(lines[:left], "\n"), JSON: sg.JSON}, w))
-			}
-			parts = append(parts, sDim.Render(fmt.Sprintf("… %d more lines", more)))
-			break
-		}
-		left -= len(lines)
+	for _, sg := range segs {
 		parts = append(parts, segment(sg, w))
+	}
+	if more > 0 {
+		parts = append(parts, sDim.Render(fmt.Sprintf("… %d more lines", more)))
 	}
 	return strings.Join(parts, "\n")
 }
 
+// segment draws one run of a result, its JSON colored and anything else,
+// or JSON still plain, in the text color.
 func segment(sg syntax.Segment, w int) string {
-	if sg.JSON {
-		return codeBlock("result.json", sg.Text, w)
+	if !sg.JSON {
+		return wrap(sg.Text, w)
 	}
-	return wrap(sg.Text, w)
+	lines, _ := renderCode("result.json", sg.Text, sText)
+	return wrap(strings.Join(lines, "\n"), w)
+}
+
+// jsonCache keeps the last result's segments, since the detail pane
+// redraws the same event while its code is colored, and indenting a big
+// result each time would slow Update down.
+var jsonCache struct {
+	sync.Mutex
+	tool *parse.ToolCall
+	res  string
+	segs []syntax.Segment
+	ok   bool
+}
+
+func resultJSON(t *parse.ToolCall) ([]syntax.Segment, bool) {
+	c := &jsonCache
+	c.Lock()
+	defer c.Unlock()
+	if c.tool != t || c.res != t.Result {
+		c.tool, c.res = t, t.Result
+		c.segs, c.ok = syntax.JSONSegments(t.Result)
+	}
+	return c.segs, c.ok
 }
 
 var sAgentRunning = lipgloss.NewStyle().Foreground(cAgent)

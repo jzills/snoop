@@ -176,13 +176,18 @@ func resultBlocks(res string, isErr bool) string {
 	if !ok || isErr {
 		return fence("", capLines(res, maxResultLines))
 	}
+	segs, more := syntax.Fit(segs, maxResultLines)
 	var b strings.Builder
-	for _, sg := range segs {
+	for i, sg := range segs {
 		lang := ""
 		if sg.JSON {
 			lang = "json"
 		}
-		b.WriteString(fence(lang, capLines(sg.Text, maxResultLines)))
+		body := sg.Text
+		if more > 0 && i == len(segs)-1 {
+			body += fmt.Sprintf("\n… %d more lines", more)
+		}
+		b.WriteString(fence(lang, body))
 	}
 	return b.String()
 }
