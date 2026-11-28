@@ -12,6 +12,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,24 +70,21 @@ func versionText() string {
 }
 
 func main() {
-	// Commands come first, each with its own flags.
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "export":
-			exportCmd(store.Root(), os.Args[2:])
-			return
-		case "hook":
-			hookCmd(os.Args[2:])
-			return
-		case "hooks":
-			hooksCmd(store.Root(), os.Args[2:])
-			return
-		}
-	}
-	f := newCLIFlags()
-	if err := parseFlags(f.fs, os.Args[1:]); err != nil {
+	f, cmd, cmdArgs, err := parseMain(os.Args[1:])
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "snoop: %v\nRun snoop --help for usage.\n", err)
 		os.Exit(2)
+	}
+	switch cmd {
+	case "export":
+		exportCmd(store.Root(), cmdArgs)
+		return
+	case "hook":
+		hookCmd(cmdArgs)
+		return
+	case "hooks":
+		hooksCmd(store.Root(), cmdArgs)
+		return
 	}
 	if f.help {
 		f.usage(os.Stdout)
@@ -96,8 +94,8 @@ func main() {
 		fmt.Println(versionText())
 		return
 	}
-	if f.fs.NArg() > 1 {
-		fail(fmt.Errorf("open one session at a time, not %d", f.fs.NArg()))
+	if len(f.args) > 1 {
+		fail(fmt.Errorf("open one session at a time, not %d", len(f.args)))
 	}
 	root := store.Root()
 	cwd := f.project
@@ -108,7 +106,7 @@ func main() {
 	if f.costAlert < 0 || f.longTurn < 0 {
 		fail(fmt.Errorf("--cost-alert and --long-turn can't be negative"))
 	}
-	if f.live && (f.follow || f.fs.NArg() > 0) {
+	if f.live && (f.follow || len(f.args) > 0) {
 		fail(fmt.Errorf("--live shows every session; it can't be combined with --follow or a session"))
 	}
 	opts := ui.Options{Root: root, ProjectDir: store.ProjectDir(root, cwd), Follow: f.follow, Live: f.live,
@@ -133,8 +131,8 @@ func main() {
 	}
 
 	switch {
-	case f.fs.NArg() > 0:
-		p, err := resolve(root, f.fs.Arg(0))
+	case len(f.args) > 0:
+		p, err := resolve(root, f.args[0])
 		if err != nil {
 			fail(err)
 		}
@@ -148,7 +146,7 @@ func main() {
 	}
 
 	app := ui.New(opts)
-	_, err := tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithReportFocus()).Run()
+	_, err = tea.NewProgram(app, tea.WithAltScreen(), tea.WithMouseCellMotion(), tea.WithReportFocus()).Run()
 	app.Close()
 	if err != nil {
 		fail(err)
@@ -159,10 +157,9 @@ func main() {
 func exportCmd(root string, args []string) {
 	fs := pflag.NewFlagSet("export", pflag.ContinueOnError)
 	out := fs.StringP("output", "o", "", "write to this `file` instead of stdout")
-	fs.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage:\n  snoop export <session-id|path> [-o file]\n\nWrite a session as Markdown, without thinking blocks.\n\nFlags:\n%s", flagTable(allFlags(fs), 0))
-	}
-	parseCommand(fs, args)
+	parseCommand(fs, args, func(w io.Writer) {
+		fmt.Fprintf(w, "Usage:\n  snoop export <session-id|path> [-o file]\n\nWrite a session as Markdown, without thinking blocks.\n\nFlags:\n%s", flagTable(allFlags(fs), 0))
+	})
 	rest := fs.Args()
 	if len(rest) != 1 {
 		fs.Usage()
