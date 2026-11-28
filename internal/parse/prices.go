@@ -40,7 +40,17 @@ var prices = []struct {
 	{"claude-haiku-4-5", price{1, 5, 0.1}},
 }
 
+// modelID drops a provider's prefix, so Bedrock's
+// us.anthropic.claude-opus-5-5-v1:0 matches as claude-opus-5-5.
+func modelID(model string) string {
+	if i := strings.Index(model, "claude-"); i > 0 {
+		return model[i:]
+	}
+	return model
+}
+
 func priceOf(model string) (price, bool) {
+	model = modelID(model)
 	for _, e := range prices {
 		if strings.HasPrefix(model, e.prefix) {
 			return e.p, true

@@ -142,6 +142,7 @@ var oneMModels = []string{
 }
 
 func defaultOneM(model string) bool {
+	model = modelID(model)
 	for _, p := range oneMModels {
 		if strings.HasPrefix(model, p) {
 			return true

@@ -113,6 +113,7 @@ func TestContextWindow(t *testing.T) {
 		{"usage report beats default", `{"type":"system","subtype":"local_command","content":"x","usageReport":{"session":{"model_usage":{"claude-opus-5-5":{"contextWindow":500000}}}}}` + "\n" + reqOf("claude-opus-5-5", 1000), 500_000},
 		{"1m model", `{"type":"user","requestedModel":"claude-sonnet-4-6[1m]","message":{"content":"hi"}}` + "\n" + req(1000), 1_000_000},
 		{"inferred", req(250_000), 1_000_000},
+		{"bedrock id", reqOf("us.anthropic.claude-opus-5-5-v1:0", 1000), 1_000_000},
 	}
 	for _, c := range cases {
 		if got := parseString(t, c.in).ContextWindow(); got != c.want {
@@ -205,5 +206,14 @@ func TestCostUnknownModel(t *testing.T) {
 	}
 	if _, ok := s.TurnCost(s.Turns[0]); ok {
 		t.Error("turn cost estimated for a model without prices")
+	}
+}
+
+func TestPriceOfProviderIDs(t *testing.T) {
+	want, _ := priceOf("claude-opus-5-5")
+	for _, id := range []string{"us.anthropic.claude-opus-5-5-v1:0", "anthropic.claude-opus-5-5", "claude-opus-5-5@20261001"} {
+		if got, ok := priceOf(id); !ok || got != want {
+			t.Errorf("priceOf(%q) = %v, %v; want %v", id, got, ok, want)
+		}
 	}
 }
